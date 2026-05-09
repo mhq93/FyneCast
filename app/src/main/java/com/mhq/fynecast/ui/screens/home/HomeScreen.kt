@@ -27,10 +27,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.ui.components.DailyWeatherItem
+import com.mhq.fynecast.ui.components.AddButton
 import com.mhq.fynecast.ui.components.GlassyCard
 import com.mhq.fynecast.ui.components.HeroWeatherCard
-import com.mhq.fynecast.ui.components.HourlyWeatherItem
+import com.mhq.fynecast.ui.components.WeatherItem
 import com.mhq.fynecast.ui.theme.BabyBlue
 import com.mhq.fynecast.ui.theme.DuskBlue
 import com.mhq.fynecast.ui.theme.FyneCastTheme
@@ -40,7 +40,9 @@ import com.mhq.fynecast.ui.theme.NeonGreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(modifier: Modifier = Modifier) {
+fun HomeScreen(
+    modifier: Modifier = Modifier
+) {
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -71,31 +73,31 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState())
                 ) {
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
-                    HourlyWeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
+                    WeatherItem()
                 }
             }
         }
@@ -118,13 +120,13 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    DailyWeatherItem(modifier = Modifier.weight(1f))
-                    DailyWeatherItem(modifier = Modifier.weight(1f))
-                    DailyWeatherItem(modifier = Modifier.weight(1f))
-                    DailyWeatherItem(modifier = Modifier.weight(1f))
-                    DailyWeatherItem(modifier = Modifier.weight(1f))
-                    DailyWeatherItem(modifier = Modifier.weight(1f))
-                    DailyWeatherItem(modifier = Modifier.weight(1f))
+                    WeatherItem(header = "Mon", modifier = Modifier.weight(1f))
+                    WeatherItem(header = "Mon", modifier = Modifier.weight(1f))
+                    WeatherItem(header = "Mon", modifier = Modifier.weight(1f))
+                    WeatherItem(header = "Mon", modifier = Modifier.weight(1f))
+                    WeatherItem(header = "Mon", modifier = Modifier.weight(1f))
+                    WeatherItem(header = "Mon", modifier = Modifier.weight(1f))
+                    WeatherItem(header = "Mon", modifier = Modifier.weight(1f))
                 }
             }
         }
