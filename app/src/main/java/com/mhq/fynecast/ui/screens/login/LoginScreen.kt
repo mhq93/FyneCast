@@ -105,19 +105,23 @@ fun LoginScreen(modifier: Modifier = Modifier) {
                     Icon(
                         imageVector = Icons.Default.Email,
                         contentDescription = "Email Icon",
-                        tint = Color.DarkGray
+                        tint = MidnightBlue
                     )
                 },
-                placeholder = { Text("e.g. johndoe@gmail.com") },
+                placeholder = { Text("Enter Email") },
                 shape = RoundedCornerShape(24.dp),
                 modifier = Modifier
                     .padding(vertical = 4.dp)
                     .fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White.copy(alpha = 0.3f),
-                    unfocusedContainerColor = Color.White.copy(alpha = 0.3f),
-                    focusedLabelColor = Color.Black,
-                    unfocusedLabelColor = Color.Black.copy(alpha = 0.7f)
+                    focusedTextColor = NeonGreen,
+                    focusedLabelColor = NeonGreen,
+                    focusedBorderColor = MidnightBlue,
+                    focusedContainerColor = LilacBlue,
+                    unfocusedTextColor = NeonGreen,
+                    unfocusedLabelColor = NeonGreen,
+                    unfocusedBorderColor = Color.DarkGray,
+                    unfocusedContainerColor = LilacBlue,
                 )
             )
             OutlinedTextField(
@@ -128,7 +132,7 @@ fun LoginScreen(modifier: Modifier = Modifier) {
                     Icon(
                         imageVector = Icons.Default.Lock,
                         contentDescription = "Password Icon",
-                        tint = Color.DarkGray
+                        tint = MidnightBlue
                     )
                 },
                 trailingIcon = {
@@ -137,42 +141,37 @@ fun LoginScreen(modifier: Modifier = Modifier) {
                     val description = if (passwordVisible) "Hide password" else "Show password"
 
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(imageVector = image, contentDescription = description)
+                        Icon(
+                            imageVector = image,
+                            contentDescription = description,
+                            tint = MidnightBlue
+                        )
                     }
                 },
-                placeholder = { Text("e.g. 12345") },
+                placeholder = { Text("Enter Password") },
                 shape = RoundedCornerShape(24.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 modifier = Modifier
                     .padding(vertical = 4.dp)
                     .fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedContainerColor = Color.White.copy(alpha = 0.3f),
-                    unfocusedContainerColor = Color.White.copy(alpha = 0.3f),
-                    focusedLabelColor = Color.Black,
-                    unfocusedLabelColor = Color.Black.copy(alpha = 0.7f)
+                    focusedTextColor = NeonGreen,
+                    focusedLabelColor = NeonGreen,
+                    focusedBorderColor = MidnightBlue,
+                    focusedContainerColor = LilacBlue,
+                    unfocusedTextColor = NeonGreen,
+                    unfocusedLabelColor = NeonGreen,
+                    unfocusedBorderColor = Color.DarkGray,
+                    unfocusedContainerColor = LilacBlue,
                 )
             )
             Row(
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .padding(vertical = 4.dp)
                     .fillMaxWidth()
             ) {
-                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                    Checkbox(
-                        checked = false,
-                        onCheckedChange = {},
-                        modifier = Modifier.padding(end = 4.dp)
-                    )
-                }
-                Text(
-                    text = "Remember Me",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = NeonGreen
-                )
-                Spacer(modifier = Modifier.weight(1f))
                 Text(
                     text = "Forgot Password?",
                     fontSize = 12.sp,
@@ -201,20 +200,20 @@ fun LoginScreen(modifier: Modifier = Modifier) {
                 fontWeight = FontWeight.Bold
             )
         }
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 36.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+        Row(
+            horizontalArrangement = Arrangement.Center
         ) {
             Text(
                 text = "Or sign up with",
-                color = NeonGreen,
+                fontWeight = FontWeight.Bold,
+                color = MidnightBlue,
                 modifier = Modifier.padding(16.dp)
             )
         }
-        Row(modifier = Modifier.padding(16.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.padding(bottom = 8.dp)
+        ) {
             SocialMediaButton(
                 iconRes = R.drawable.ic_google_primary_light,
                 contentDescription = "Google Login",
@@ -231,15 +230,15 @@ fun LoginScreen(modifier: Modifier = Modifier) {
                 text = "Don't have an account?",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = NeonGreen,
+                color = MidnightBlue,
                 modifier = Modifier
                     .padding(4.dp)
             )
             Text(
-                text = "Create an account",
+                text = "Sign up",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = MidnightBlue,
+                color = NeonGreen,
                 modifier = Modifier
                     .padding(4.dp)
                     .clickable { /* Handle click */ }
