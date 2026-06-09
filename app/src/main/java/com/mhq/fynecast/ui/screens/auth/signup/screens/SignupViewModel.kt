@@ -1,18 +1,23 @@
-package com.mhq.fynecast.registeration.signup
+package com.mhq.fynecast.ui.screens.auth.signup.screens
 
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class SignupViewModel : ViewModel() {
+
+    private val firebaseAuth = FirebaseAuth.getInstance()
 
     private val _userName = MutableStateFlow("")
     val userName: StateFlow<String> = _userName.asStateFlow()
@@ -25,17 +30,17 @@ class SignupViewModel : ViewModel() {
     private val _arePasswordsVisible = MutableStateFlow(false)
     val arePasswordsVisible: StateFlow<Boolean> = _arePasswordsVisible.asStateFlow()
 
+    // Firebase registration state handle
+    private val _signupState = MutableStateFlow<SignupState>(SignupState.Idle)
+    val signupState: StateFlow<SignupState> = _signupState.asStateFlow()
 
-    // Pure regex validation expressions
+    // One-time UI channel for snackbar validations without polluting persistent states
+    private val _validationErrorChannel = Channel<String>()
+    val validationErrorEvent = _validationErrorChannel.receiveAsFlow()
+
     private val usernameRegex = Regex("^[a-zA-Z0-9_]{3,15}$")
     private val emailRegex = Regex("[a-zA-Z\\d._-]+@[a-z]+\\.+[a-z]+")
 
-    // Helper syntax matching UI validation expectations
-    fun validateUsername(username: String): Boolean {
-        return username.matches(usernameRegex)
-    }
-
-    // Reactive validation states transformed cleanly via .map
     val isUsernameValid: StateFlow<Boolean> = _userName
         .map { text -> text.isEmpty() || text.matches(usernameRegex) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -48,30 +53,52 @@ class SignupViewModel : ViewModel() {
         confirm.isEmpty() || pass == confirm
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    val isSubmitEnabled: StateFlow<Boolean> = combine(
-        _userName, _userEmail, _userPassword, _confirmPassword
-    ) { u, e, p, c ->
-        u.isNotBlank() && e.isNotBlank() && p.isNotBlank() && p == c
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    // Keep the button clickable at all times unless an active Firebase request is loading
+    val isSubmitEnabled: StateFlow<Boolean> = _signupState
+        .map { state -> state !is SignupState.Loading }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    fun getFormValidationError(): String? {
-        return when {
-            !userName.value.matches(usernameRegex) ->
-                "Username must be 3-15 characters and contain no spaces or special characters."
-            !userEmail.value.matches(emailRegex) ->
-                "Please enter a valid email address."
+    // Update validation logic to check every field thoroughly on click
+    fun validateAndProceed(): Boolean {
+        val error = when {
+            _userName.value.isBlank() -> "Name field cannot be empty."
+            !_userName.value.matches(usernameRegex) -> "Name must be 3-15 characters without spaces or special characters."
+            _userEmail.value.isBlank() -> "Email field cannot be empty."
+            !_userEmail.value.matches(emailRegex) -> "Please, enter a valid email address."
+            _userPassword.value.isBlank() -> "Password field cannot be empty."
+            _userPassword.value.length < 6 -> "Password must be at least 6 characters long."
+            _confirmPassword.value.isBlank() -> "Please, confirm your password."
+            _userPassword.value != _confirmPassword.value -> "Passwords do not match."
             else -> null
+        }
+
+        if (error != null) {
+            viewModelScope.launch { _validationErrorChannel.send(error) }
+            return false
+        }
+        return true
+    }
+
+    // Firebase Sign Up backend implementation
+    fun registerWithFirebase(onSuccess: () -> Unit) {
+        if (!validateAndProceed()) return
+
+        viewModelScope.launch {
+            _signupState.value = SignupState.Loading
+            try {
+                // Suspends safely until network request answers
+                firebaseAuth.createUserWithEmailAndPassword(_userEmail.value, _userPassword.value).await()
+
+                _signupState.value = SignupState.Success
+                onSuccess()
+            } catch (e: Exception) {
+                val errorMessage = e.localizedMessage ?: "An unexpected authentication error occurred."
+                _signupState.value = SignupState.Error(errorMessage)
+                _validationErrorChannel.send(errorMessage) // Surface server exception down to snackbar
+            }
         }
     }
 
-    // Complete safety form gate checker
-    //    val isSubmitEnabled: StateFlow<Boolean> = combine(
-    //        _userName, _userEmail, _userPassword, _confirmPassword
-    //    ) { u, e, p, c ->
-    //        u.matches(usernameRegex) && e.matches(emailRegex) && p.isNotBlank() && p == c
-    //    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
-    // State Mutation Methods
     fun onUsernameChanged(value: String) { _userName.value = value }
     fun onUserEmailChanged(value: String) { _userEmail.value = value }
     fun onUserPasswordChanged(value: String) { _userPassword.value = value }
