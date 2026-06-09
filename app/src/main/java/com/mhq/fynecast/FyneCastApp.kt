@@ -1,4 +1,4 @@
-package com.mhq.fynecast.app
+package com.mhq.fynecast
 
 import android.os.Build
 import androidx.annotation.RequiresApi
@@ -30,13 +30,13 @@ import com.mhq.fynecast.ui.screens.home.screens.HomeViewModel
 import com.mhq.fynecast.ui.screens.map.MapPickerScreen
 import com.mhq.fynecast.ui.screens.home.screens.HomeContainer
 import com.mhq.fynecast.ui.components.BottomNavigationBar
-import com.mhq.fynecast.ui.components.NavigationScreens
-import com.mhq.fynecast.ui.screens.settings.screens.EditProfileScreen
-import com.mhq.fynecast.ui.screens.settings.screens.EditProfileViewModel
-import com.mhq.fynecast.ui.screens.auth.login.screens.ForgotPasswordScreen
-import com.mhq.fynecast.ui.screens.auth.login.screens.LoginScreen
-import com.mhq.fynecast.ui.screens.auth.signup.screens.SignupScreen
-import com.mhq.fynecast.ui.screens.settings.screens.SettingsScreen
+import com.mhq.fynecast.ui.components.BottomNavigationScreens
+import com.mhq.fynecast.ui.screens.auth.editprofile.EditProfileContainer
+import com.mhq.fynecast.ui.screens.auth.editprofile.EditProfileViewModel
+import com.mhq.fynecast.ui.screens.auth.forgotpassword.screens.ForgotPasswordContainer
+import com.mhq.fynecast.ui.screens.auth.login.screens.LoginContainer
+import com.mhq.fynecast.ui.screens.auth.signup.screens.SignupContainer
+import com.mhq.fynecast.ui.screens.settings.screens.SettingsContainer
 import com.mhq.fynecast.ui.screens.settings.screens.SettingsViewModel
 import com.mhq.fynecast.ui.theme.BabyBlue
 import com.mhq.fynecast.ui.theme.DuskBlue
@@ -50,13 +50,10 @@ fun FyneCastApp(
     onRequestPermission: () -> Unit
 ) {
 
-    // 1. Initialize your settings view model at the root navigation scope layer
     val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory)
 
-    // 2. Collect your live dark mode configuration state reactively into Compose state
     val isDarkMode by settingsViewModel.isDarkMode.collectAsState()
 
-    // 3. Wrap your entire application scaffold inside your theme layer here!
     FyneCastTheme(isDarkMode = isDarkMode) {
         val navController = rememberNavController()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -66,14 +63,14 @@ fun FyneCastApp(
         val homeUiState by homeViewModel.homeUiState.collectAsState()
 
         val rootRoutes = listOf(
-            NavigationScreens.Home.route,
-            NavigationScreens.Favorites.route,
-            NavigationScreens.Alerts.route,
-            NavigationScreens.Settings.route
+            BottomNavigationScreens.Home.route,
+            BottomNavigationScreens.Favorites.route,
+            BottomNavigationScreens.Alerts.route,
+            BottomNavigationScreens.Settings.route
         )
 
         val shouldShowBar = currentRoute in rootRoutes ||
-                (currentRoute == NavigationScreens.Home.route && homeUiState is HomeUiState.Success)
+                (currentRoute == BottomNavigationScreens.Home.route && homeUiState is HomeUiState.Success)
 
         val context = LocalContext.current
         val container = (context.applicationContext as FyneCastApplication).container
@@ -101,75 +98,74 @@ fun FyneCastApp(
         ) { innerPadding ->
             NavHost(
                 navController = navController,
-                startDestination = NavigationScreens.Signup.route,
+                startDestination = BottomNavigationScreens.Signup.route,
                 modifier = Modifier.fillMaxSize()
             ) {
-                composable(NavigationScreens.Signup.route) {
-                    SignupScreen(
-                        onLoginClick = {
-                            navController.navigate(NavigationScreens.Login.route) {
+                composable(BottomNavigationScreens.Signup.route) {
+                    SignupContainer(
+                        onLoginNavigate = {
+                            navController.navigate(BottomNavigationScreens.Login.route) {
                                 launchSingleTop = true
                             }
                         },
-                        onRegisterSubmit = {
-                            navController.navigate(NavigationScreens.Home.route) {
-                                popUpTo(NavigationScreens.Signup.route) { inclusive = true }
+                        onRegisterSuccessNavigate = {
+                            navController.navigate(BottomNavigationScreens.Home.route) {
+                                popUpTo(BottomNavigationScreens.Signup.route) { inclusive = true }
                             }
                         },
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
 
-                composable(NavigationScreens.Login.route) {
-                    LoginScreen(
+                composable(BottomNavigationScreens.Login.route) {
+                    LoginContainer(
                         onSignUpClick = {
-                            navController.navigate(NavigationScreens.Signup.route) {
+                            navController.navigate(BottomNavigationScreens.Signup.route) {
                                 launchSingleTop = true
                             }
                         },
                         onLoginSuccess = {
-                            navController.navigate(NavigationScreens.Home.route) {
-                                popUpTo(NavigationScreens.Login.route) { inclusive = true }
+                            navController.navigate(BottomNavigationScreens.Home.route) {
+                                popUpTo(BottomNavigationScreens.Login.route) { inclusive = true }
                             }
                         },
                         onForgotPasswordClick = {
-                            navController.navigate(NavigationScreens.ForgotPassword.route) {
-                                popUpTo(NavigationScreens.ForgotPassword.route) { inclusive = true }
+                            navController.navigate(BottomNavigationScreens.ForgotPassword.route) {
+                                popUpTo(BottomNavigationScreens.ForgotPassword.route) { inclusive = true }
                             }
                         },
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
 
-                composable(NavigationScreens.ForgotPassword.route) {
-                    ForgotPasswordScreen(
+                composable(BottomNavigationScreens.ForgotPassword.route) {
+                    ForgotPasswordContainer(
                         onBackToLoginClick = {
-                            //navController.popBackStack()
-                            navController.navigate(NavigationScreens.Login.route) {
+                            navController.navigate(BottomNavigationScreens.Login.route) {
                                 launchSingleTop = true
                             }
                         },
-                        onSubmitSuccess = {
-                            navController.navigate(NavigationScreens.Login.route) {
-                                popUpTo(NavigationScreens.Login.route) { inclusive = true }
+                        onSendLinkSuccessNavigate = {
+                            navController.navigate(BottomNavigationScreens.Login.route) {
+                                popUpTo(BottomNavigationScreens.Login.route) { inclusive = true }
                             }
                         },
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
 
-                composable(NavigationScreens.EditProfile.route) {
+                composable(BottomNavigationScreens.EditProfile.route) {
                     val editProfileViewModel: EditProfileViewModel =
                         viewModel(factory = EditProfileViewModel.factory)
 
-                    EditProfileScreen(
+                    EditProfileContainer(
                         onBackClick = { navController.popBackStack() },
                         contentPadding = innerPadding,
                         viewModel = editProfileViewModel
                     )
                 }
 
-                composable(NavigationScreens.Home.route) {
+                composable(BottomNavigationScreens.Home.route) {
                     val isMetric by settingsViewModel.isMetric.collectAsState()
 
                     HomeContainer(
@@ -181,7 +177,7 @@ fun FyneCastApp(
                     )
                 }
 
-                composable(NavigationScreens.Favorites.route) {
+                composable(BottomNavigationScreens.Favorites.route) {
                     val favoritesViewModel: FavoritesViewModel =
                         viewModel(factory = FavoritesViewModel.factory)
 
@@ -191,15 +187,15 @@ fun FyneCastApp(
                             val query = "${favorite.latitude},${favorite.longitude}"
                             homeViewModel.selectedCityName = favorite.cityName
                             homeViewModel.fetchWeatherData(query)
-                            navController.navigate(NavigationScreens.Home.route) {
-                                popUpTo(NavigationScreens.Home.route) { saveState = true }
+                            navController.navigate(BottomNavigationScreens.Home.route) {
+                                popUpTo(BottomNavigationScreens.Home.route) { saveState = true }
                                 launchSingleTop = true
                                 restoreState = true
                             }
                         },
                         onNavigateHome = {
-                            navController.navigate(NavigationScreens.Home.route) {
-                                popUpTo(NavigationScreens.Home.route) { saveState = true }
+                            navController.navigate(BottomNavigationScreens.Home.route) {
+                                popUpTo(BottomNavigationScreens.Home.route) { saveState = true }
                                 launchSingleTop = true
                                 restoreState = true
                             }
@@ -208,7 +204,7 @@ fun FyneCastApp(
                     )
                 }
 
-                composable(NavigationScreens.Alerts.route) {
+                composable(BottomNavigationScreens.Alerts.route) {
                     val alertsViewModel: AlertsViewModel =
                         viewModel(factory = AlertsViewModel.factory)
 
@@ -216,8 +212,8 @@ fun FyneCastApp(
                         contentPadding = innerPadding,
                         viewModel = alertsViewModel,
                         onNavigateHome = {
-                            navController.navigate(NavigationScreens.Home.route) {
-                                popUpTo(NavigationScreens.Home.route) { saveState = true }
+                            navController.navigate(BottomNavigationScreens.Home.route) {
+                                popUpTo(BottomNavigationScreens.Home.route) { saveState = true }
                                 launchSingleTop = true
                                 restoreState = true
                             }
@@ -225,18 +221,16 @@ fun FyneCastApp(
                     )
                 }
 
-                composable(NavigationScreens.Settings.route) {
-                    //val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory)
-
-                    SettingsScreen(
+                composable(BottomNavigationScreens.Settings.route) {
+                    SettingsContainer(
                         contentPadding = innerPadding,
                         onLogoutClick = {
-                            navController.navigate(NavigationScreens.Signup.route) {
+                            navController.navigate(BottomNavigationScreens.Signup.route) {
                                 popUpTo(0) { inclusive = true }
                             }
                         },
                         onEditProfileClick = {
-                            navController.navigate(NavigationScreens.EditProfile.route) {
+                            navController.navigate(BottomNavigationScreens.EditProfile.route) {
                                 launchSingleTop = true
                             }
                         },
