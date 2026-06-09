@@ -2,22 +2,20 @@ package com.mhq.fynecast.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple80 = Color(0xFFD0BCFF)
-val PurpleGrey80 = Color(0xFFCCC2DC)
-val Pink80 = Color(0xFFEFB8C8)
+val MidnightBlue = Color(0xFF0F172A)
+val DuskBlue = Color(0xFF1E293B)
+val LilacBlue = Color(0xFF38444D)
+val BabyBlue = Color(0xFF475569)
+val NeonGreen = Color(0xFF39FF14)
+val AiGreen = Color(0xFF2CFF05)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
 
 val DeepBlue = Color(color = 0xFF88BDF2)
 val HappyBlue = Color(color = 0xFF02fef7)
 val LightBlue = Color(color = 0xFFBDDDFC)
 
-
-val MidnightBlue = Color(color = 0xFF001D39)
-val DuskBlue = Color(color = 0xFF0A4174)
-val LilacBlue = Color(color = 0xFF49769F)
-val BabyBlue = Color(color = 0xFF7BBDE8)
-
-val NeonGreen = Color(color = 0xFF2CFF05)
+val LightIceBlue = Color(0xFFE0F2FE)    // Very soft ice blue
+val LightBabyBlue = Color(0xFFBAE6FD) // Gentle sky blue
+val LightMiddayBlue = Color(0xFF7DD3FC) // Bright clear sky blue
+val ForestGreen = Color(0xFF15803D)    // Safe high-contrast green for white surfaces
+val LightSlateSurface = Color(0xFFF1F5F9) // Frosted light gray for backgrounds

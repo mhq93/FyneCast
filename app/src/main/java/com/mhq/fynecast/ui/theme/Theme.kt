@@ -1,58 +1,44 @@
 package com.mhq.fynecast.ui.theme
 
-import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+private val FyneCastDarkScheme = darkColorScheme(
+    primary = NeonGreen,
+    onPrimary = MidnightBlue,
+    background = MidnightBlue,
+    onBackground = Color.White,
+    surface = DuskBlue,
+    onSurface = Color.White,
+    outline = Color.White.copy(alpha = 0.2f)
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+private val FyneCastLightScheme = lightColorScheme(
+    primary = ForestGreen,              // High-contrast deep green for accent text/highlights
+    onPrimary = Color.White,            // Crisp white text when sitting inside solid colored blocks
+    background = LightIceBlue,          // Base soft ice-blue canvas color
+    onBackground = MidnightBlue,        // Dark blue text for maximum legibility on bright backdrops
+    surface = Color.White,              // Pure white surfaces for drop-down lists or text boxes
+    onSurface = MidnightBlue,           // Dark blue text for content inside input fields
+    outline = LightSlateSurface         // Frosted light gray for thin lines and split dividers
 )
 
 @Composable
 fun FyneCastTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    isDarkMode: Boolean = isSystemInDarkTheme(), // Defaults to system tracking settings
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
+    val colorScheme = if (isDarkMode) FyneCastDarkScheme else FyneCastLightScheme
 
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = Shapes(),
         content = content
     )
 }
