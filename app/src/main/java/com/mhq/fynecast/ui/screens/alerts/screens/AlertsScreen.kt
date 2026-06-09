@@ -1,4 +1,4 @@
-package com.mhq.fynecast.alerts.screens
+package com.mhq.fynecast.ui.screens.alerts.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -12,11 +12,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.mhq.fynecast.alerts.components.AlertItemCard
-import com.mhq.fynecast.alerts.dto.AlertDto
+import com.mhq.fynecast.ui.screens.alerts.components.AlertCardItem
+import com.mhq.fynecast.data.network.weather.dto.AlertDto
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import com.mhq.fynecast.ui.theme.BabyBlue
 import com.mhq.fynecast.ui.theme.DuskBlue
@@ -26,30 +25,6 @@ import com.mhq.fynecast.ui.theme.LightIceBlue
 import com.mhq.fynecast.ui.theme.LightMiddayBlue
 import com.mhq.fynecast.ui.theme.LilacBlue
 import com.mhq.fynecast.ui.theme.MidnightBlue
-
-//@Composable
-//fun AlertsScreen(
-//    viewModel: AlertsViewModel,
-//    //lazyAlerts: LazyPagingItems<FavoriteEntity>,
-//    contentPadding: PaddingValues = PaddingValues(0.dp),
-//    modifier: Modifier = Modifier
-//    ) {
-//    Column(
-//        modifier = modifier
-//            .fillMaxSize()
-//            .background(Brush.verticalGradient(listOf(MidnightBlue, DuskBlue, LilacBlue, BabyBlue)))
-//            .padding(contentPadding)
-//    ){
-//        LazyColumn(
-//            modifier = Modifier.fillMaxSize(),
-//            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 36.dp)
-//        ) {
-//            items(20){
-//                //FavoriteCityItem()
-//            }
-//        }
-//    }
-//}
 
 @Composable
 fun AlertsScreen(
@@ -70,7 +45,6 @@ fun AlertsScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Brush.verticalGradient(dynamicBackgroundGradient))
-            //.background(Brush.verticalGradient(listOf(MidnightBlue, DuskBlue, LilacBlue, BabyBlue)))
             .padding(contentPadding)
     ) {
         LazyColumn(
@@ -79,7 +53,7 @@ fun AlertsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(alertsList) { alert ->
-                AlertItemCard(alert = alert)
+                AlertCardItem(alert = alert)
             }
         }
     }
