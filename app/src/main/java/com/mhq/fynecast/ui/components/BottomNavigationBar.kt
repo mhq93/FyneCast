@@ -1,4 +1,4 @@
-package com.mhq.fynecast.navigation
+package com.mhq.fynecast.ui.components
 
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -29,7 +29,7 @@ import com.mhq.fynecast.ui.theme.NeonGreen
 @Composable
 fun BottomNavigationBar(navController: NavHostController) {
 
-    val navigationItems = listOf(Screen.Home, Screen.Favorites, Screen.Alerts, Screen.Settings)
+    val navigationItems = listOf(BottomNavigationScreens.Home, BottomNavigationScreens.Favorites, BottomNavigationScreens.Alerts, BottomNavigationScreens.Settings)
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 

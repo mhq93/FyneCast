@@ -1,40 +1,24 @@
 package com.mhq.fynecast.ui.components
 
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CardDefaults.cardElevation
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-
-//@Composable
-//fun GlassyCard(
-//    modifier: Modifier = Modifier,
-//    content: @Composable ColumnScope.() -> Unit
-//) {
-//    Card(
-//        modifier = modifier,
-//        shape = RoundedCornerShape(16.dp),
-//        colors = CardDefaults.cardColors(
-//            containerColor = Color.White.copy(alpha = 0.15f)
-//        ),
-//        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)),
-//        elevation = cardElevation(0.dp)
-//    ) {
-//        Column(
-//            modifier = Modifier.padding(16.dp),
-//            content = content
-//        )
-//    }
-//}
+import com.mhq.fynecast.ui.theme.MidnightBlue
 
 @Composable
 fun GlassyCard(

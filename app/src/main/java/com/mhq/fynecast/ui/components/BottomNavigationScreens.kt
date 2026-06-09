@@ -7,13 +7,13 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 
-sealed class NavigationScreens(val route: String, val title: String? = null, val icon: ImageVector? = null) {
-    object Signup : NavigationScreens("signup")
-    object Login : NavigationScreens("login")
-    object ForgotPassword : NavigationScreens("forgot_password")
-    object EditProfile : NavigationScreens("edit_profile")
-    object Home : NavigationScreens("home", "Home", Icons.Default.Home)
-    object Favorites : NavigationScreens("favorites", "Favorites", Icons.Default.Favorite)
-    object Alerts : NavigationScreens("alerts", "Alerts", Icons.Default.Notifications)
-    object Settings : NavigationScreens("settings", "Settings", Icons.Default.Settings)
+sealed class BottomNavigationScreens(val route: String, val title: String? = null, val icon: ImageVector? = null) {
+    object Signup : BottomNavigationScreens("signup")
+    object Login : BottomNavigationScreens("login")
+    object ForgotPassword : BottomNavigationScreens("forgot_password")
+    object EditProfile : BottomNavigationScreens("edit_profile")
+    object Home : BottomNavigationScreens("home", "Home", Icons.Default.Home)
+    object Favorites : BottomNavigationScreens("favorites", "Favorites", Icons.Default.Favorite)
+    object Alerts : BottomNavigationScreens("alerts", "Alerts", Icons.Default.Notifications)
+    object Settings : BottomNavigationScreens("settings", "Settings", Icons.Default.Settings)
 }

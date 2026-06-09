@@ -18,23 +18,23 @@ import com.mhq.fynecast.ui.theme.FyneCastTheme
 
 @Composable
 fun AuthSocialMediaButton(
+    onClick: () -> Unit,
     @DrawableRes iconRes: Int,
     contentDescription: String?,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         onClick = onClick,
         shape = CircleShape,
-        color = Color.Transparent, // 1. Set to transparent to remove artificial borders
+        color = Color.Transparent,
         modifier = modifier
-            .size(48.dp) // 2. standard material circle action target size
+            .size(48.dp)
     ) {
         Image(
             painter = painterResource(id = iconRes),
             contentDescription = contentDescription,
-            contentScale = ContentScale.Crop, // 3. Crops the brand asset file into a full circle
-            modifier = Modifier.fillMaxSize() // 4. Fills the circular shape completely edge-to-edge
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
         )
     }
 }
