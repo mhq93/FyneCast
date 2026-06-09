@@ -1,9 +1,8 @@
-package com.mhq.fynecast.home.components
+package com.mhq.fynecast.ui.screens.home.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,18 +20,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.mhq.fynecast.R
 import com.mhq.fynecast.ui.components.GlassyCard
 import com.mhq.fynecast.ui.theme.FyneCastTheme
-import kotlin.math.roundToInt
 
 @Composable
 fun WeatherHeroCard(
@@ -50,15 +49,17 @@ fun WeatherHeroCard(
     GlassyCard(
         modifier = modifier
             .padding(horizontal = 16.dp, vertical = 8.dp)
-            .fillMaxWidth()
+            .fillMaxWidth(),
+        containerAlpha = 0.12f,
+        borderAlpha = 0.3f
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
 
-            // 1. Top Row: City Name and Heart Icon perfectly balanced at the exact same edge boundaries
+            // 1. Top Row: City Name and Heart Icon
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically // FIX: Restores smooth vertical level balance
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(
                     modifier = Modifier
@@ -81,47 +82,38 @@ fun WeatherHeroCard(
                     )
                 }
 
-                // FIX: Horizontal offset removed entirely. Sits edge-aligned with the city name text lines.
                 LikeButton(
                     isLiked = isFavorite,
                     onLikeChanged = onToggleFavorite,
-                    modifier = Modifier.offset(y = (-2).dp) // Micro vertical offset matches text baseline height
+                    modifier = Modifier.offset(y = (-2).dp)
                 )
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 2. Central Row: Left-anchored icon sitting tightly next to stacked weather text
+            // 2. Central Row: Icon + Temperature + Description
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
+                AsyncImage(
+                    model = "https:$icon",
+                    contentDescription = description,
+                    contentScale = ContentScale.Fit,
                     modifier = Modifier
-                        .size(width = 72.dp, height = 80.dp)
-                        .clipToBounds(),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    AsyncImage(
-                        model = "https:$icon",
-                        contentDescription = description,
-                        contentScale = ContentScale.FillBounds,
-                        modifier = Modifier
-                            .size(110.dp)
-                            .offset(x = (-22).dp)
-                    )
-                }
+                        .size(96.dp)
+                        .offset(x = (-12).dp)
+                )
 
                 Column(
-                    modifier = Modifier.padding(start = 0.dp),
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         text = temperature,
                         color = MaterialTheme.colorScheme.onBackground,
                         fontSize = 56.sp,
-                        fontWeight = FontWeight.Light,
+                        fontWeight = FontWeight.Thin,
                         lineHeight = 56.sp
                     )
                     Text(
@@ -134,7 +126,7 @@ fun WeatherHeroCard(
                 }
             }
 
-            // 3. Bottom Layer: Conditional Government Warning Capsule Banner
+            // 3. Bottom Layer: Alert Banner
             if (alertsNumber > 0) {
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -142,19 +134,23 @@ fun WeatherHeroCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFFD32F2F).copy(alpha = 0.2f), RoundedCornerShape(8.dp))
-                        .border(1.dp, Color(0xFFD32F2F).copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                        .border(
+                            1.dp,
+                            Color(0xFFD32F2F).copy(alpha = 0.4f),
+                            RoundedCornerShape(8.dp)
+                        )
                         .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Warning,
-                        contentDescription = "Warning",
+                        contentDescription = stringResource(R.string.warning),
                         tint = Color(0xFFEF5350),
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = "$alertsNumber ACTIVE WEATHER WARNINGS",
+                        text = stringResource(R.string.active_weather_warnings, alertsNumber),
                         color = Color(0xFFEF5350),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Black,

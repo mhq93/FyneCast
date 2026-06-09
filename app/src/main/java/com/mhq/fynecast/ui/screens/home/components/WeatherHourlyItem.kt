@@ -1,4 +1,4 @@
-package com.mhq.fynecast.home.components
+package com.mhq.fynecast.ui.screens.home.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,10 +11,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.mhq.fynecast.R
 import com.mhq.fynecast.ui.theme.FyneCastTheme
 import kotlin.math.roundToInt
 
@@ -26,12 +28,11 @@ fun WeatherHourlyItem(
     isMetric: Boolean,
     modifier: Modifier = Modifier
 ) {
-    // FIX: Removed individual GlassyCard wrapper.
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
         modifier = modifier
-            .width(64.dp) // Keeps horizontal spacing even across row indices
+            .width(64.dp)
             .padding(vertical = 8.dp)
     ) {
         Text(
@@ -43,7 +44,7 @@ fun WeatherHourlyItem(
 
         AsyncImage(
             model = "https:$weatherIconUrl",
-            contentDescription = "Hourly Condition",
+            contentDescription = stringResource(R.string.hourly_condition),
             contentScale = ContentScale.Fit,
             modifier = Modifier.size(42.dp)
         )
