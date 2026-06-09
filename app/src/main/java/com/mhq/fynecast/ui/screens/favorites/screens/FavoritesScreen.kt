@@ -1,4 +1,4 @@
-package com.mhq.fynecast.favorites.screens
+package com.mhq.fynecast.ui.screens.favorites.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -8,30 +8,23 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.paging.compose.LazyPagingItems
-import androidx.paging.compose.collectAsLazyPagingItems
-import com.mhq.fynecast.favorites.components.FavoriteCityItem
-import com.mhq.fynecast.favorites.components.SwipeBackground
-import com.mhq.fynecast.favorites.database.FavoriteEntity
-import com.mhq.fynecast.favorites.viewmodel.FavoritesViewModel
+import androidx.paging.compose.itemKey
+import com.mhq.fynecast.data.database.FavoriteEntity
+import com.mhq.fynecast.ui.screens.favorites.components.FavoriteCityItem
+import com.mhq.fynecast.ui.screens.favorites.components.SwipeBackground
 import com.mhq.fynecast.ui.theme.BabyBlue
 import com.mhq.fynecast.ui.theme.DuskBlue
 import com.mhq.fynecast.ui.theme.FyneCastTheme
@@ -55,13 +48,12 @@ fun FavoritesScreen(
     val dynamicBackgroundGradient = if (isLightThemeActive) {
         listOf(LightMiddayBlue, LightBabyBlue, LightIceBlue)
     } else {
-        listOf(MidnightBlue, DuskBlue, LilacBlue, BabyBlue) // Deep Midnight spectrum
+        listOf(MidnightBlue, DuskBlue, LilacBlue, BabyBlue)
     }
-    
+
     Box(
         modifier = modifier
             .background(Brush.verticalGradient(dynamicBackgroundGradient))
-            //.background(Brush.verticalGradient(listOf(MidnightBlue, DuskBlue, LilacBlue, BabyBlue)))
             .fillMaxSize()
     ) {
         LazyColumn(
@@ -70,21 +62,20 @@ fun FavoritesScreen(
         ) {
             items(
                 count = lazyFavoriteCities.itemCount,
-                key = { index ->
-                    val item = lazyFavoriteCities[index]
-                    item?.let { "${it.latitude},${it.longitude}" } ?: index
-                }
+                key = lazyFavoriteCities.itemKey { "${it.latitude},${it.longitude}" }
             ) { index ->
                 val favorite = lazyFavoriteCities[index]
                 if (favorite != null) {
                     val dismissState = rememberSwipeToDismissBoxState()
+
+                    LaunchedEffect(dismissState.currentValue) {
+                        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+                            viewModel.deleteFavorite(favorite)
+                        }
+                    }
+
                     SwipeToDismissBox(
                         state = dismissState,
-                        onDismiss = { dismissValue ->
-                            if (dismissValue == SwipeToDismissBoxValue.EndToStart) {
-                                viewModel.deleteFavorite(favorite)
-                            }
-                        },
                         backgroundContent = { SwipeBackground(dismissState) },
                         enableDismissFromStartToEnd = false
                     ) {
