@@ -1,5 +1,9 @@
 <resources>
     <string name="app_name">FyneCast</string>
+    <string name="home">Home</string>
+    <string name="favorites">Favorites</string>
+    <string name="alerts">Alerts</string>
+    <string name="settings">Settings</string>
     <string name="please_wait">Please, wait...</string>
     <string name="please_check_your_network_then_retry">Please, check your network then retry.</string>
     <string name="retry">Retry</string>
@@ -18,7 +22,7 @@
     <string name="already_have_an_account">Already have an account?</string>
     <string name="login">Login</string>
     <string name="delete">Delete</string>
-    <string name="enter_a_city_name">Enter a city name...</string>
+    <string name="enter_a_city_name">Enter a city name…</string>
     <string name="search_icon">Search Icon</string>
     <string name="clear_input">Clear Input</string>
     <string name="pick_from_map">Pick from Map</string>
@@ -80,5 +84,14 @@
     <string name="mph">MPH</string>
     <string name="c" translatable="false">°C</string>
     <string name="f" translatable="false">°F</string>
-    <string name="active_weather_warnings">active weather warnings</string>
+    <string name="active_weather_warnings">Active Weather Warnings</string>
+    <string name="cancel_tracking">Cancel Tracking</string>
+    <string name="track_this_alert">Track This Alert</string>
+    <string name="default_web_client_id" translatable="false">1044350867734-78oik6bjfg34rn4aksf6520j5kkdsk3j.apps.googleusercontent.com</string>
+    <string name="facebook_app_id" translatable="false">1542698067467431</string>
+    <string name="facebook_client_token" translatable="false">0a992c309330bd9102a1ecb9b780d4a2</string>
+    <string name="fb_login_protocol_scheme" translatable="false">fb1542698067467431</string>
+    <string name="percent">Percent</string>
+    <string name="unit">unit</string>
+    <string name="tab_below_to_go_back_to_home_page">Tab ⌂ below to go back to home page.</string>
 </resources>

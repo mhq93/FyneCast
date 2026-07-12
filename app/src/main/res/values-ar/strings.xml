@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">FyneCast</string>
+    <string name="settings">الإعدادات</string>
     <string name="please_wait">يرجى الانتظار</string>
     <string name="please_check_your_network_then_retry">برجاء التحقق من اتصالك بالإنترنت ثم أعد المحاولة</string>
     <string name="retry">حاول مرةً أخرى</string>
@@ -82,4 +83,12 @@
     <string name="c">مئوية</string>
     <string name="f">فهرنهايت</string>
     <string name="active_weather_warnings">تحذيرات جوية نشطة</string>
+    <string name="cancel_tracking">إلغاء التتبع</string>
+    <string name="track_this_alert">تتبع هذا التحذير</string>
+    <string name="percent">بالمائة</string>
+    <string name="unit">وحدة</string>
+    <string name="tab_below_to_go_back_to_home_page">اضغط ⌂ بالأسفل للتوجه إلى الصفحة الرئيسية</string>
+    <string name="home">الرئيسية</string>
+    <string name="favorites">المفضلة</string>
+    <string name="alerts">الإشعارات</string>
 </resources>
