@@ -1,0 +1,6 @@
+sdk.dir=YOUR_SDK_PATH
+WEATHER_API_KEY=your_weather_api_key_here
+FACEBOOK_APP_ID=your_facebook_app_id_here
+FACEBOOK_APP_SECRET=your_facebook_app_secret_here
+FACEBOOK_CLIENT_TOKEN=your_facebook_client_token_here
+FACEBOOK_LOGIN_PROTOCOL_SCHEME=your_facebook_login_protocol_scheme_here
