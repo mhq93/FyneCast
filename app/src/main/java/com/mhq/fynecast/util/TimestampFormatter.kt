@@ -9,7 +9,7 @@ import java.util.Locale
 
 
 object TimestampFormatter {
-    @RequiresApi(Build.VERSION_CODES.O)
+    
     fun getFormattedHour(rawDateTime: String): String {
         return try {
             val inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
