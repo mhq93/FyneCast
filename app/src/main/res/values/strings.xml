@@ -88,9 +88,6 @@
     <string name="cancel_tracking">Cancel Tracking</string>
     <string name="track_this_alert">Track This Alert</string>
     <string name="default_web_client_id" translatable="false">1044350867734-78oik6bjfg34rn4aksf6520j5kkdsk3j.apps.googleusercontent.com</string>
-    <string name="facebook_app_id" translatable="false">1542698067467431</string>
-    <string name="facebook_client_token" translatable="false">0a992c309330bd9102a1ecb9b780d4a2</string>
-    <string name="fb_login_protocol_scheme" translatable="false">fb1542698067467431</string>
     <string name="percent">Percent</string>
     <string name="unit">unit</string>
     <string name="tab_below_to_go_back_to_home_page">Tab ⌂ below to go back to home page.</string>

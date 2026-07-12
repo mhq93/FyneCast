@@ -9,6 +9,7 @@ import com.mhq.fynecast.alerts.domain.usecases.GetAlertsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.GetTrackedAlertIdsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.ToggleAlertsUseCase
 import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
+import com.mhq.fynecast.auth.domain.repository.auth.SocialAuthCredentialProvider
 import com.mhq.fynecast.auth.domain.repository.profile.ImageStorageRepository
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
 import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase

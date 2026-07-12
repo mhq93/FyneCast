@@ -7,10 +7,10 @@ localProperties.load(File(rootDir, "local.properties").inputStream())
 
 plugins {
     id("com.android.application")
-    alias(libs.plugins.kotlin.compose)
     id("com.google.devtools.ksp")
     id("com.google.gms.google-services")
     id("org.jetbrains.kotlin.plugin.serialization")
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -24,11 +24,10 @@ android {
         versionCode = 1
         versionName = "1.0"
 
-        buildConfigField(
-            "String",
-            "WEATHER_API_KEY",
-            "\"${localProperties["WEATHER_API_KEY"]}\""
-        )
+        buildConfigField("String", "WEATHER_API_KEY", "\"${localProperties["WEATHER_API_KEY"]}\"")
+        manifestPlaceholders["facebookAppId"] = localProperties.getProperty("FACEBOOK_APP_ID") ?: ""
+        manifestPlaceholders["facebookClientToken"] = localProperties.getProperty("FACEBOOK_CLIENT_TOKEN") ?: ""
+        manifestPlaceholders["fbLoginProtocolScheme"] = "fb" + (localProperties.getProperty("FACEBOOK_LOGIN_PROTOCOL_SCHEME") ?: "")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
