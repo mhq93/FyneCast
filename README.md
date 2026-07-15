@@ -1,2 +1,2 @@
 # FyneCast
-An Android weather app with location-based forecasts, favorites and smart weather alerts.
+FyneCast is an Android weather app that helps stakeholders use location-based forecasts to acquire weather insights in current active locations and favorite cities, in addition to track smart weather alerts for different weather situations such as; storms and floods, etc.
