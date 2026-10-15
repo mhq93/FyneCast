@@ -1,11 +1,11 @@
 package com.mhq.fynecast.alerts.domain.usecases
 
-import com.mhq.fynecast.alerts.domain.repository.AlertServiceController
+import com.mhq.fynecast.alerts.domain.repository.AlertTrackingController
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
 
 class UntrackAlertUseCase(
     private val alertsRepository: AlertsRepository,
-    private val serviceController: AlertServiceController
+    private val alertTrackingController: AlertTrackingController
 ) {
     suspend operator fun invoke(alertId: String) {
         val removed = alertsRepository.getTrackedAlerts().firstOrNull { it.id == alertId }
@@ -13,19 +13,13 @@ class UntrackAlertUseCase(
 
         val remainingAlerts = alertsRepository.getTrackedAlerts()
 
-        if (remainingAlerts.isEmpty())
-            serviceController.stopTracking()
-        else
-            serviceController.removeAlertFromTracking(alertId)
-
-        if (
-            removed != null && remainingAlerts.none {
+        alertTrackingController.showTrackingNotification(remainingAlerts)
+        if (removed != null && remainingAlerts.none {
                 it.latitude == removed.latitude && it.longitude == removed.longitude
-            }
-        ) {
-            serviceController.cancelLiftedCheck(removed.location)
+            }) {
+            alertTrackingController.cancelLiftedCheck(removed.location)
         }
 
-        serviceController.cancelTrackingWorker(alertId)
+        alertTrackingController.cancelTrackingWorker(alertId)
     }
 }

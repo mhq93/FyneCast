@@ -10,15 +10,16 @@ import com.google.firebase.auth.FirebaseAuth
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.mhq.fynecast.R
 import com.mhq.fynecast.alerts.data.database.AlertsDatabase
-import com.mhq.fynecast.alerts.data.repoimpl.AlertServiceControllerImpl
+import com.mhq.fynecast.alerts.data.repoimpl.AlertTrackingControllerImpl
 import com.mhq.fynecast.alerts.data.repoimpl.AlertsRepoImpl
-import com.mhq.fynecast.alerts.domain.repository.AlertServiceController
+import com.mhq.fynecast.alerts.domain.repository.AlertTrackingController
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
 import com.mhq.fynecast.alerts.domain.usecases.CancelAllAlertTrackingUseCase
 import com.mhq.fynecast.alerts.domain.usecases.CheckAlertConditionsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.GetAlertsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.GetTrackedAlertIdsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.GetTrackedAlertStatusUseCase
+import com.mhq.fynecast.alerts.domain.usecases.RefreshTrackingNotificationUseCase
 import com.mhq.fynecast.alerts.domain.usecases.RestoreAlertTrackingUseCase
 import com.mhq.fynecast.alerts.domain.usecases.ToggleAlertsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.TrackAlertUseCase
@@ -303,8 +304,8 @@ class DefaultAppContainer(
     private val timeProvider: TimeProvider by lazy { SystemTimeProvider() }
 
     // Alerts
-    private val alertServiceController: AlertServiceController by lazy {
-        AlertServiceControllerImpl(context)
+    private val alertTrackingController: AlertTrackingController by lazy {
+        AlertTrackingControllerImpl(context)
     }
     private val alertsDatabase: AlertsDatabase by lazy {
         Room.databaseBuilder(context, AlertsDatabase::class.java, "alerts_db").build()
@@ -318,17 +319,17 @@ class DefaultAppContainer(
     override val trackAlertUseCase: TrackAlertUseCase by lazy {
         TrackAlertUseCase(
             alertsRepository,
-            alertServiceController,
+            alertTrackingController,
             timeProvider,
             notificationPermissionChecker,
             observeUserPreferencesUseCase
         )
     }
     override val untrackAlertUseCase: UntrackAlertUseCase by lazy {
-        UntrackAlertUseCase(alertsRepository, alertServiceController)
+        UntrackAlertUseCase(alertsRepository, alertTrackingController)
     }
     override val cancelAllAlertTrackingUseCase: CancelAllAlertTrackingUseCase by lazy {
-        CancelAllAlertTrackingUseCase(alertsRepository, alertServiceController)
+        CancelAllAlertTrackingUseCase(alertsRepository, alertTrackingController)
     }
     override val checkAlertConditionsUseCase: CheckAlertConditionsUseCase by lazy {
         CheckAlertConditionsUseCase(alertsRepository, timeProvider)
@@ -345,10 +346,14 @@ class DefaultAppContainer(
     override val restoreAlertTrackingUseCase: RestoreAlertTrackingUseCase by lazy {
         RestoreAlertTrackingUseCase(
             alertsRepository,
-            alertServiceController,
+            alertTrackingController,
             untrackAlertUseCase,
             timeProvider
         )
+    }
+
+    override val refreshTrackingNotificationUseCase by lazy {
+        RefreshTrackingNotificationUseCase(alertsRepository, alertTrackingController)
     }
 
     override val notificationPermissionChecker: NotificationPermissionChecker by lazy {

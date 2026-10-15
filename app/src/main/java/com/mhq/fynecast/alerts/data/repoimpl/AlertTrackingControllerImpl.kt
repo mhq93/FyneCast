@@ -1,30 +1,27 @@
 package com.mhq.fynecast.alerts.data.repoimpl
 
 import android.content.Context
-import android.util.Log
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
+import com.mhq.fynecast.alerts.domain.models.TrackedAlertDomainModel
 import com.mhq.fynecast.alerts.domain.models.TrackedLocation
-import com.mhq.fynecast.alerts.domain.repository.AlertServiceController
-import com.mhq.fynecast.alerts.notifications.AlertsForegroundService
+import com.mhq.fynecast.alerts.domain.repository.AlertTrackingController
 import com.mhq.fynecast.alerts.notifications.WeatherAlertTrackingWorker
 import com.mhq.fynecast.alerts.notifications.WeatherRefreshWorker
+import com.mhq.fynecast.alerts.notifications.ui.AlertsNotificationManager
 import java.util.concurrent.TimeUnit
 
-class AlertServiceControllerImpl(
+class AlertTrackingControllerImpl(
     private val context: Context
-) : AlertServiceController {
+) : AlertTrackingController {
 
-    private val workManager
-        get() = WorkManager.getInstance(context)
+    private val workManager get() = WorkManager.getInstance(context)
+    private val notificationManager by lazy { AlertsNotificationManager(context) }
 
-    // The OS may refuse this (background start rules); tracking still works via WorkManager.
-    override fun startTracking(alertId: String, event: String, headline: String) {
-        runCatching { AlertsForegroundService.start(context, alertId, event, headline) }
-            .onFailure { Log.w(TAG, "Foreground service start refused", it) }
-    }
+    override fun showTrackingNotification(alerts: List<TrackedAlertDomainModel>) =
+        notificationManager.showTrackingNotification(alerts)
 
     override fun scheduleAlertTracking(alertId: String) {
         val request = PeriodicWorkRequestBuilder<WeatherAlertTrackingWorker>(
@@ -53,18 +50,12 @@ class AlertServiceControllerImpl(
     override fun cancelLiftedCheck(trackedLocation: TrackedLocation) =
         WeatherRefreshWorker.cancel(context, trackedLocation)
 
-    override fun removeAlertFromTracking(alertId: String) {
-        runCatching { AlertsForegroundService.removeAlert(context, alertId) }
-    }
-
     override fun cancelTrackingWorker(alertId: String) {
         workManager.cancelUniqueWork(alertId)
     }
 
-    override fun stopTracking() { AlertsForegroundService.stop(context) }
-
     private companion object {
-        const val TAG = "AlertServiceController"
+        const val TAG = "AlertTrackingController"
         const val CHECK_INTERVAL_MINUTES = 15L
     }
 }

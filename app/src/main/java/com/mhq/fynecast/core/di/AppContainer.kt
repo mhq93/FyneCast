@@ -5,6 +5,7 @@ import com.mhq.fynecast.alerts.domain.usecases.CheckAlertConditionsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.GetAlertsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.GetTrackedAlertIdsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.GetTrackedAlertStatusUseCase
+import com.mhq.fynecast.alerts.domain.usecases.RefreshTrackingNotificationUseCase
 import com.mhq.fynecast.alerts.domain.usecases.RestoreAlertTrackingUseCase
 import com.mhq.fynecast.alerts.domain.usecases.ToggleAlertsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.TrackAlertUseCase
@@ -107,6 +108,7 @@ interface AppContainer {
     val getTrackedAlertIdsUseCase: GetTrackedAlertIdsUseCase
     val getTrackedAlertStatusUseCase: GetTrackedAlertStatusUseCase
     val restoreAlertTrackingUseCase: RestoreAlertTrackingUseCase
+    val refreshTrackingNotificationUseCase: RefreshTrackingNotificationUseCase
 
     // Notifications Use Cases
     val notificationPermissionChecker: NotificationPermissionChecker

@@ -1,6 +1,5 @@
 package com.mhq.fynecast.alerts.notifications.ui
 
-import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -9,70 +8,16 @@ import android.media.RingtoneManager
 import androidx.core.app.NotificationCompat
 import com.mhq.fynecast.R
 import com.mhq.fynecast.alerts.domain.models.TrackedAlertDomainModel
-import com.mhq.fynecast.alerts.notifications.AlertsForegroundService
+import com.mhq.fynecast.alerts.notifications.AlertTrackingReceiver
 import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.core.ui.MainActivity
 import com.mhq.fynecast.core.ui.withAppLocale
+import kotlin.jvm.java
 
 class AlertsNotificationManager(baseContext: Context) {
 
     private val context: Context = baseContext.withAppLocale()
     private val notificationManager = context.getSystemService(NotificationManager::class.java)
-
-    fun buildTrackingNotification(activeAlerts: List<Pair<String, String>>): Notification {
-        val title = if (activeAlerts.size == 1) {
-            context.getString(R.string.alert_tracking_title_single, activeAlerts.first().first)
-        } else {
-            context.getString(R.string.alert_tracking_title_multiple, activeAlerts.size)
-        }
-
-        val body = activeAlerts.joinToString("\n") { "• ${it.second}" }
-
-        val clickIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-
-        val clickPendingIntent = PendingIntent.getActivity(
-            context,
-            0,
-            clickIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val cancelAllIntent = Intent(
-            context,
-            AlertsForegroundService::class.java
-        ).apply {
-            action = AlertsForegroundService.ACTION_CANCEL_ALL
-        }
-
-        val cancelAllPendingIntent = PendingIntent.getService(
-            context,
-            0,
-            cancelAllIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        return NotificationCompat.Builder(context, FyneCastApplication.CHANNEL_ALERT_TRACKING)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(title)
-            .setContentText(
-                if (activeAlerts.size == 1) activeAlerts.first().second
-                else context.getString(R.string.alert_tracking_text_multiple)
-            )
-            .setContentIntent(clickPendingIntent)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .addAction(
-                R.drawable.ic_cancel,
-                context.getString(R.string.cancel_tracking),
-                cancelAllPendingIntent
-            )
-            .build()
-    }
 
     fun showAlarmNotification(
         clearedAlerts: List<TrackedAlertDomainModel>,
@@ -85,9 +30,15 @@ class AlertsNotificationManager(baseContext: Context) {
         }
 
         val body = if (clearedAlerts.size == 1) {
-            context.getString(R.string.alert_lifted_body_single, clearedAlerts.first().event, clearedAlerts.first().cityName)
+            context.getString(
+                R.string.alert_lifted_body_single,
+                clearedAlerts.first().event,
+                clearedAlerts.first().cityName
+            )
         } else {
-            context.getString(R.string.alert_lifted_body_multiple, clearedAlerts.joinToString(", ") { it.event })
+            context.getString(
+                R.string.alert_lifted_body_multiple,
+                clearedAlerts.joinToString(", ") { it.event })
         }
 
         val notification = NotificationCompat
@@ -103,5 +54,67 @@ class AlertsNotificationManager(baseContext: Context) {
             .build()
 
         notificationManager.notify(notificationId, notification)
+    }
+
+    fun showTrackingNotification(alerts: List<TrackedAlertDomainModel>) {
+        if (alerts.isEmpty()) {
+            cancelTrackingNotification()
+            return
+        }
+        val title = if (alerts.size == 1)
+            context.getString(R.string.alert_tracking_title_single, alerts.first().event)
+        else
+            context.getString(R.string.alert_tracking_title_multiple, alerts.size)
+
+        val clickPendingIntent = PendingIntent.getActivity(
+            context, 0,
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val notification =
+            NotificationCompat.Builder(context, FyneCastApplication.CHANNEL_ALERT_TRACKING)
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setContentTitle(title)
+                .setContentText(
+                    if (alerts.size == 1) alerts.first().headline
+                    else context.getString(R.string.alert_tracking_text_multiple)
+                )
+                .setStyle(
+                    NotificationCompat.BigTextStyle()
+                        .bigText(alerts.joinToString("\n") { "• ${it.headline}" })
+                )
+                .setContentIntent(clickPendingIntent)
+                .setDeleteIntent(
+                    receiverIntent(
+                        AlertTrackingReceiver.ACTION_TRACKING_DISMISSED,
+                        requestCode = 1
+                    )
+                )
+                .addAction(
+                    R.drawable.ic_cancel, context.getString(R.string.cancel_tracking),
+                    receiverIntent(AlertTrackingReceiver.ACTION_CANCEL_ALL, requestCode = 2)
+                )
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setCategory(NotificationCompat.CATEGORY_STATUS)
+                .build()
+
+        notificationManager.notify(TRACKING_NOTIFICATION_ID, notification)
+    }
+
+    fun cancelTrackingNotification() = notificationManager.cancel(TRACKING_NOTIFICATION_ID)
+
+    private fun receiverIntent(action: String, requestCode: Int) = PendingIntent.getBroadcast(
+        context, requestCode,
+        Intent(context, AlertTrackingReceiver::class.java).setAction(action),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+    )
+
+    companion object {
+        const val TRACKING_NOTIFICATION_ID = 1001
     }
 }
