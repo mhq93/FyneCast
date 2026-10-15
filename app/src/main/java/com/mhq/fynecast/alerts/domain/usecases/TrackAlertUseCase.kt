@@ -19,11 +19,14 @@ class TrackAlertUseCase(
     sealed interface Result {
         data object Tracked : Result
         data object AlreadyExpired : Result
+        data object ExpiryUnknown : Result
         data object NotificationsRequired : Result
     }
 
+
     suspend operator fun invoke(alert: AlertDomainModel, trackedLocation: TrackedLocation): Result {
-        if (alert.expiresMillis <= timeProvider.nowMillis()) return Result.AlreadyExpired
+        val expiresMillis = alert.expiresMillis ?: return Result.ExpiryUnknown
+        if (expiresMillis <= timeProvider.nowMillis()) return Result.AlreadyExpired
 
         val enabled = observeUserPreferencesUseCase().first().notificationsEnabled
         if (!enabled || !notificationPermissionChecker.isGranted()) return Result.NotificationsRequired

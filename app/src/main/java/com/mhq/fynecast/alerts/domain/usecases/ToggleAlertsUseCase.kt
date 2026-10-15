@@ -14,6 +14,7 @@ class ToggleAlertsUseCase(
         data object Tracked : Result
         data object Untracked : Result
         data object AlreadyExpired : Result
+        data object ExpiryUnknown : Result
         data object NotificationsRequired : Result
     }
 
@@ -25,6 +26,7 @@ class ToggleAlertsUseCase(
         return when (trackAlertUseCase(alert, trackedLocation)) {
             TrackAlertUseCase.Result.Tracked -> Result.Tracked
             TrackAlertUseCase.Result.AlreadyExpired -> Result.AlreadyExpired
+            TrackAlertUseCase.Result.ExpiryUnknown -> Result.ExpiryUnknown
             TrackAlertUseCase.Result.NotificationsRequired -> Result.NotificationsRequired
         }
     }

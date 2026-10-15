@@ -84,6 +84,9 @@ fun AlertsContainer(
                 AlertsEvent.AlertAlreadyExpired ->
                     showMessage(resources.getString(R.string.alert_already_expired))
 
+                AlertsEvent.AlertExpiryUnknown ->
+                    showMessage(resources.getString(R.string.alert_expiry_unknown))
+
                 is AlertsEvent.AlertTrackingStarted ->
                     showMessage(resources.getString(R.string.alert_tracking_started, event.eventName))
 

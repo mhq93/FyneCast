@@ -111,18 +111,10 @@ class AlertsViewModel(
     private suspend fun toggle(alert: AlertDomainModel) {
         val location = currentLocation.value ?: return
         when (toggleAlertsUseCase(alert, location)) {
-            ToggleAlertsUseCase.Result.Tracked -> _events.send(
-                AlertsEvent.AlertTrackingStarted(
-                    alert.event
-                )
-            )
-
+            ToggleAlertsUseCase.Result.Tracked -> _events.send(AlertsEvent.AlertTrackingStarted(alert.event))
             ToggleAlertsUseCase.Result.AlreadyExpired -> _events.send(AlertsEvent.AlertAlreadyExpired)
-            ToggleAlertsUseCase.Result.NotificationsRequired -> {
-                pendingAlert = alert
-                _showNotificationsPrompt.value = true
-            }
-
+            ToggleAlertsUseCase.Result.ExpiryUnknown -> _events.send(AlertsEvent.AlertExpiryUnknown)
+            ToggleAlertsUseCase.Result.NotificationsRequired -> { pendingAlert = alert; _showNotificationsPrompt.value = true }
             ToggleAlertsUseCase.Result.Untracked -> Unit
         }
     }

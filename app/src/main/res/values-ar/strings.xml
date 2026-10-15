@@ -130,6 +130,7 @@
     <string name="notifications_settings_message">الإشعارات محظورة للتطبيق</string>    <string name="notifications_settings_confirm">فتح الإعدادات</string>
     <string name="notifications_denied_message">لا يمكن تتبّع التنبيهات بدون الإشعارات</string>
     <string name="alert_tracking_started">تم تتبّع %1$s. سنُعلمك عند رفعه.</string>
+    <string name="alert_expiry_unknown">لا يمكن تتبّع هذا التنبيه لأن وقت انتهائه غير معروف</string>
 
     <!-- SETTINGS MODULE -->
     <string name="settings">الإعدادات</string>

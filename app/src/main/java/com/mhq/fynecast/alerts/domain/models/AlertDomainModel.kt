@@ -6,7 +6,7 @@ data class AlertDomainModel(
     val severity: String,
     val event: String,
     val effectiveMillis: Long,
-    val expiresMillis: Long,
+    val expiresMillis: Long?,
     val description: String,
     val instruction: String
 )

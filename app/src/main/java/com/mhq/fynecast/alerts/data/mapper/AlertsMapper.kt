@@ -9,21 +9,17 @@ import java.time.OffsetDateTime
 
 fun AlertDto.calculateId(): String = "${event}_${effective}_$areas"
 
-fun AlertDto.toDomain(): AlertDomainModel {
-    val effectiveMillis = parseToEpochMillis(this.effective)
-    val expiresMillis = parseToEpochMillis(this.expires)
-
-    return AlertDomainModel(
-        id = this.calculateId(),
-        headline = this.headline,
-        severity = this.severity,
-        event = this.event,
-        description = this.description,
-        instruction = this.instruction,
-        effectiveMillis = effectiveMillis,
-        expiresMillis = expiresMillis
+fun AlertDto.toDomain(): AlertDomainModel =
+    AlertDomainModel(
+        id = calculateId(),
+        headline = headline,
+        severity = severity,
+        event = event,
+        description = description,
+        instruction = instruction,
+        effectiveMillis = parseToEpochMillis(effective) ?: 0L,
+        expiresMillis = parseToEpochMillis(expires)
     )
-}
 
 fun AlertDomainModel.toEntity(location: TrackedLocation) =
     TrackedAlertEntity(
@@ -31,10 +27,12 @@ fun AlertDomainModel.toEntity(location: TrackedLocation) =
         cityName = location.trackedLocationName,
         latitude = location.trackedLocationLatitude,
         longitude = location.trackedLocationLongitude,
-        headline = headline,
         event = event,
+        headline = headline,
         effectiveTimeMillis = effectiveMillis,
-        expiresTimeMillis = expiresMillis
+        expiresTimeMillis = requireNotNull(expiresMillis) {
+            "Only alerts with a known expiry can be tracked"
+        }
     )
 
 fun TrackedAlertEntity.toDomain() =
@@ -49,11 +47,11 @@ fun TrackedAlertEntity.toDomain() =
         expiresTimeMillis = expiresTimeMillis
     )
 
-private fun parseToEpochMillis(isoString: String): Long =
+// A date with no offset is treated as unknown rather than guessed in the wrong time zone.
+private fun parseToEpochMillis(isoString: String): Long? =
     runCatching {
         OffsetDateTime
             .parse(isoString)
             .toInstant()
             .toEpochMilli()
-    }
-        .getOrDefault(0L)
+    }.getOrNull()

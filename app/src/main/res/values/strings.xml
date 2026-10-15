@@ -126,6 +126,7 @@
     <string name="notifications_settings_confirm">Open settings</string>
     <string name="notifications_denied_message">Alerts can\'t be tracked without notifications</string>
     <string name="alert_tracking_started">Tracking %1$s. We\'ll notify you when it\'s lifted.</string>
+    <string name="alert_expiry_unknown">This alert can\'t be tracked because its end time is unknown</string>
 
     <!-- SETTINGS MODULE -->
     <string name="settings">Settings</string>
