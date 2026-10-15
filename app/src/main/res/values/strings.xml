@@ -146,4 +146,5 @@
     <string name="arabic">Arabic</string>
     <!-- Session Exiting Action -->
     <string name="logout">LOGOUT</string>
+    <string name="logout_failed">Couldn\'t log out. Please try again.</string>
 </resources>

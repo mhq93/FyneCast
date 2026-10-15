@@ -150,4 +150,5 @@
     <string name="arabic">العربية</string>
     <!-- Session Exiting Action -->
     <string name="logout">تسجيل الخروج</string>
+    <string name="logout_failed">تعذّر تسجيل الخروج. حاول مرة أخرى.</string>
 </resources>

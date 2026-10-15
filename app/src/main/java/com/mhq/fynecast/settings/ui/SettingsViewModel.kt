@@ -26,24 +26,27 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(
-    observeUserProfile: ObserveUserProfileUseCase,
-    observeUserPreferences: ObserveUserPreferencesUseCase,
+    private val observeUserProfileUseCase: ObserveUserProfileUseCase,
+    private val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase,
     private val updatePreference: UpdatePreferenceUseCase,
     private val toggleNotifications: ToggleNotificationsUseCase,
     private val handleNotificationPermissionResult: HandleNotificationPermissionResultUseCase,
     private val syncNotificationPermission: SyncNotificationPermissionUseCase,
     private val consumeNotificationPrompt: ConsumeNotificationPromptUseCase,
-    private val logoutUser: LogoutUserUseCase
+    private val logoutUserUseCase: LogoutUserUseCase
 ) : ViewModel() {
 
     private val _localeEvent = MutableSharedFlow<String>(replay = 1, extraBufferCapacity = 1)
     val localeEvent = _localeEvent.asSharedFlow()
     private val _requestNotificationPermissionEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val requestNotificationPermissionEvent = _requestNotificationPermissionEvent.asSharedFlow()
+    private val profileFlow = observeUserProfileUseCase()
+    private val preferencesFlow = observeUserPreferencesUseCase()
     private val _logoutCompleteChannel = Channel<Unit>(Channel.BUFFERED)
     val logoutComplete = _logoutCompleteChannel.receiveAsFlow()
-    private val profileFlow = observeUserProfile()
-    private val preferencesFlow = observeUserPreferences()
+    private val _logoutFailedChannel = Channel<Unit>(Channel.BUFFERED)
+    val logoutFailed = _logoutFailedChannel.receiveAsFlow()
+    private var isLoggingOut = false
 
     val profileName: StateFlow<String> =
         profileFlow.map { it.name }
@@ -142,9 +145,17 @@ class SettingsViewModel(
     }
 
     fun logOutUserSession() {
+        if (isLoggingOut) return
+        isLoggingOut = true
         viewModelScope.launch {
-            logoutUser()
-            _logoutCompleteChannel.send(Unit)
+            try {
+                logoutUserUseCase().fold(
+                    onSuccess = { _logoutCompleteChannel.send(Unit) },
+                    onFailure = { _logoutFailedChannel.send(Unit) }
+                )
+            } finally {
+                isLoggingOut = false
+            }
         }
     }
 
@@ -162,14 +173,14 @@ class SettingsViewModel(
                 val app = (this[APPLICATION_KEY] as FyneCastApplication)
                 val container = app.container
                 SettingsViewModel(
-                    observeUserProfile = container.observeUserProfileUseCase,
-                    observeUserPreferences = container.observeUserPreferencesUseCase,
+                    observeUserProfileUseCase = container.observeUserProfileUseCase,
+                    observeUserPreferencesUseCase = container.observeUserPreferencesUseCase,
                     updatePreference = container.updatePreferenceUseCase,
                     toggleNotifications = container.toggleNotificationsUseCase,
                     handleNotificationPermissionResult = container.handleNotificationPermissionResultUseCase,
                     syncNotificationPermission = container.syncNotificationPermissionUseCase,
                     consumeNotificationPrompt = container.consumeNotificationPromptUseCase,
-                    logoutUser = container.logoutUserUseCase
+                    logoutUserUseCase = container.logoutUserUseCase
                 )
             }
         }
