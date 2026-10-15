@@ -4,9 +4,10 @@ import androidx.room.Entity
 
 @Entity(
     tableName = "favorites",
-    primaryKeys = ["cityName", "countryName"]
+    primaryKeys = ["userId", "cityName", "countryName"]
 )
 data class FavoriteEntity(
+    val userId: String,
     val cityName: String,
     val countryName: String,
     val latitude: Double,

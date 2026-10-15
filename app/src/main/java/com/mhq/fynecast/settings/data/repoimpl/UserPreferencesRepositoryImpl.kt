@@ -58,6 +58,14 @@ class UserPreferencesRepositoryImpl(
         }
     }
 
+    override suspend fun clearLastSearchedCity() {
+        dataStore.edit { prefs ->
+            prefs.remove(PreferencesKeys.LAST_CITY_NAME)
+            prefs.remove(PreferencesKeys.LAST_CITY_LAT)
+            prefs.remove(PreferencesKeys.LAST_CITY_LON)
+        }
+    }
+
     /** True exactly once, ever. The read and write happen inside one DataStore transaction. */
     override suspend fun consumeNotificationPrompt(): Boolean {
         var firstTime = false

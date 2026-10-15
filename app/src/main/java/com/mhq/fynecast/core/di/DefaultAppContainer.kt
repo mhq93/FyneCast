@@ -54,7 +54,9 @@ import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
 import com.mhq.fynecast.auth.ui.editprofile.ImageStorageManager
 import com.mhq.fynecast.core.data.infra.AppInitializerImpl
 import com.mhq.fynecast.core.domain.data.SystemTimeProvider
+import com.mhq.fynecast.core.domain.data.infra.FirebaseCurrentUserProvider
 import com.mhq.fynecast.core.domain.infra.AppInitializer
+import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
 import com.mhq.fynecast.core.domain.time.TimeProvider
 import com.mhq.fynecast.favorites.data.database.FavoritesDatabase
 import com.mhq.fynecast.favorites.data.repoimpl.FavoritesRepoImpl
@@ -245,6 +247,9 @@ class DefaultAppContainer(
 
 
     // Profile & Logout Use Cases
+    private val currentUserProvider: CurrentUserProvider by lazy {
+        FirebaseCurrentUserProvider(firebaseAuth)
+    }
     override val validateEditProfileUseCase by lazy {
         ValidateEditProfileUseCase()
     }
@@ -261,7 +266,7 @@ class DefaultAppContainer(
         CheckUserLoggedInUseCase(authRepository)
     }
     override val logoutUserUseCase by lazy {
-        LogoutUserUseCase(authRepository, userProfileRepository, cancelAllAlertTrackingUseCase)
+        LogoutUserUseCase(authRepository, userProfileRepository, cancelAllAlertTrackingUseCase, updatePreferenceUseCase)
     }
 
     // Preferences Use Cases
@@ -278,7 +283,7 @@ class DefaultAppContainer(
 
     // Favorites Use Cases
     override val favoritesRepository: FavoritesRepository by lazy {
-        FavoritesRepoImpl(favoriteDao = favoritesDatabase.favoriteDao())
+        FavoritesRepoImpl(favoritesDatabase.favoriteDao(), currentUserProvider)
     }
     private val favoritesDatabase: FavoritesDatabase by lazy {
         Room.databaseBuilder(

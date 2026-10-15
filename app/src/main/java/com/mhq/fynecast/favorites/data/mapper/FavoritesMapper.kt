@@ -13,7 +13,8 @@ fun FavoriteEntity.toDomain() = FavoriteCityDomainModel(
     weatherIconUrl = weatherIconUrl
 )
 
-fun FavoriteCityDomainModel.toEntity() = FavoriteEntity(
+fun FavoriteCityDomainModel.toEntity(userId: String) = FavoriteEntity(
+    userId = userId,
     cityName = cityName,
     countryName = countryName,
     latitude = latitude,

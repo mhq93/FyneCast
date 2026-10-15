@@ -19,4 +19,6 @@ class UpdatePreferenceUseCase(
 
     suspend fun lastSearchedCity(name: String, lat: Double, lon: Double) =
         preferencesRepository.updateLastSearchedCity(name, lat, lon)
+
+    suspend fun clearLastSearchedCity() = preferencesRepository.clearLastSearchedCity()
 }
