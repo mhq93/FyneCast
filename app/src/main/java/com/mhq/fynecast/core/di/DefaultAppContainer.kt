@@ -8,78 +8,88 @@ import androidx.room.Room
 import com.google.android.gms.location.LocationServices
 import com.google.firebase.auth.FirebaseAuth
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-import com.mhq.fynecast.alerts.notifications.data.infra.AndroidNotificationPermissionChecker
-import com.mhq.fynecast.alerts.notifications.domain.usecases.HandleNotificationPermissionResultUseCase
-import com.mhq.fynecast.alerts.notifications.domain.infra.NotificationPermissionChecker
 import com.mhq.fynecast.R
-import com.mhq.fynecast.alerts.notifications.domain.usecases.SyncNotificationPermissionUseCase
-import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
 import com.mhq.fynecast.alerts.data.database.AlertsDatabase
 import com.mhq.fynecast.alerts.data.repoimpl.AlertServiceControllerImpl
 import com.mhq.fynecast.alerts.data.repoimpl.AlertsRepoImpl
 import com.mhq.fynecast.alerts.domain.repository.AlertServiceController
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
+import com.mhq.fynecast.alerts.domain.usecases.CancelAllAlertTrackingUseCase
+import com.mhq.fynecast.alerts.domain.usecases.CheckAlertConditionsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.GetAlertsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.GetTrackedAlertIdsUseCase
+import com.mhq.fynecast.alerts.domain.usecases.GetTrackedAlertStatusUseCase
+import com.mhq.fynecast.alerts.domain.usecases.RestoreAlertTrackingUseCase
 import com.mhq.fynecast.alerts.domain.usecases.ToggleAlertsUseCase
+import com.mhq.fynecast.alerts.domain.usecases.TrackAlertUseCase
+import com.mhq.fynecast.alerts.domain.usecases.UntrackAlertUseCase
+import com.mhq.fynecast.alerts.notifications.data.infra.AndroidNotificationPermissionChecker
+import com.mhq.fynecast.alerts.notifications.domain.infra.NotificationPermissionChecker
+import com.mhq.fynecast.alerts.notifications.domain.usecases.ConsumeNotificationPromptUseCase
+import com.mhq.fynecast.alerts.notifications.domain.usecases.HandleNotificationPermissionResultUseCase
+import com.mhq.fynecast.alerts.notifications.domain.usecases.SyncNotificationPermissionUseCase
+import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
 import com.mhq.fynecast.auth.data.repoimpl.auth.AuthRepositoryImpl
-import com.mhq.fynecast.auth.data.repoimpl.profile.ImageStorageRepositoryImpl
 import com.mhq.fynecast.auth.data.repoimpl.auth.SocialAuthCredentialProviderImpl
+import com.mhq.fynecast.auth.data.repoimpl.profile.ImageStorageRepositoryImpl
 import com.mhq.fynecast.auth.data.repoimpl.profile.UserProfileRepositoryImpl
+import com.mhq.fynecast.auth.data.repository.auth.SocialAuthCredentialProvider
+import com.mhq.fynecast.auth.data.usecases.auth.AuthenticateWithSocialProviderUseCase
 import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
 import com.mhq.fynecast.auth.domain.repository.profile.ImageStorageRepository
-import com.mhq.fynecast.auth.domain.repository.auth.SocialAuthCredentialProvider
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
 import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase
+import com.mhq.fynecast.auth.domain.usecases.auth.CompleteAuthSessionUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.LoginWithEmailUseCase
-import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
-import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.RegisterWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.SendPasswordResetUseCase
-import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
-import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
-import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialProviderUseCase
-import com.mhq.fynecast.auth.domain.usecases.auth.CompleteAuthSessionUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
+import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
+import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
+import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
+import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
+import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
 import com.mhq.fynecast.auth.ui.editprofile.ImageStorageManager
 import com.mhq.fynecast.core.data.infra.AppInitializerImpl
+import com.mhq.fynecast.core.domain.data.SystemTimeProvider
 import com.mhq.fynecast.core.domain.infra.AppInitializer
-import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
+import com.mhq.fynecast.core.domain.time.TimeProvider
 import com.mhq.fynecast.favorites.data.database.FavoritesDatabase
 import com.mhq.fynecast.favorites.data.repoimpl.FavoritesRepoImpl
 import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
-import com.mhq.fynecast.favorites.domain.usecases.InsertFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
 import com.mhq.fynecast.home.data.api.location.LocationApiService
 import com.mhq.fynecast.home.data.api.weather.WeatherApiService
 import com.mhq.fynecast.home.data.infra.AndroidLocationStatusChecker
 import com.mhq.fynecast.home.data.repoimpl.location.DefaultLocationRepoImpl
 import com.mhq.fynecast.home.data.repoimpl.location.PhotonLocationRepoImpl
+import com.mhq.fynecast.home.data.repoimpl.weather.InMemoryCurrentWeatherStore
 import com.mhq.fynecast.home.data.repoimpl.weather.WeatherRepoImpl
+import com.mhq.fynecast.home.domain.repository.CurrentWeatherStore
 import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
 import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
 import com.mhq.fynecast.home.domain.repository.LocationRepository
 import com.mhq.fynecast.home.domain.repository.WeatherRepository
-import com.mhq.fynecast.home.domain.usecases.FetchWeatherDataUseCase
 import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
+import com.mhq.fynecast.home.domain.usecases.GetWeatherUseCase
+import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentCityNameUseCase
+import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.data.repoimpl.UserPreferencesRepositoryImpl
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Retrofit
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class DefaultAppContainer(
     private val context: Context,
     private val prefsDataStore: DataStore<Preferences>,
@@ -110,16 +120,26 @@ class DefaultAppContainer(
     private val weatherApiRetrofitService: WeatherApiService by lazy {
         weatherApiRetrofit.create(WeatherApiService::class.java)
     }
-    override val weatherRepository: WeatherRepository by lazy {
+    private val weatherRepository: WeatherRepository by lazy {
         WeatherRepoImpl(weatherApiService = weatherApiRetrofitService)
     }
-    override val fetchWeatherDataUseCase: FetchWeatherDataUseCase by lazy {
-        FetchWeatherDataUseCase(weatherRepository)
+    private val currentWeatherStore: CurrentWeatherStore by lazy {
+        InMemoryCurrentWeatherStore()
     }
-    override val observeCurrentCityNameUseCase: ObserveCurrentCityNameUseCase by lazy {
-        ObserveCurrentCityNameUseCase(weatherRepository)
+    override val getWeatherUseCase: GetWeatherUseCase by lazy {
+        GetWeatherUseCase(weatherRepository)
     }
-
+    override val loadCurrentWeatherUseCase: LoadCurrentWeatherUseCase by lazy {
+        LoadCurrentWeatherUseCase(weatherRepository, currentWeatherStore)
+    }
+    override val observeCurrentCityNameUseCase by lazy {
+        ObserveCurrentCityNameUseCase(currentWeatherStore)
+    }
+    override val observeCurrentLocationUseCase by lazy {
+        ObserveCurrentLocationUseCase(
+            currentWeatherStore
+        )
+    }
 
     // Networking — Photon
     private val photonBaseUrl = "https://photon.komoot.io/"
@@ -134,7 +154,6 @@ class DefaultAppContainer(
     private val photonApiRetrofitService: LocationApiService by lazy {
         photonRetrofit.create(LocationApiService::class.java)
     }
-
 
 
     // Repositories
@@ -264,10 +283,8 @@ class DefaultAppContainer(
         Room.databaseBuilder(
             context,
             FavoritesDatabase::class.java,
-            "favorites_db").build()
-    }
-    override val insertFavoriteUseCase: InsertFavoriteUseCase by lazy {
-        InsertFavoriteUseCase(favoritesRepository)
+            "favorites_db"
+        ).build()
     }
     override val getFavoritesUseCase: GetFavoritesUseCase by lazy {
         GetFavoritesUseCase(favoritesRepository)
@@ -282,45 +299,80 @@ class DefaultAppContainer(
         ObserveFavoriteStatusUseCase(favoritesRepository)
     }
 
+    // Time
+    private val timeProvider: TimeProvider by lazy { SystemTimeProvider() }
 
-    // Alerts Use Cases
+    // Alerts
     private val alertServiceController: AlertServiceController by lazy {
         AlertServiceControllerImpl(context)
-    }
-    override val alertsRepository: AlertsRepository by lazy {
-        AlertsRepoImpl(
-            alertDao = alertsDatabase.alertDao(),
-            alertServiceController = alertServiceController
-        )
     }
     private val alertsDatabase: AlertsDatabase by lazy {
         Room.databaseBuilder(context, AlertsDatabase::class.java, "alerts_db").build()
     }
+    private val alertsRepository: AlertsRepository by lazy {
+        AlertsRepoImpl(alertDao = alertsDatabase.alertDao())
+    }
     override val getAlertsUseCase: GetAlertsUseCase by lazy {
-        GetAlertsUseCase(weatherRepository)
+        GetAlertsUseCase(currentWeatherStore)
+    }
+    override val trackAlertUseCase: TrackAlertUseCase by lazy {
+        TrackAlertUseCase(
+            alertsRepository,
+            alertServiceController,
+            timeProvider,
+            notificationPermissionChecker,
+            observeUserPreferencesUseCase
+        )
+    }
+    override val untrackAlertUseCase: UntrackAlertUseCase by lazy {
+        UntrackAlertUseCase(alertsRepository, alertServiceController)
+    }
+    override val cancelAllAlertTrackingUseCase: CancelAllAlertTrackingUseCase by lazy {
+        CancelAllAlertTrackingUseCase(alertsRepository, alertServiceController)
+    }
+    override val checkAlertConditionsUseCase: CheckAlertConditionsUseCase by lazy {
+        CheckAlertConditionsUseCase(alertsRepository, timeProvider)
     }
     override val toggleAlertsUseCase: ToggleAlertsUseCase by lazy {
-        ToggleAlertsUseCase(alertsRepository)
+        ToggleAlertsUseCase(alertsRepository, trackAlertUseCase, untrackAlertUseCase)
     }
     override val getTrackedAlertIdsUseCase: GetTrackedAlertIdsUseCase by lazy {
         GetTrackedAlertIdsUseCase(alertsRepository)
     }
+    override val getTrackedAlertStatusUseCase: GetTrackedAlertStatusUseCase by lazy {
+        GetTrackedAlertStatusUseCase(alertsRepository, timeProvider)
+    }
+    override val restoreAlertTrackingUseCase: RestoreAlertTrackingUseCase by lazy {
+        RestoreAlertTrackingUseCase(
+            alertsRepository,
+            alertServiceController,
+            untrackAlertUseCase,
+            timeProvider
+        )
+    }
 
-    //Notifications...
     override val notificationPermissionChecker: NotificationPermissionChecker by lazy {
         AndroidNotificationPermissionChecker(context = context)
     }
     override val toggleNotificationsUseCase by lazy {
-        ToggleNotificationsUseCase(updatePreferenceUseCase, notificationPermissionChecker)
+        ToggleNotificationsUseCase(
+            updatePreferenceUseCase = updatePreferenceUseCase,
+            notificationPermissionChecker = notificationPermissionChecker,
+            cancelAllAlertTrackingUseCase = cancelAllAlertTrackingUseCase
+        )
     }
     override val handleNotificationPermissionResultUseCase by lazy {
         HandleNotificationPermissionResultUseCase(updatePreferenceUseCase)
     }
     override val syncNotificationPermissionUseCase by lazy {
         SyncNotificationPermissionUseCase(
-            observeUserPreferencesUseCase,
-            updatePreferenceUseCase,
-            notificationPermissionChecker
+            observeUserPreferencesUseCase = observeUserPreferencesUseCase,
+            updatePreferenceUseCase = updatePreferenceUseCase,
+            notificationPermissionChecker = notificationPermissionChecker,
+            cancelAllAlertTrackingUseCase = cancelAllAlertTrackingUseCase
         )
+    }
+    override val consumeNotificationPromptUseCase by lazy {
+        ConsumeNotificationPromptUseCase(notificationPermissionChecker, userPreferencesRepository)
     }
 }

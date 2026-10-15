@@ -3,66 +3,40 @@ package com.mhq.fynecast.alerts.notifications
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.mhq.fynecast.BuildConfig
-import com.mhq.fynecast.alerts.notifications.data.infra.AlertsNotificationManager
+import com.mhq.fynecast.alerts.domain.usecases.GetTrackedAlertStatusUseCase
+import com.mhq.fynecast.alerts.notifications.ui.AlertsNotificationManager
 import com.mhq.fynecast.core.di.FyneCastApplication
-import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 
-class WeatherAlertTrackingWorker(
-    context: Context,
-    workerParams: WorkerParameters
-) : CoroutineWorker(context, workerParams) {
+class WeatherAlertTrackingWorker(context: Context, params: WorkerParameters) :
+    CoroutineWorker(context, params) {
 
-    private val appContainer = (context.applicationContext as FyneCastApplication).container
-    private val notificationManager = AlertsNotificationManager(context)
+    private val container = (context.applicationContext as FyneCastApplication).container
+    private val alertsNotificationManager = AlertsNotificationManager(context)
 
-    companion object {
-        private const val TAG = "AlertTrackingWorker"
-        const val KEY_ALERT_ID = "alert_id"
-        const val KEY_EVENT = "event"
-        const val KEY_HEADLINE = "headline"
-        const val KEY_EXPIRES_MILLIS = "expires_millis"
-
-        private val CHECK_INTERVAL_MILLIS = if (BuildConfig.DEBUG) 1L else 15L
-        private val CHECK_INTERVAL_UNIT = TimeUnit.MINUTES
-    }
+    companion object { const val KEY_ALERT_ID = "alert_id" }
 
     override suspend fun doWork(): Result {
-        val alertId = inputData.getString(KEY_ALERT_ID)
-        val event = inputData.getString(KEY_EVENT)
-        val headline = inputData.getString(KEY_HEADLINE)
-        val expiresMillis = inputData.getLong(KEY_EXPIRES_MILLIS, 0L)
-
-        if (alertId == null || event == null || headline == null || expiresMillis == 0L) {
-            return Result.failure()
-        }
+        val alertId = inputData.getString(KEY_ALERT_ID) ?: return Result.failure()
 
         return try {
-            val currentTime = System.currentTimeMillis()
-            val trackedAlerts = appContainer.alertsRepository.getTrackedAlertsDirectly()
+            when (val status = container.getTrackedAlertStatusUseCase(alertId)) {
+                GetTrackedAlertStatusUseCase.Status.Active -> Unit
 
-            val isStillTracked = trackedAlerts.any { it.id == alertId }
+                GetTrackedAlertStatusUseCase.Status.NotTracked ->
+                    container.untrackAlertUseCase(alertId)
 
-            if (!isStillTracked) {
-                AlertsForegroundService.removeAlert(applicationContext, alertId)
-                return Result.success()
-            }
-
-            if (currentTime >= expiresMillis) {
-                val matchedAlert = trackedAlerts.firstOrNull { it.id == alertId }
-                if (matchedAlert != null) {
-                    notificationManager.showAlarmNotification(listOf(matchedAlert))
+                is GetTrackedAlertStatusUseCase.Status.Expired -> {
+                    alertsNotificationManager.showAlarmNotification(
+                        clearedAlerts = listOf(status.alert),
+                        notificationId = alertId.hashCode()
+                    )
+                    container.untrackAlertUseCase(alertId)
                 }
-
-                AlertsForegroundService.removeAlert(applicationContext, alertId)
-                appContainer.alertsRepository.cancelTracking(alertId, cancelWorker = false)
-
-                return Result.success()
-            } else {
-                val remainingSeconds = (expiresMillis - currentTime) / 1000
-                val remainingMinutes = (remainingSeconds / 60).coerceAtLeast(1)
-                Result.success()
             }
+            Result.success()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.retry()
         }

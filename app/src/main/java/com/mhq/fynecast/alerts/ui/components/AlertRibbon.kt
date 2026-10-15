@@ -28,10 +28,11 @@ fun AlertRibbon(
 ) {
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val rotation = if (isRtl) -45f else 45f
+    val horizontalOffset = if (isRtl) (-38).dp else 38.dp
 
     Box(
         modifier = modifier
-            .offset(x = 38.dp, y = 14.dp)
+            .offset(x = horizontalOffset, y = 14.dp)
             .rotate(rotation)
             .background(ribbonColor)
             .width(140.dp)

@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -54,6 +55,7 @@ fun AuthFormSignup(
     val emailFocusRequester = remember { FocusRequester() }
     val usernameFocusRequester = remember { FocusRequester() }
     val passwordFocusRequester = remember { FocusRequester() }
+    val confirmPasswordFocusRequester = remember { FocusRequester() }
 
     GlassyCard(
         modifier = modifier.padding(horizontal = 36.dp)
@@ -87,7 +89,8 @@ fun AuthFormSignup(
             ),
             keyboardActions = KeyboardActions(
                 onNext = { emailFocusRequester.requestFocus() }
-            )
+            ),
+            modifier = Modifier.focusRequester(usernameFocusRequester)
         )
         AuthInputField(
             value = userPassword,
@@ -102,7 +105,9 @@ fun AuthFormSignup(
                                 Icons.Default.Visibility
                             else
                                 Icons.Default.VisibilityOff,
-                        contentDescription = null,
+                        contentDescription = stringResource(
+                            if (arePasswordsVisible) R.string.hide_password else R.string.show_password
+                        ),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -121,7 +126,8 @@ fun AuthFormSignup(
             keyboardActions =
                 KeyboardActions(
                     onNext = { passwordFocusRequester.requestFocus() }
-                )
+                ),
+            modifier = Modifier.focusRequester(emailFocusRequester)
         )
         AuthInputField(
             value = confirmPassword,
@@ -136,7 +142,9 @@ fun AuthFormSignup(
                                 Icons.Default.Visibility
                             else
                                 Icons.Default.VisibilityOff,
-                        contentDescription = null,
+                        contentDescription = stringResource(
+                            if (arePasswordsVisible) R.string.hide_password else R.string.show_password
+                        ),
                         tint = colorScheme.onSurfaceVariant
                     )
                 }
@@ -156,7 +164,8 @@ fun AuthFormSignup(
                 onDone = {
                     focusManager.clearFocus()
                 }
-            )
+            ),
+            modifier = Modifier.focusRequester(passwordFocusRequester)
         )
     }
 }

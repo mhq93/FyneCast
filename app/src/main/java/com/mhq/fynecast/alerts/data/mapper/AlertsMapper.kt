@@ -4,17 +4,10 @@ import com.mhq.fynecast.alerts.data.database.TrackedAlertEntity
 import com.mhq.fynecast.alerts.data.dto.AlertDto
 import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
 import com.mhq.fynecast.alerts.domain.models.TrackedAlertDomainModel
+import com.mhq.fynecast.alerts.domain.models.TrackedLocation
 import java.time.OffsetDateTime
 
-private fun parseToEpochMillis(isoString: String): Long =
-    runCatching { OffsetDateTime.parse(isoString).toInstant().toEpochMilli() }
-        .getOrDefault(0L)
-
-fun AlertDto.calculateId(): String {
-    val effectiveMillis = parseToEpochMillis(this.effective)
-    val contentHash = "$headline|$description|$instruction".hashCode()
-    return "${this.event}_${effectiveMillis}_$contentHash"
-}
+fun AlertDto.calculateId(): String = "${event}_${effective}_$areas"
 
 fun AlertDto.toDomain(): AlertDomainModel {
     val effectiveMillis = parseToEpochMillis(this.effective)
@@ -32,22 +25,35 @@ fun AlertDto.toDomain(): AlertDomainModel {
     )
 }
 
-fun AlertDomainModel.toEntity(cityName: String): TrackedAlertEntity {
-    return TrackedAlertEntity(
-        id = this.id,
-        event = this.event,
-        cityName = cityName,
-        effectiveTimeMillis = this.effectiveMillis,
-        expiresTimeMillis = this.expiresMillis
+fun AlertDomainModel.toEntity(location: TrackedLocation) =
+    TrackedAlertEntity(
+        id = id,
+        cityName = location.trackedLocationName,
+        latitude = location.trackedLocationLatitude,
+        longitude = location.trackedLocationLongitude,
+        headline = headline,
+        event = event,
+        effectiveTimeMillis = effectiveMillis,
+        expiresTimeMillis = expiresMillis
     )
-}
 
-fun TrackedAlertEntity.toDomain(): TrackedAlertDomainModel {
-    return TrackedAlertDomainModel(
-        id = this.id,
-        event = this.event,
-        cityName = this.cityName,
-        effectiveTimeMillis = this.effectiveTimeMillis,
-        expiresTimeMillis = this.expiresTimeMillis
+fun TrackedAlertEntity.toDomain() =
+    TrackedAlertDomainModel(
+        id = id,
+        cityName = cityName,
+        latitude = latitude,
+        longitude = longitude,
+        headline = headline,
+        event = event,
+        effectiveTimeMillis = effectiveTimeMillis,
+        expiresTimeMillis = expiresTimeMillis
     )
-}
+
+private fun parseToEpochMillis(isoString: String): Long =
+    runCatching {
+        OffsetDateTime
+            .parse(isoString)
+            .toInstant()
+            .toEpochMilli()
+    }
+        .getOrDefault(0L)

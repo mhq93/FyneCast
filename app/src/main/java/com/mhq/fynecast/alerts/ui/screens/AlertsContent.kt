@@ -9,6 +9,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -16,7 +20,10 @@ import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
 import com.mhq.fynecast.alerts.ui.components.AlertCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
-import androidx.compose.runtime.saveable.rememberSaveable
+private val ExpandedAlertIdsSaver = listSaver<SnapshotStateList<String>, String>(
+    save = { it.toList() },
+    restore = { it.toMutableStateList() }
+)
 
 @Composable
 fun AlertsContent(
@@ -26,7 +33,7 @@ fun AlertsContent(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     modifier: Modifier = Modifier
 ) {
-    val expandedAlertIds = rememberSaveable { mutableStateListOf<String>() }
+    val expandedAlertIds = rememberSaveable(saver = ExpandedAlertIdsSaver) { mutableStateListOf<String>() }
 
     Column(
         modifier = modifier

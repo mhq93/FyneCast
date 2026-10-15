@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,12 +43,12 @@ fun WeatherStatChip(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
             ) {
-                //                Icon(
-                //                    imageVector = chipIcon,
-                //                    contentDescription = chipHeader,
-                //                    tint = MaterialTheme.colorScheme.onBackground,
-                //                    modifier = Modifier.padding(end = 4.dp)
-                //                )
+                Icon(
+                    imageVector = chipIcon,
+                    contentDescription = chipHeader,
+                    tint = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(end = 4.dp)
+                )
                 Text(
                     text = chipHeader,
                     style = MaterialTheme.typography.headlineSmall,

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -28,6 +29,12 @@ fun SettingsContainer(
     val isDarkMode by settingsViewModel.isDarkMode.collectAsStateWithLifecycle()
     val notificationsEnabled by settingsViewModel.notificationsEnabled.collectAsStateWithLifecycle()
 
+    LaunchedEffect(Unit) {
+        settingsViewModel.logoutComplete.collect {
+            onLogoutClick()
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         SettingsContent(
             isMetric = isMetric,
@@ -42,10 +49,7 @@ fun SettingsContainer(
             currentLanguage = currentLanguage,
             onLanguageChange = settingsViewModel::toggleLanguage,
             onEditProfileClick = onEditProfileClick,
-            onLogoutClick = {
-                settingsViewModel.logOutUserSession()
-                onLogoutClick()
-            },
+            onLogoutClick = { settingsViewModel.logOutUserSession() },
             contentPadding = contentPadding,
             modifier = modifier
         )

@@ -20,7 +20,7 @@ class AndroidLocationStatusChecker(
             appContext, Manifest.permission.ACCESS_COARSE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
 
-        return fineLocation && coarseLocation
+        return fineLocation || coarseLocation
     }
 
     override fun isGpsProviderEnabled(): Boolean {

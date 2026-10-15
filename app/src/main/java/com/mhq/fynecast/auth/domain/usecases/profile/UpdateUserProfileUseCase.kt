@@ -1,6 +1,5 @@
 package com.mhq.fynecast.auth.domain.usecases.profile
 
-import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.repository.profile.ImageStorageRepository
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
 
@@ -9,31 +8,56 @@ class UpdateUserProfileUseCase(
     private val imageRepository: ImageStorageRepository
 ) {
     suspend operator fun invoke(newName: String, newEmail: String, localImageUriString: String?): Result<Boolean> {
-        return runCatching {
-            var finalImageUri = profileRepository.getProfile().profileImageUri
+        val currentProfile = profileRepository.getProfile()
+        var finalImageUri = currentProfile.profileImageUri
+        var newImageWasCreated = false
 
-            if (!localImageUriString.isNullOrBlank()) {
-                if (!imageRepository.isAlreadySandboxed(localImageUriString)) {
-                    val sandboxedUri = imageRepository.sandboxAndCompressImage(localImageUriString)
-                    if (sandboxedUri != null) finalImageUri = sandboxedUri
-                } else {
-                    finalImageUri = localImageUriString
+        if (!localImageUriString.isNullOrBlank()) {
+            if (!imageRepository.isAlreadySandboxed(localImageUriString)) {
+                val sandboxedUri = imageRepository.sandboxAndCompressImage(localImageUriString)
+                if (sandboxedUri != null) {
+                    finalImageUri = sandboxedUri
+                    newImageWasCreated = true
                 }
+            } else {
+                finalImageUri = localImageUriString
             }
+        }
 
+        var profileSaved = false
+
+        return runCatching {
             val remoteUpdateVerification = profileRepository.updateRemoteProfile(newName, newEmail).getOrThrow()
 
             profileRepository.saveProfile(
-                UserDomainModel(
-                    id = "",
+                currentProfile.copy(
                     name = newName,
                     email = newEmail,
                     profileImageUri = finalImageUri
                 )
             )
+            profileSaved = true
             profileRepository.refreshActiveUserSession()
 
+            // The profile now durably references the new image, so it's
+            // safe to purge the old one (ones). Doing this any earlier risked
+            // leaving the profile pointing at an image that was already
+            // deleted if the save above failed.
+            if (newImageWasCreated) {
+                imageRepository.commitProfileImage(finalImageUri!!)
+            }
+
             remoteUpdateVerification
+        }.onFailure {
+            // Only roll back if the profile never ended up pointing at this
+            // file. If saveProfile already succeeded and a later step
+            // (refreshActiveUserSession, commitProfileImage) is what threw,
+            // deleting the file now would leave the saved profile pointing
+            // at a file that no longer exists — the exact thing this
+            // rollback exists to prevent.
+            if (newImageWasCreated && !profileSaved) {
+                imageRepository.deleteProfileImage(finalImageUri!!)
+            }
         }
     }
 }

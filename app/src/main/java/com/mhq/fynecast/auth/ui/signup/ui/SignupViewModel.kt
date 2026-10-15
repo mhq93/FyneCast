@@ -8,12 +8,13 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mhq.fynecast.auth.data.usecases.auth.AuthenticateWithSocialProviderUseCase
 import com.mhq.fynecast.auth.domain.models.ValidationResult
-import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialProviderUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.RegisterWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
 import com.mhq.fynecast.core.di.FyneCastApplication
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 class SignupViewModel(
     private val validateSignupFormUseCase: ValidateSignupFormUseCase,
@@ -30,7 +32,7 @@ class SignupViewModel(
 ) : ViewModel() {
 
     private val _signupUiState = MutableStateFlow<SignupUiState>(SignupUiState.Idle)
-    private val _uiEventChannel = Channel<String>()
+    private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
     val uiEvent = _uiEventChannel.receiveAsFlow()
 
     private val _username = MutableStateFlow("")
@@ -119,6 +121,7 @@ class SignupViewModel(
                 .onSuccess {
                     _signupUiState.value = SignupUiState.Success
                     _uiEventChannel.send("Account created successfully.")
+                    delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
                     onSuccess()
                 }
                 .onFailure { error ->
@@ -152,6 +155,8 @@ class SignupViewModel(
     }
 
     companion object {
+        private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
+
         val factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val app = (this[APPLICATION_KEY] as FyneCastApplication)

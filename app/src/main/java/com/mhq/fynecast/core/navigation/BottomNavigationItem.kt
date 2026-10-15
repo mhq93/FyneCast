@@ -9,17 +9,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.mhq.fynecast.R
 
-//sealed class BottomNavigationItem(val route: String, val title: String? = null, val icon: ImageVector? = null) {
-//    object Signup : BottomNavigationItem("signup")
-//    object Login : BottomNavigationItem("login")
-//    object ForgotPassword : BottomNavigationItem("forgot_password")
-//    object EditProfile : BottomNavigationItem("edit_profile")
-//    object Home : BottomNavigationItem("home", "Home", Icons.Default.Home)
-//    object Favorites : BottomNavigationItem("favorites", "Favorites", Icons.Default.Favorite)
-//    object Alerts : BottomNavigationItem("alerts", "Alerts", Icons.Default.Notifications)
-//    object Settings : BottomNavigationItem("settings", "Settings", Icons.Default.Settings)
-//}
-
 sealed class BottomNavigationItem(
     val route: String,
     @StringRes val titleRes: Int? = null,

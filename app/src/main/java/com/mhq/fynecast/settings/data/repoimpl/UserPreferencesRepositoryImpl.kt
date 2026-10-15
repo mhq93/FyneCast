@@ -24,6 +24,7 @@ class UserPreferencesRepositoryImpl(
         val LAST_CITY_NAME = stringPreferencesKey("last_searched_city_name")
         val LAST_CITY_LAT = doublePreferencesKey("last_searched_city_lat")
         val LAST_CITY_LON = doublePreferencesKey("last_searched_city_lon")
+        val NOTIFICATION_PROMPT_SHOWN = booleanPreferencesKey("notification_prompt_shown")
     }
 
     override val userPreferencesFlow: Flow<UserPreferences> = dataStore.data
@@ -55,6 +56,18 @@ class UserPreferencesRepositoryImpl(
             prefs[PreferencesKeys.LAST_CITY_LAT] = lat
             prefs[PreferencesKeys.LAST_CITY_LON] = lon
         }
+    }
+
+    /** True exactly once, ever. The read and write happen inside one DataStore transaction. */
+    override suspend fun consumeNotificationPrompt(): Boolean {
+        var firstTime = false
+        dataStore.edit { prefs ->
+            if (prefs[PreferencesKeys.NOTIFICATION_PROMPT_SHOWN] != true) {
+                prefs[PreferencesKeys.NOTIFICATION_PROMPT_SHOWN] = true
+                firstTime = true
+            }
+        }
+        return firstTime
     }
 
     private fun mapPreferences(preferences: Preferences): UserPreferences {

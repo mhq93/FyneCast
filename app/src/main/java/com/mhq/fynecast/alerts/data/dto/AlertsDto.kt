@@ -6,5 +6,5 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class AlertsDto(
     @SerialName("alert")
-    val alert: List<AlertDto> = emptyList()
+    val alerts: List<AlertDto> = emptyList()
 )

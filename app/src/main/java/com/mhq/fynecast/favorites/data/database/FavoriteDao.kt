@@ -25,6 +25,6 @@ interface FavoriteDao {
     @Query("DELETE FROM favorites WHERE cityName = :name AND countryName = :country")
     suspend fun deleteFavorite(name: String, country: String)
 
-    @Query("SELECT * FROM favorites")
+    @Query("SELECT * FROM favorites ORDER BY cityName ASC, countryName ASC")
     fun getAllFavorites(): PagingSource<Int, FavoriteEntity>
 }

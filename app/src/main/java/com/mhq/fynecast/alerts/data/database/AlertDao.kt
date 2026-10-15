@@ -8,12 +8,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface AlertDao {
-    @Query("SELECT id FROM alerts")
-    fun getTrackedAlertIds(): Flow<List<String>>
     @Query("SELECT * FROM alerts")
     suspend fun getAllTrackedAlerts(): List<TrackedAlertEntity>
+    @Query("SELECT id FROM alerts")
+    fun getTrackedAlertIds(): Flow<List<String>>
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTrackedAlert(alert: TrackedAlertEntity)
     @Query("DELETE FROM alerts WHERE id = :alertId")
     suspend fun deleteTrackedAlertById(alertId: String)
+    @Query("DELETE FROM alerts")
+    suspend fun deleteAllTrackedAlerts()
 }

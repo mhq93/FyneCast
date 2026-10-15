@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mhq.fynecast.alerts.notifications.domain.usecases.ConsumeNotificationPromptUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.HandleNotificationPermissionResultUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.SyncNotificationPermissionUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
@@ -14,11 +15,13 @@ import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
 import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -29,13 +32,16 @@ class SettingsViewModel(
     private val toggleNotifications: ToggleNotificationsUseCase,
     private val handleNotificationPermissionResult: HandleNotificationPermissionResultUseCase,
     private val syncNotificationPermission: SyncNotificationPermissionUseCase,
+    private val consumeNotificationPrompt: ConsumeNotificationPromptUseCase,
     private val logoutUser: LogoutUserUseCase
 ) : ViewModel() {
 
-    private val _localeEvent = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    private val _localeEvent = MutableSharedFlow<String>(replay = 1, extraBufferCapacity = 1)
     val localeEvent = _localeEvent.asSharedFlow()
     private val _requestNotificationPermissionEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val requestNotificationPermissionEvent = _requestNotificationPermissionEvent.asSharedFlow()
+    private val _logoutCompleteChannel = Channel<Unit>(Channel.BUFFERED)
+    val logoutComplete = _logoutCompleteChannel.receiveAsFlow()
     private val profileFlow = observeUserProfile()
     private val preferencesFlow = observeUserPreferences()
 
@@ -77,13 +83,17 @@ class SettingsViewModel(
         }
     }
 
+    // notificationsEnabled StateFlow: initial value true → false
     val notificationsEnabled: StateFlow<Boolean> =
         preferencesFlow.map { it.notificationsEnabled }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                true
-            )
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    /** Called once the location permission flow finishes, whether it was granted or denied. */
+    fun requestNotificationPermissionOnFirstLaunch() {
+        viewModelScope.launch {
+            if (consumeNotificationPrompt()) _requestNotificationPermissionEvent.tryEmit(Unit)
+        }
+    }
 
     fun toggleNotifications(wantsEnabled: Boolean) {
         viewModelScope.launch {
@@ -134,6 +144,7 @@ class SettingsViewModel(
     fun logOutUserSession() {
         viewModelScope.launch {
             logoutUser()
+            _logoutCompleteChannel.send(Unit)
         }
     }
 
@@ -157,6 +168,7 @@ class SettingsViewModel(
                     toggleNotifications = container.toggleNotificationsUseCase,
                     handleNotificationPermissionResult = container.handleNotificationPermissionResultUseCase,
                     syncNotificationPermission = container.syncNotificationPermissionUseCase,
+                    consumeNotificationPrompt = container.consumeNotificationPromptUseCase,
                     logoutUser = container.logoutUserUseCase
                 )
             }

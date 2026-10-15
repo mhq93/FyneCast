@@ -42,8 +42,7 @@ fun WeatherApiResponse.toDomain(): WeatherDomainModel {
         )
     } ?: emptyList()
 
-    val domainAlerts = this.alerts?.alert?.map { it.toDomain() } ?: emptyList()
-
+    val domainAlerts = this.alerts?.alerts?.map { it.toDomain() }?.distinctBy { it.id } ?: emptyList()
     return WeatherDomainModel(
         cityName = this.location.cityName,
         country = this.location.country,
@@ -53,6 +52,7 @@ fun WeatherApiResponse.toDomain(): WeatherDomainModel {
         currentTempF = this.current.tempF,
         conditionText = this.current.condition.description,
         conditionIcon = this.current.condition.icon,
+        lastUpdatedFormatted = TimestampFormatter.getFormattedHour(this.current.lastUpdated),
         alerts = domainAlerts,
         stats = domainStats,
         dailyForecasts = domainDailyList,

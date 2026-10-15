@@ -34,14 +34,14 @@ fun EditProfileForm(
     userEmail: String,
     isEmailValid: Boolean,
     onUserEmailChanged: (String) -> Unit,
+    usernameFocusRequester: FocusRequester = remember { FocusRequester() },
     modifier: Modifier = Modifier
 ) {
 
-    val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
 
     GlassyCard(
-        modifier = Modifier.padding(horizontal = 36.dp)
+        modifier = modifier.padding(horizontal = 36.dp)
     ) {
         AuthInputField(
             value = username,
@@ -53,7 +53,7 @@ fun EditProfileForm(
             onValueChange = onUsernameChanged,
             visualTransformation = VisualTransformation.None,
             keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Email,
+                keyboardType = KeyboardType.Text,
                 imeAction = ImeAction.Next
             ),
             keyboardActions = KeyboardActions(onNext = {
@@ -61,7 +61,7 @@ fun EditProfileForm(
                     FocusDirection.Down
                 )
             }),
-            modifier = Modifier.focusRequester(focusRequester)
+            modifier = Modifier.focusRequester(usernameFocusRequester)
         )
         Spacer(
             modifier = Modifier.height(8.dp)
@@ -83,8 +83,7 @@ fun EditProfileForm(
                 focusManager.moveFocus(
                     FocusDirection.Down
                 )
-            }),
-            modifier = Modifier.focusRequester(focusRequester)
+            })
         )
     }
 }

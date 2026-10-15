@@ -46,6 +46,7 @@ class MainActivity : AppCompatActivity() {
         val isGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
                 permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
         onLocationPermissionResult?.invoke(isGranted)
+        settingsViewModel.requestNotificationPermissionOnFirstLaunch()
     }
 
     private val notificationPermissionLauncher = registerForActivityResult(
@@ -55,9 +56,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val splashScreen = installSplashScreen()//
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        splashScreen.setKeepOnScreenCondition { false }//
+        splashScreen.setKeepOnScreenCondition { false }
 
         if (BuildConfig.DEBUG) {
             (applicationContext as? FyneCastApplication)?.container?.appInitializer?.initializeDebugFeatures()

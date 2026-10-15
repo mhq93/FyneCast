@@ -1,9 +1,11 @@
-package com.mhq.fynecast.auth.domain.usecases.auth
+package com.mhq.fynecast.auth.data.usecases.auth
 
 import android.content.Context
 import androidx.activity.ComponentActivity
+import com.mhq.fynecast.auth.data.repository.auth.SocialAuthCredentialProvider
 import com.mhq.fynecast.auth.domain.models.UserDomainModel
-import com.mhq.fynecast.auth.domain.repository.auth.SocialAuthCredentialProvider
+import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase
+import kotlinx.coroutines.CancellationException
 
 class AuthenticateWithSocialProviderUseCase(
     private val socialAuthCredentialProvider: SocialAuthCredentialProvider,
@@ -13,13 +15,19 @@ class AuthenticateWithSocialProviderUseCase(
         socialAuthCredentialProvider.getGoogleIdToken(context)
     }.fold(
         onSuccess = { token -> authenticateWithSocialTokenUseCase(token, isGoogle = true) },
-        onFailure = { Result.failure(it) }
+        onFailure = { e ->
+            if (e is CancellationException) throw e
+            Result.failure(e)
+        }
     )
 
     suspend fun withFacebook(activity: ComponentActivity): Result<UserDomainModel> = runCatching {
         socialAuthCredentialProvider.getFacebookAccessToken(activity)
     }.fold(
         onSuccess = { token -> authenticateWithSocialTokenUseCase(token, isGoogle = false) },
-        onFailure = { Result.failure(it) }
+        onFailure = { e ->
+            if (e is CancellationException) throw e
+            Result.failure(e)
+        }
     )
 }

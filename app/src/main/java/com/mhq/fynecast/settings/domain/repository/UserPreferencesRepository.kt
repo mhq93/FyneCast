@@ -11,6 +11,6 @@ interface UserPreferencesRepository {
     suspend fun updateNotifications(enabled: Boolean)
     suspend fun updateLanguage(language: String)
     suspend fun updateDarkMode(enabled: Boolean)
-    //suspend fun updateThemeMode(mode: ThemeMode)
     suspend fun updateLastSearchedCity(name: String, lat: Double, lon: Double)
+    suspend fun consumeNotificationPrompt(): Boolean
 }

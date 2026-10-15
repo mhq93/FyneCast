@@ -29,6 +29,8 @@ import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 fun AuthWarningSnackbar(
     snackbarData: SnackbarData?
 ) {
+    val message = snackbarData?.visuals?.message ?: return
+
     Card(
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(8.dp),
@@ -60,15 +62,13 @@ fun AuthWarningSnackbar(
                 modifier = Modifier.size(20.dp)
             )
 
-            snackbarData?.visuals?.message?.let {
-                Text(
-                    text = it,
-                    color = MaterialTheme.colorScheme.onErrorContainer,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.onErrorContainer,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }

@@ -1,14 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">FyneCast</string>
-    <string name="settings">الإعدادات</string>
-    <string name="please_wait">يرجى الانتظار</string>
-    <string name="please_check_your_network_then_retry">برجاء التحقق من اتصالك بالإنترنت ثم أعد المحاولة</string>
-    <string name="retry">حاول مرةً أخرى</string>
-    <string name="favorite">المفضلة</string>
-    <string name="alert_info">معلومات بشأن تحذيرات المناخ</string>
-    <string name="back">العودة</string>
-    <string name="confirm_location">تأكيد الموقع</string>
+    <string name="app_name" translatable="false">FyneCast</string>
+    <string name="default_web_client_id" translatable="false">1044350867734-78oik6bjfg34rn4aksf6520j5kkdsk3j.apps.googleusercontent.com</string>
+
+    <!-- AUTH MODULE -->
+    <!-- Auth Forms & Placeholders -->
     <string name="name">الاسم</string>
     <string name="enter_name">أدخل الاسم</string>
     <string name="email">البريد الإلكتروني</string>
@@ -16,79 +12,141 @@
     <string name="password">كلمة السر</string>
     <string name="enter_password">أدخل كلمة السر</string>
     <string name="confirm_password">تأكيد كلمة السر</string>
+    <string name="hide_password">أخفِ كلمة السر</string>
+    <string name="show_password">أظهر كلمة السر</string>
+    <!-- Auth Action Hyperlinks & Targets -->
+    <string name="or_with">أو</string>
+    <string name="google_login">تسجيل الدخول عن طريق جوجل</string>
+    <string name="facebook_login">تسجيل الدخول عن طريق فيسبوك</string>
     <string name="sign_up">إنشاء حساب</string>
+    <string name="login">تسجيل الدخول</string>
     <string name="already_have_an_account">لديك حسابٌ بالفعل؟</string>
-    <string name="clear_input">تصفية حقل الإدخال</string>
-    <string name="pick_from_map">اختر موقعا من الخريطة</string>
-    <string name="weather_icon">أيقونة حالة الطقس</string>
+    <string name="don_t_have_an_account">ليس لدي حساب</string>
+    <!-- Password Recovery Screen -->
     <string name="recover_password">إستعادة كلمة السر</string>
+    <string name="forgot_password">هل نسيت كلمة السر؟</string>
     <string name="enter_the_email_associated_with_your_account">أدخل البريد الإلكتروني المرتبط بحسابك</string>
     <string name="we_will_send_a_link_to_reset_your_password">سنقوم بإرسال رابط إعادة ضبط كلمة السر</string>
     <string name="send_link">إرسال الرابط</string>
     <string name="remembered_credentials">هل تذكرت بيانات حسابك؟</string>
-    <string name="forgot_password">هل نسيت كلمة السر؟</string>
-    <string name="don_t_have_an_account">ليس لدي حساب</string>
-    <string name="no_favorites_yet">لا توجد تفضيلات</string>
-    <string name="cities_you_like_will_appear_here">ستظهر مدنك المفضلة هنا</string>
-    <string name="find_a_city">ابحث عن مدينة</string>
-    <string name="warning">تحذير</string>
+    <!-- Profile Management Screen -->
+    <string name="edit_profile">إدارة إعدادات الحساب</string>
     <string name="profile_photo">صورة الحساب الشخصي</string>
     <string name="change_photo">غير صورة الحساب</string>
     <string name="save_changes">حفظ التغييرات</string>
-    <string name="no_location_data_found">لم يعثر على بيانات الموقع أو المدينة</string>
-    <string name="please_select_a_city_on_the_home_screen_first">من فضلك, اختر مدينة من الصفحة الرئيسية أولًا</string>
-    <string name="no_active_alerts_in_this_area">لا توجد تحذيرات جوية في هذه المنطقة</string>
-    <string name="a_great_chance_to_enjoy_the_weather_outdoors">الفرصة مواتية للاستمتاع بالطقس خارجاً</string>
-    <string name="or_with">أو</string>
-    <string name="google_login">تسجيل الدخول عن طريق جوجل</string>
-    <string name="facebook_login">تسجيل الدخول عن طريق فيسبوك</string>
-    <string name="back_to_home_page">العودة إلى الصفحة الرئيسية</string>
-    <string name="monitor_future_alerts">متابعة التحذيرات المحتملة</string>
-    <string name="hourly_condition">الحالة الدورية</string>
-    <string name="edit_profile">إدارة إعدادات الحساب</string>
+
+    <!-- HOME MODULE -->
+    <string name="home">الرئيسية</string>
+    <!-- Home Main Search & Location Indicators -->
+    <string name="enter_a_city_name">أدخل اسم مدينة</string>
+    <string name="search_icon">أيقونة البحث</string>
+    <string name="clear_input">تصفية حقل الإدخال</string>
+    <string name="pick_from_map">اختر موقعا من الخريطة</string>
+    <string name="find_a_city">ابحث عن مدينة</string>
+    <!-- Weather Forecast Carousel Headers -->
     <string name="hourly_forecast">الطقس على مدار الساعة</string>
     <string name="daily_forecast">الطقس يومياً</string>
+    <string name="hourly_condition">الحالة الدورية</string>
+    <string name="weather_icon">أيقونة حالة الطقس</string>
+    <!-- Weather Metrical Data Grid & Stats -->
     <string name="humidity">الرطوبة</string>
+    <string name="percent">بالمائة</string>
     <string name="wind_speed">سرعة الرياح</string>
     <string name="wind">الرياح</string>
+    <string name="kph">كيلومتراً في الساعة</string>
+    <string name="mph">ميلاً في الساعة</string>
     <string name="pressure">الضغط الجوي</string>
     <string name="millibars">ميللي بار</string>
     <string name="inches">بوصة</string>
-    <string name="off">إيقاف</string>
-    <string name="language">اللغة</string>
-    <string name="arabic">العربية</string>
-    <string name="english">الإنجليزية</string>
-    <string name="dark_mode">الوضع الليلي</string>
-    <string name="light">الوضع النهاري</string>
-    <string name="dark">الوضع الليلي</string>
-    <string name="imperial">إمبيريالية</string>
-    <string name="notifications">الإشعارات</string>
-    <string name="on">تشغيل</string>
+    <string name="uv_index">الآشعة الضارة</string>
+    <string name="unit">وحدة</string>
+    <string name="c">مئوية</string>
+    <string name="f">فهرنهايت</string>
+    <!-- Hero Card Alarm Banners -->
+    <string name="warning">تحذير</string>
+    <plurals name="active_weather_warnings">
+        <item quantity="zero">لا توجد تحذيرات جوية نشطة</item>
+        <item quantity="one">تحذير جوي نشط واحد</item>
+        <item quantity="two">تحذيران جويان نشطان</item>
+        <item quantity="few">%d تحذيرات جوية نشطة</item>
+        <item quantity="many">%d تحذيرًا جويًا نشطًا</item>
+        <item quantity="other">%d تحذير جوي نشط</item>
+    </plurals>
+    <!-- Network Failure Components -->
+    <string name="please_wait">يرجى الانتظار</string>
+    <string name="please_check_your_network_then_retry">برجاء التحقق من اتصالك بالإنترنت ثم أعد المحاولة</string>
+    <string name="retry">حاول مرةً أخرى</string>
+
+    <!-- MAP MODULE -->
+    <string name="confirm_location">تأكيد الموقع</string>
+    <string name="no_location_data_found">لم يعثر على بيانات الموقع أو المدينة</string>
+    <string name="please_select_a_city_on_the_home_screen_first">من فضلك, اختر مدينة من الصفحة الرئيسية أولًا</string>
+    <string name="couldnt_resolve_location">لم نتمكن من تحديد موقعك بدقة. من فضلك، حاول مرة أخرى</string>
+    <string name="back_to_home_page">العودة إلى الصفحة الرئيسية</string>
+    <string name="back">العودة</string>
+
+    <!-- FAVORITES MODULE -->
+    <string name="favorites">المفضلة</string>
+    <string name="favorite">المفضلة</string>
+    <string name="delete">حذف</string>
+    <string name="no_favorites_yet">لا توجد تفضيلات</string>
+    <string name="cities_you_like_will_appear_here">ستظهر مدنك المفضلة هنا</string>
+    <string name="tab_below_to_go_back_to_home_page">اضغط ⌂ بالأسفل للتوجه إلى الصفحة الرئيسية</string>
+    <string name="couldnt_remove_city">لم نستطع حذف %1$. من فضلك، حاول مرة أخرى</string>
+    <string name="city_removed">%1$s تم حذف</string>
+    <string name="undo">إلغاء</string>
+
+    <!-- ALERTS MODULE -->
+    <string name="alerts">التحذيرات</string>
+    <string name="alert_info">معلومات بشأن تحذيرات المناخ</string>
+    <!-- Alert Tracking Toggles -->
+    <string name="track_this_alert">تتبع هذا التحذير</string>
+    <string name="cancel_tracking">إلغاء التتبع</string>
+    <string name="alert_tracking_title_single">⚠️ تتبّع مباشر: %1$s</string>
+    <string name="alert_tracking_title_multiple">⚠️ تتبّع تنبيهات الطقس (%1$d)</string>
+    <string name="alert_tracking_text_multiple">وسّع لعرض التنبيهات المتتبَّعة</string>
+    <string name="alert_lifted_title_single">✅ تم رفع تنبيه %1$s</string>
+    <string name="alert_lifted_title_multiple">✅ تم رفع %1$d من تنبيهات الطقس</string>
+    <string name="alert_lifted_body_single">لم يعد تنبيه %1$s في %2$s ساريًا</string>
+    <string name="alert_lifted_body_multiple">تم رفع التنبيهات: %1$s</string>
+    <string name="alert_already_expired">انتهى هذا التنبيه بالفعل</string>
+    <!-- Empty/Blank Section Placeholders -->
+    <string name="no_active_alerts_in_this_area">لا توجد تحذيرات جوية في هذه المنطقة</string>
+    <string name="a_great_chance_to_enjoy_the_weather_outdoors">الفرصة مواتية للاستمتاع بالطقس خارجاً</string>
+    <string name="monitor_future_alerts">متابعة التحذيرات المحتملة</string>
+    <!-- Detail Components -->
     <string name="instructions">التعليمات:</string>
-    <string name="collapse">إخفاء التفاصيل</string>
     <string name="expand">عرض المزيد</string>
+    <string name="collapse">إخفاء التفاصيل</string>
+    <!-- Weather Severity Identifiers -->
     <string name="moderate">معتدل</string>
     <string name="severe">شديد</string>
     <string name="extreme">بالغ الشدة</string>
+    <!-- Notifications -->
+    <string name="notifications_dialog_title">تفعيل الإشعارات؟</string>
+    <string name="notifications_dialog_message">سنُعلمك عند رفع هذا التنبيه. يتطلب التتبّع تفعيل الإشعارات.</string>
+    <string name="notifications_dialog_confirm">تفعيل</string>
+    <string name="notifications_dialog_dismiss">ليس الآن</string>
+    <string name="notifications_settings_message">الإشعارات محظورة للتطبيق</string>    <string name="notifications_settings_confirm">فتح الإعدادات</string>
+    <string name="notifications_denied_message">لا يمكن تتبّع التنبيهات بدون الإشعارات</string>
+    <string name="alert_tracking_started">تم تتبّع %1$s. سنُعلمك عند رفعه.</string>
+
+    <!-- SETTINGS MODULE -->
+    <string name="settings">الإعدادات</string>
+    <!-- Choice Toggles -->
     <string name="units">وحدات القياس</string>
     <string name="metric">مترية</string>
-    <string name="login">تسجيل الدخول</string>
-    <string name="delete">حذف</string>
-    <string name="enter_a_city_name">أدخل اسم مدينة</string>
-    <string name="search_icon">أيقونة البحث</string>
-    <string name="uv_index">الآشعة الضارة</string>
+    <string name="imperial">إمبيريالية</string>
+    <string name="notifications">الإشعارات</string>
+    <string name="on">تشغيل</string>
+    <string name="off">إيقاف</string>
+    <string name="dark_mode">الوضع الليلي</string>
+    <string name="light">الوضع النهاري</string>
+    <string name="dark">الوضع الليلي</string>
+    <!-- Language Choices -->
+    <string name="language">اللغة</string>
+    <string name="english">الإنجليزية</string>
+    <string name="arabic">العربية</string>
+    <!-- Session Exiting Action -->
     <string name="logout">تسجيل الخروج</string>
-    <string name="kph">كيلومتراً في الساعة</string>
-    <string name="mph">ميلاً في الساعة</string>
-    <string name="c">مئوية</string>
-    <string name="f">فهرنهايت</string>
-    <string name="active_weather_warnings">تحذيرات جوية نشطة</string>
-    <string name="cancel_tracking">إلغاء التتبع</string>
-    <string name="track_this_alert">تتبع هذا التحذير</string>
-    <string name="percent">بالمائة</string>
-    <string name="unit">وحدة</string>
-    <string name="tab_below_to_go_back_to_home_page">اضغط ⌂ بالأسفل للتوجه إلى الصفحة الرئيسية</string>
-    <string name="home">الرئيسية</string>
-    <string name="favorites">المفضلة</string>
-    <string name="alerts">الإشعارات</string>
 </resources>

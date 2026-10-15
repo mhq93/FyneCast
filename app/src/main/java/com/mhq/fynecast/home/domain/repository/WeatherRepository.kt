@@ -4,6 +4,5 @@ import com.mhq.fynecast.home.domain.models.WeatherDomainModel
 import kotlinx.coroutines.flow.StateFlow
 
 interface WeatherRepository {
-    val weatherDataCache: StateFlow<WeatherDomainModel?>
-    suspend fun provideWeatherData(queryCity: String, lang: String): WeatherDomainModel
+    suspend fun fetchWeather(query: String, lang: String): WeatherDomainModel
 }

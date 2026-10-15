@@ -33,13 +33,23 @@ class AuthRepositoryImpl(
         val authResult = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
         val user = authResult.user ?: throw Exception("Auth registration failed.")
 
-        try {
-            user.updateProfile(
-                userProfileChangeRequest { displayName = name }
-            ).await()
-        } catch (e: Exception) {
-            // Account already exists at this point; displayName is cosmetic,
-            // so don't fail the whole registration over it.
+        // Account already exists at this point; displayName is cosmetic, so a
+        // failure here shouldn't fail the whole registration. Retry once so a
+        // transient failure doesn't leave the name unpersisted server-side,
+        // and surface it if it still doesn't stick so it isn't silently lost.
+        val profileSynced = runCatching {
+            user.updateProfile(userProfileChangeRequest { displayName = name }).await()
+        }.isSuccess
+        if (!profileSynced) {
+            val retrySynced = runCatching {
+                user.updateProfile(userProfileChangeRequest { displayName = name }).await()
+            }.isSuccess
+            if (!retrySynced) {
+                Log.w(
+                    "AuthRepositoryImpl",
+                    "Display name for ${user.uid} was not persisted to Firebase after registration."
+                )
+            }
         }
 
         UserDomainModel(user.uid, name, email)
@@ -49,8 +59,12 @@ class AuthRepositoryImpl(
         runCatching {
             val authResult = firebaseAuth.signInWithEmailAndPassword(email, password).await()
             val user = authResult.user ?: throw Exception("Auth login failed.")
-            val snapshot = sessionDataStore.data.first()
-            val resolvedName = user.displayName ?: snapshot[SessionKeys.USERNAME] ?: "Username"
+            // The local cache lookup is a best-effort fallback only; a DataStore
+            // read failure here must not fail an otherwise-successful login.
+            val snapshot = runCatching { sessionDataStore.data.first() }.getOrNull()
+            val cachedUsername = snapshot?.get(SessionKeys.USERNAME)
+                ?.takeIf { snapshot[SessionKeys.USER_ID] == user.uid }
+            val resolvedName = user.displayName ?: cachedUsername ?: "Username"
             UserDomainModel(id = user.uid, name = resolvedName, email = user.email ?: email)
         }
 

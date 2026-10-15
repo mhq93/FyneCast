@@ -5,16 +5,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -28,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -76,14 +74,6 @@ fun WeatherHeroCard(
                         .weight(1f)
                         .padding(end = 12.dp)
                 ) {
-//                    Text(
-//                        text = city,
-//                        color = MaterialTheme.colorScheme.onPrimary,
-//                        style = MaterialTheme.typography.headlineMedium,
-//                        fontWeight = FontWeight.Black,
-//                        overflow = TextOverflow.Ellipsis,
-//                        maxLines = 1
-//                    )
                     Text(
                         text = timestamp,
                         color = MaterialTheme.colorScheme.onBackground.copy(
@@ -109,15 +99,6 @@ fun WeatherHeroCard(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-//                AsyncImage(
-//                    model = "https:$icon",
-//                    contentDescription = description,
-//                    contentScale = ContentScale.Fit,
-//                    modifier = Modifier
-//                        .size(96.dp)
-//                        .offset(x = (-12).dp)
-//                )
-
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
@@ -131,23 +112,28 @@ fun WeatherHeroCard(
                         overflow = TextOverflow.Ellipsis,
                         maxLines = 1
                     )
-                    Text(
-                        text = temperature,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        fontSize = 56.sp,
-                        fontWeight = FontWeight.Thin,
-                        lineHeight = 56.sp
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        AsyncImage(
+                            model = "https:$icon",
+                            contentDescription = description,
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier.size(72.dp)
+                        )
+                        Text(
+                            text = temperature,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 56.sp,
+                            fontWeight = FontWeight.Thin,
+                            lineHeight = 56.sp
+                        )
+                    }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-//                        Box(
-//                            modifier = Modifier
-//                                .size(6.dp)
-//                                .clip(CircleShape)
-//                                .background(MaterialTheme.colorScheme.onBackground)
-//                        )
                         Text(
                             text = description.uppercase(),
                             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
@@ -197,12 +183,11 @@ fun WeatherHeroCard(
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = "$alertsNumber ${
-                            stringResource(
-                                R.string.active_weather_warnings,
-                                alertsNumber
-                            )
-                        }",
+                        text = pluralStringResource(
+                            R.plurals.active_weather_warnings,
+                            alertsNumber,
+                            alertsNumber
+                        ),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Black,

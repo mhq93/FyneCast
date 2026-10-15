@@ -91,7 +91,9 @@ fun AuthFormLogin(
                 IconButton(onClick = onTogglePasswordVisibility) {
                     Icon(
                         imageVector = image,
-                        contentDescription = null,
+                        contentDescription = stringResource(
+                            if (isPasswordVisible) R.string.hide_password else R.string.show_password
+                        ),
                         tint = AbyssalVoid
                     )
                 }

@@ -8,8 +8,8 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mhq.fynecast.auth.data.usecases.auth.AuthenticateWithSocialProviderUseCase
 import com.mhq.fynecast.auth.domain.models.ValidationResult
-import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialProviderUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.LoginWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
 import com.mhq.fynecast.core.di.FyneCastApplication
@@ -29,7 +29,8 @@ class LoginViewModel(
 ) : ViewModel() {
 
     private val _loginUiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
-    private val _uiEventChannel = Channel<String>()
+    val loginUiState = _loginUiState.asStateFlow()
+    private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
     val uiEvent = _uiEventChannel.receiveAsFlow()
 
     private val _email = MutableStateFlow("")

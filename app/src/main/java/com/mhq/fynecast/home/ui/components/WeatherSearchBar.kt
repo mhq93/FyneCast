@@ -127,7 +127,7 @@ fun WeatherSearchBar(
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
                 onSearch = {
-                    if (suggestions.isNotEmpty()) {
+                    if (isListVisible) {
                         onSuggestionClick(suggestions[0])
                         searchQuery = suggestions[0].fullName
                         showSuggestions = false

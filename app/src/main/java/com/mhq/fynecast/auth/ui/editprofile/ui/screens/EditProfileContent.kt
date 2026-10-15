@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -49,10 +48,10 @@ fun EditProfileContent(
     modifier: Modifier = Modifier
 ) {
 
-    val focusRequester = remember { FocusRequester() }
+    val usernameFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+        usernameFocusRequester.requestFocus()
     }
 
     Box(
@@ -86,7 +85,7 @@ fun EditProfileContent(
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onBackground,
                     fontWeight = FontWeight.Bold
-                    )
+                )
                 Spacer(modifier = Modifier.size(48.dp))
             }
             EditProfileHeader(
@@ -101,6 +100,7 @@ fun EditProfileContent(
                 isEmailValid = isEmailValid,
                 onUsernameChanged = onUsernameChanged,
                 onUserEmailChanged = onUserEmailChanged,
+                usernameFocusRequester = usernameFocusRequester,
             )
             AuthActionButton(
                 text = stringResource(R.string.save_changes),

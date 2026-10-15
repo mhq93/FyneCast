@@ -7,12 +7,6 @@ data class UserPreferences(
     val isDarkMode: Boolean,
     val lastSearchedCityName: String? = null,
     val lastSearchedCityLat: Double? = null,
-    val lastSearchedCityLon: Double? = null
+    val lastSearchedCityLon: Double? = null,
+    val notificationPromptShown: Boolean = false
 )
-
-//data class UserPreferences(
-//    val isMetric: Boolean,
-//    val isDarkMode: Boolean,
-//    val notificationsEnabled: Boolean,
-//    val currentLanguage: String
-//)

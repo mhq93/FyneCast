@@ -19,6 +19,5 @@ interface LocationApiService {
         @Query("lon") lon: Double,
         @Query("lang") lang: String,
         @Query("limit") limit: Int = 10
-        //@Query("osm_tag") tag: String = "place"
     ): PhotonResponseDto
 }

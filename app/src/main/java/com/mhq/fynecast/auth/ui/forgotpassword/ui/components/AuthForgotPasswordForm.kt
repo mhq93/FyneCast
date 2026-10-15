@@ -36,11 +36,11 @@ fun AuthForgotPasswordForm(
     email: String,
     isEmailValid: Boolean,
     onEmailChanged: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester = remember { FocusRequester() }
 ) {
 
     val focusManager = LocalFocusManager.current
-    val focusRequester = remember { FocusRequester() }
 
     GlassyCard(
         modifier = modifier.padding(horizontal = 36.dp)

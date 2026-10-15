@@ -11,6 +11,7 @@ data class WeatherDomainModel(
     val currentTempF: Double,
     val conditionText: String,
     val conditionIcon: String,
+    val lastUpdatedFormatted: String,
     val alerts: List<AlertDomainModel>,
     val stats: WeatherStatsDomainModel,
     val dailyForecasts: List<DailyForecastDomainModel>,

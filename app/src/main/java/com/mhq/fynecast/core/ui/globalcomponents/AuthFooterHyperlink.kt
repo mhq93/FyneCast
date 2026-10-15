@@ -5,8 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +29,7 @@ fun AuthFooterHyperlink(
 ) {
     Row(
         horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.padding(
             start = 36.dp,
             top = 24.dp,
@@ -45,7 +48,11 @@ fun AuthFooterHyperlink(
             color = MaterialTheme.colorScheme.onSurface,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 4.dp).clickable { onDoAction() }
+            modifier = Modifier
+                .padding(start = 4.dp)
+                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                .wrapContentHeight(Alignment.CenterVertically)
+                .clickable { onDoAction() }
         )
     }
 }

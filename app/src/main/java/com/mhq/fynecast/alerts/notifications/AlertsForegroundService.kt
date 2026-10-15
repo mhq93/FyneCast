@@ -8,7 +8,7 @@ import android.os.IBinder
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import com.mhq.fynecast.alerts.notifications.data.infra.AlertsNotificationManager
+import com.mhq.fynecast.alerts.notifications.ui.AlertsNotificationManager
 import com.mhq.fynecast.core.di.FyneCastApplication
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -24,6 +24,7 @@ class AlertsForegroundService : LifecycleService() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
         postSummary()
 
         lifecycleScope.launch {
@@ -42,7 +43,9 @@ class AlertsForegroundService : LifecycleService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
-        when (intent?.action) {
+        if (intent == null) return cleanStartCheck()
+
+        when (intent.action) {
             ACTION_START -> {
                 val alertId = intent.getStringExtra(KEY_ALERT_ID) ?: return cleanStartCheck()
                 val event = intent.getStringExtra(KEY_EVENT) ?: return cleanStartCheck()
@@ -68,32 +71,23 @@ class AlertsForegroundService : LifecycleService() {
                 }
             }
 
-            ACTION_CANCEL_ALL -> {
-                lifecycleScope.launch(Dispatchers.IO) {
-                    appContainer.alertsRepository.cancelAllTracking()
-                }
-            }
-
-            ACTION_STOP -> {
-                activeAlerts.clear()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+            ACTION_CANCEL_ALL -> lifecycleScope.launch(Dispatchers.IO) {
+                appContainer.cancelAllAlertTrackingUseCase()
             }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     private fun postSummary() {
         val notification = notificationManager.buildTrackingNotification(activeAlerts.values.toList())
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                FOREGROUND_NOTIFICATION_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-            )
-        } else {
-            startForeground(FOREGROUND_NOTIFICATION_ID, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(FOREGROUND_NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+            } else {
+                startForeground(FOREGROUND_NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            stopSelf()
         }
     }
 
@@ -110,7 +104,15 @@ class AlertsForegroundService : LifecycleService() {
         return null
     }
 
+    override fun onDestroy() {
+        isRunning = false; super.onDestroy()
+    }
+
     companion object {
+        @Volatile
+        var isRunning = false
+            private set
+
         const val ACTION_START = "com.mhq.fynecast.action.ALERT_START"
         const val ACTION_STOP = "com.mhq.fynecast.action.ALERT_STOP"
         const val ACTION_REMOVE_ALERT = "com.mhq.fynecast.action.ACTION_REMOVE_ALERT"
@@ -121,15 +123,28 @@ class AlertsForegroundService : LifecycleService() {
         const val FOREGROUND_NOTIFICATION_ID = 1001
 
         fun removeAlert(context: Context, alertId: String) {
-            val intent = Intent(context, AlertsForegroundService::class.java).apply {
+            if (!isRunning) return
+
+            val intent = Intent(
+                context,
+                AlertsForegroundService::class.java
+            ).apply {
                 action = ACTION_REMOVE_ALERT
                 putExtra(KEY_ALERT_ID, alertId)
             }
-            context.startService(intent)
+            ContextCompat.startForegroundService(context, intent)
         }
 
-        fun start(context: Context, alertId: String, event: String, headline: String) {
-            val intent = Intent(context, AlertsForegroundService::class.java).apply {
+        fun start(
+            context: Context,
+            alertId: String,
+            event: String,
+            headline: String
+        ) {
+            val intent = Intent(
+                context,
+                AlertsForegroundService::class.java
+            ).apply {
                 action = ACTION_START
                 putExtra(KEY_ALERT_ID, alertId)
                 putExtra(KEY_EVENT, event)
@@ -139,7 +154,10 @@ class AlertsForegroundService : LifecycleService() {
         }
 
         fun stop(context: Context) {
-            val intent = Intent(context, AlertsForegroundService::class.java).apply {
+            val intent = Intent(
+                context,
+                AlertsForegroundService::class.java
+            ).apply {
                 action = ACTION_STOP
             }
             context.stopService(intent)

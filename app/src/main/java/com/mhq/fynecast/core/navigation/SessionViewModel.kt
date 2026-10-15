@@ -21,7 +21,7 @@ class SessionViewModel(
             initializer {
                 val app = (this[APPLICATION_KEY] as FyneCastApplication)
                 SessionViewModel(
-                    checkUserLoggedIn = CheckUserLoggedInUseCase(app.container.authRepository)
+                    checkUserLoggedIn = app.container.checkUserLoggedInUseCase
                 )
             }
         }

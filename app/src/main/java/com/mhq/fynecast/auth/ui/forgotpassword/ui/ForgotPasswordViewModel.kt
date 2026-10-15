@@ -8,9 +8,9 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.auth.domain.usecases.auth.SendPasswordResetUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
-import com.mhq.fynecast.auth.ui.signup.ui.SignupUiState
 import com.mhq.fynecast.core.di.FyneCastApplication
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,7 +25,7 @@ class ForgotPasswordViewModel(
 ) : ViewModel() {
 
     private val _forgotPasswordUiState = MutableStateFlow<ForgotPasswordUiState>(ForgotPasswordUiState.Idle)
-    private val _uiEventChannel = Channel<String>()
+    private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
     val uiEvent = _uiEventChannel.receiveAsFlow()
 
     private val _email = MutableStateFlow("")
@@ -48,6 +48,7 @@ class ForgotPasswordViewModel(
                 .onSuccess {
                     _forgotPasswordUiState.value = ForgotPasswordUiState.Success
                     _uiEventChannel.send("Reset link successfully sent to ${_email.value}")
+                    delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS)
                     onSuccess()
                 }
                 .onFailure { error ->
@@ -59,6 +60,8 @@ class ForgotPasswordViewModel(
     }
 
     companion object {
+        private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
+
         val factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val app = (this[APPLICATION_KEY] as FyneCastApplication)

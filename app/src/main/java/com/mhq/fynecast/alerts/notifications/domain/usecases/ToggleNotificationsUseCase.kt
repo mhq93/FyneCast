@@ -1,11 +1,13 @@
 package com.mhq.fynecast.alerts.notifications.domain.usecases
 
+import com.mhq.fynecast.alerts.domain.usecases.CancelAllAlertTrackingUseCase
 import com.mhq.fynecast.alerts.notifications.domain.infra.NotificationPermissionChecker
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
 
 class ToggleNotificationsUseCase(
-    private val updatePreference: UpdatePreferenceUseCase,
-    private val permissionChecker: NotificationPermissionChecker
+    private val updatePreferenceUseCase: UpdatePreferenceUseCase,
+    private val notificationPermissionChecker: NotificationPermissionChecker,
+    private val cancelAllAlertTrackingUseCase: CancelAllAlertTrackingUseCase
 ) {
     sealed interface Result {
         data object Enabled : Result
@@ -15,12 +17,15 @@ class ToggleNotificationsUseCase(
 
     suspend operator fun invoke(wantsEnabled: Boolean): Result {
         if (!wantsEnabled) {
-            updatePreference.notifications(false)
+            // Tear tracking down first. If this fails, the preference stays "enabled",
+            // so the UI never claims notifications are off while workers still run.
+            cancelAllAlertTrackingUseCase()
+            updatePreferenceUseCase.notifications(false)
             return Result.Disabled
         }
 
-        return if (permissionChecker.isGranted()) {
-            updatePreference.notifications(true)
+        return if (notificationPermissionChecker.isGranted()) {
+            updatePreferenceUseCase.notifications(true)
             Result.Enabled
         } else {
             Result.PermissionRequired

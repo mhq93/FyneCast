@@ -12,11 +12,14 @@ import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.home.domain.models.WeatherStatsDomainModel
+import java.text.NumberFormat
 
 @Composable
 fun WeatherStatsGrid(
@@ -24,6 +27,11 @@ fun WeatherStatsGrid(
     isMetric: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val locale = LocalConfiguration.current.locales[0]
+    val numberFormat = remember(locale) {
+        NumberFormat.getInstance(locale).apply { maximumFractionDigits = 1 }
+    }
+
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = modifier
@@ -38,7 +46,7 @@ fun WeatherStatsGrid(
                 WeatherStatChip(
                     chipIcon = Icons.Default.WaterDrop,
                     chipHeader = stringResource(R.string.humidity),
-                    chipBody = stats.humidity.toString(),
+                    chipBody = numberFormat.format(stats.humidity.toDouble()),
                     chipSubtitle = stringResource(R.string.percent)
                 )
             }
@@ -46,7 +54,7 @@ fun WeatherStatsGrid(
                 WeatherStatChip(
                     chipIcon = Icons.Default.Air,
                     chipHeader = stringResource(R.string.wind_speed),
-                    chipBody = (if (isMetric) stats.windKph else stats.windMph).toString(),
+                    chipBody = numberFormat.format(if (isMetric) stats.windKph else stats.windMph),
                     chipSubtitle = if (isMetric) stringResource(R.string.kph) else stringResource(R.string.mph)
                 )
             }
@@ -60,7 +68,7 @@ fun WeatherStatsGrid(
                 WeatherStatChip(
                     chipIcon = Icons.Default.Compress,
                     chipHeader = stringResource(R.string.pressure),
-                    chipBody = (if (isMetric) stats.pressureMb else stats.pressureIn).toString(),
+                    chipBody = numberFormat.format(if (isMetric) stats.pressureMb else stats.pressureIn),
                     chipSubtitle = if (isMetric) stringResource(R.string.millibars) else stringResource(R.string.inches)
                 )
             }
@@ -68,7 +76,7 @@ fun WeatherStatsGrid(
                 WeatherStatChip(
                     chipIcon = Icons.Default.WbSunny,
                     chipHeader = stringResource(R.string.uv_index),
-                    chipBody = stats.uvIndex.toString(),
+                    chipBody = numberFormat.format(stats.uvIndex),
                     chipSubtitle = stringResource(R.string.unit)
                 )
             }

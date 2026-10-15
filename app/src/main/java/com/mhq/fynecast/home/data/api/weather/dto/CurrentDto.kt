@@ -30,5 +30,7 @@ data class CurrentDto(
     @SerialName("feelslike_f")
     val feelsLikeF: Double,
     @SerialName("uv")
-    val uv: Double
+    val uv: Double,
+    @SerialName("last_updated")
+    val lastUpdated: String
 )

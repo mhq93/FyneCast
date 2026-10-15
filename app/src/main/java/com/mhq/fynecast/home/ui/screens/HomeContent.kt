@@ -60,7 +60,7 @@ fun HomeContent(
             WeatherHeroCard(
                 icon = weatherDomainModel.conditionIcon,
                 city = selectedCityName.substringBefore(","),
-                timestamp = "",
+                timestamp = weatherDomainModel.lastUpdatedFormatted,
                 description = weatherDomainModel.conditionText,
                 temperature = if (isMetric) "${weatherDomainModel.currentTempC}°" else "${weatherDomainModel.currentTempF}°",
                 isFavorite = isFavorite,

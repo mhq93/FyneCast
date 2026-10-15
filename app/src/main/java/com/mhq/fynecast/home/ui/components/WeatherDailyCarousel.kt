@@ -39,12 +39,6 @@ fun WeatherDailyCarousel(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.padding(bottom = 8.dp)
             ) {
-//                Icon(
-//                    imageVector = Icons.Filled.CalendarToday,
-//                    contentDescription = stringResource(R.string.daily_forecast),
-//                    tint = MaterialTheme.colorScheme.onBackground,
-//                    modifier = Modifier.padding(end = 4.dp)
-//                )
                 Text(
                     text = stringResource(R.string.daily_forecast),
                     style = MaterialTheme.typography.headlineSmall,

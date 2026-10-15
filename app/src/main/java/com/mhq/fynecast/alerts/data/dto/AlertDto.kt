@@ -1,9 +1,7 @@
 package com.mhq.fynecast.alerts.data.dto
 
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import java.time.OffsetDateTime
 
 @Serializable
 data class AlertDto(
@@ -20,5 +18,7 @@ data class AlertDto(
     @SerialName("desc")
     val description: String,
     @SerialName("instruction")
-    val instruction: String = ""
+    val instruction: String = "",
+    @SerialName("areas")
+    val areas: String = ""
 )

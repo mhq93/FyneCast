@@ -1,7 +1,6 @@
-package com.mhq.fynecast.auth.domain.repository.auth
+package com.mhq.fynecast.auth.data.repository.auth
 
 import android.content.Context
-import android.content.Intent
 import androidx.activity.ComponentActivity
 
 interface SocialAuthCredentialProvider {

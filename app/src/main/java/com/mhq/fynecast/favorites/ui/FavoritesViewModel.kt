@@ -14,32 +14,34 @@ import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.domain.models.stableKey
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
 
 class FavoritesViewModel(
     private val getFavoritesUseCase: GetFavoritesUseCase,
     private val deleteFavoriteUseCase: DeleteFavoriteUseCase,
 ) : ViewModel() {
 
-    private data class PendingDeletion(val key: String, val job: Job)
-    private val pendingDeletion = MutableStateFlow<PendingDeletion?>(null)
+    private val pendingDeletion = MutableStateFlow<FavoriteCityDomainModel?>(null)
+
+    private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
+    val uiEvent = _uiEventChannel.receiveAsFlow()
 
     val favoritesPageFlow: Flow<PagingData<FavoriteCityDomainModel>> =
         pendingDeletion
             .flatMapLatest { pending ->
                 getFavoritesUseCase().map { pagingData ->
                     if (pending == null) pagingData
-                    else pagingData.filter { it.stableKey != pending.key }
+                    else pagingData.filter { it.stableKey != pending.stableKey }
                 }
             }
             .cachedIn(viewModelScope)
@@ -53,28 +55,32 @@ class FavoritesViewModel(
                 false
             )
 
-    fun deleteFavorite(city: FavoriteCityDomainModel) {
+    fun markPendingDeletion(city: FavoriteCityDomainModel) {
         if (pendingDeletion.value != null) return
+        pendingDeletion.value = city
+    }
 
-        val key = city.stableKey
-        val job = viewModelScope.launch {
-            delay(UNDO_GRACE_PERIOD_MS.milliseconds)
-            runCatching {
+    /** Called once the undo window has genuinely closed (snackbar dismissed/timed out). */
+    fun confirmDelete() {
+        val city = pendingDeletion.value ?: return
+        viewModelScope.launch {
+            try {
                 deleteFavoriteUseCase(cityName = city.cityName, countryName = city.countryName)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiEventChannel.send("Couldn't remove ${city.cityName}. Please try again.")
+            } finally {
+                pendingDeletion.value = null
             }
-            pendingDeletion.value = null
         }
-        pendingDeletion.value = PendingDeletion(key, job)
     }
 
     fun undoDelete() {
-        pendingDeletion.value?.job?.cancel()
         pendingDeletion.value = null
     }
 
     companion object {
-        private const val UNDO_GRACE_PERIOD_MS = 4_000L
-
         val factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val app = (this[APPLICATION_KEY] as FyneCastApplication)

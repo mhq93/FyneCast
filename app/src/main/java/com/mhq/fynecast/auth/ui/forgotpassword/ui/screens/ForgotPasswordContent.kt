@@ -53,6 +53,7 @@ fun ForgotPasswordContent(
             email = email,
             isEmailValid = isEmailValid,
             onEmailChanged = onEmailChanged,
+            focusRequester = focusRequester,
         )
         AuthActionButton(
             text = stringResource(R.string.send_link),

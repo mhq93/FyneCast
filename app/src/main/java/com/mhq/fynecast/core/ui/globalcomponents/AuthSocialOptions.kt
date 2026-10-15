@@ -24,7 +24,7 @@ fun AuthSocialOptions(
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(top = 24.dp)
+        modifier = modifier.padding(top = 24.dp)
     ){
         Text(
             text = stringResource(R.string.or_with),
@@ -37,13 +37,13 @@ fun AuthSocialOptions(
                 iconRes = R.drawable.ic_google_primary_light,
                 contentDescription = stringResource(R.string.google_login),
                 onClick = { onGoogleAuthenticate() },
-                modifier = modifier.padding(end = 8.dp)
+                modifier = Modifier.padding(end = 8.dp)
             )
             AuthSocialMediaButton(
                 iconRes = R.drawable.ic_facebook_primary_light,
                 contentDescription = stringResource(R.string.facebook_login),
                 onClick = { onFacebookAuthenticate() },
-                modifier = modifier.padding(start = 8.dp)
+                modifier = Modifier.padding(start = 8.dp)
             )
         }
     }

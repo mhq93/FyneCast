@@ -7,6 +7,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,8 +22,11 @@ class MapPickerViewModel(
     private val _uiState = MutableStateFlow(MapPickerUiState())
     val uiState: StateFlow<MapPickerUiState> = _uiState.asStateFlow()
 
+    private var geocodeJob: Job? = null
+
     fun onMapClicked(latitude: Double, longitude: Double, langCode: String) {
-        viewModelScope.launch {
+        geocodeJob?.cancel()
+        geocodeJob = viewModelScope.launch {
             _uiState.update { it.copy(isSearching = true, selectedLocation = null, errorMessage = null) }
             try {
                 val resolvedLocation = reverseGeocodeLocationUseCase(latitude, longitude, langCode)
@@ -32,13 +37,14 @@ class MapPickerViewModel(
                         it.copy(errorMessage = "No location data found here. Please pick a more specific location.")
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(errorMessage = "Couldn't resolve this location. Please try again.")
                 }
-            } finally {
-                _uiState.update { it.copy(isSearching = false) }
             }
+            _uiState.update { it.copy(isSearching = false) }
         }
     }
 

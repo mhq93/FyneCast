@@ -1,5 +1,6 @@
 package com.mhq.fynecast.home.ui
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
@@ -10,12 +11,13 @@ import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
 import com.mhq.fynecast.home.domain.models.GeoCoordinates
-import com.mhq.fynecast.home.domain.usecases.FetchWeatherDataUseCase
 import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
+import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import com.mhq.fynecast.util.CityNameParser
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +30,7 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
 class HomeViewModel(
-    private val fetchWeatherDataUseCase: FetchWeatherDataUseCase,
+    private val loadCurrentWeatherUseCase: LoadCurrentWeatherUseCase,
     private val getLocationSuggestionsUseCase: GetLocationSuggestionsUseCase,
     private val getCurrentLocationUseCase: GetCurrentLocationUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
@@ -82,7 +84,7 @@ class HomeViewModel(
                     queryCity
                 }
 
-                val domainWeather = fetchWeatherDataUseCase(finalQuery, langCode)
+                val domainWeather = loadCurrentWeatherUseCase(finalQuery, langCode)
 
                 val displayCityName = if (queryCity == null) {
                     "${domainWeather.cityName}, ${domainWeather.country}"
@@ -119,9 +121,10 @@ class HomeViewModel(
 
             lastRefreshTime = currentTime
             try {
-                val domainWeather = fetchWeatherDataUseCase(currentCity, langCode)
+                val domainWeather = loadCurrentWeatherUseCase(currentCity, langCode)
                 _state.update { it.copy(uiState = HomeUiState.Success(domainWeather)) }
             } catch (e: Exception) {
+                Log.e(TAG, "Failed to refresh weather for $currentCity", e)
             }
         }
     }
@@ -158,16 +161,16 @@ class HomeViewModel(
         val weatherSuccess = currentState.uiState as? HomeUiState.Success ?: return
 
         viewModelScope.launch {
-            // Same name/country split InsertFavoriteUseCase used to do internally —
-            // kept here since toggleFavoriteUseCase needs the fields separately, not a combined string.
-            val parts = currentState.selectedCityName.split(",")
-            val cleanCityName = parts.firstOrNull()?.trim() ?: weatherSuccess.weather.cityName
-            val cleanCountryName = parts.getOrNull(1)?.trim() ?: weatherSuccess.weather.country
+            val parsed = CityNameParser.parse(
+                fullName = currentState.selectedCityName,
+                fallbackCityName = weatherSuccess.weather.cityName,
+                fallbackCountryName = weatherSuccess.weather.country
+            )
 
             toggleFavoriteUseCase(
                 FavoriteCityDomainModel(
-                    cityName = cleanCityName,
-                    countryName = cleanCountryName,
+                    cityName = parsed.cityName,
+                    countryName = parsed.countryName,
                     latitude = weatherSuccess.weather.latitude,
                     longitude = weatherSuccess.weather.longitude,
                     temperatureC = weatherSuccess.weather.currentTempC,
@@ -188,11 +191,13 @@ class HomeViewModel(
     }
 
     companion object {
+        private const val TAG = "HomeViewModel"
+
         val factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as FyneCastApplication
                 HomeViewModel(
-                    fetchWeatherDataUseCase = app.container.fetchWeatherDataUseCase,
+                    loadCurrentWeatherUseCase = app.container.loadCurrentWeatherUseCase,
                     getLocationSuggestionsUseCase = app.container.getLocationSuggestionsUseCase,
                     getCurrentLocationUseCase = app.container.getCurrentLocationUseCase,
                     toggleFavoriteUseCase = app.container.toggleFavoriteUseCase,

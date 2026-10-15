@@ -1,6 +1,7 @@
 package com.mhq.fynecast.alerts.notifications
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -9,81 +10,120 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.mhq.fynecast.alerts.domain.usecases.CheckAlertConditionsUseCase
-import com.mhq.fynecast.alerts.notifications.data.infra.AlertsNotificationManager
+import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.alerts.notifications.ui.AlertsNotificationManager
 import com.mhq.fynecast.core.di.FyneCastApplication
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
-class WeatherRefreshWorker(
-    context: Context,
-    workerParams: WorkerParameters
-) : CoroutineWorker(context, workerParams) {
+class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
+    CoroutineWorker(context, params) {
 
-    private val appContainer = (context.applicationContext as FyneCastApplication).container
-    private val notificationManager = AlertsNotificationManager(context)
-    private val checkAlertConditionsUseCase =
-        CheckAlertConditionsUseCase(appContainer.alertsRepository)
+    private val container =
+        (context.applicationContext as FyneCastApplication).container
+
+    private val alertsNotificationManager =
+        AlertsNotificationManager(context)
 
     companion object {
-        const val KEY_CITY = "city"
-        const val KEY_LANG = "lang"
-        const val WORK_NAME = "weather_refresh_work"
+        private const val TAG = "WeatherRefreshWorker"
+        const val KEY_NAME = "name"
+        const val KEY_LAT = "lat"
+        const val KEY_LON = "lon"
 
-        fun schedule(context: Context, city: String, lang: String) {
-            val inputData = workDataOf(
-                KEY_CITY to city,
-                KEY_LANG to lang
-            )
+        private fun workName(trackedLocation: TrackedLocation) =
+            "weather_refresh_${trackedLocation.trackedLocationQuery}"
 
+        fun schedule(context: Context, trackedLocation: TrackedLocation) {
             val request = PeriodicWorkRequestBuilder<WeatherRefreshWorker>(
-                15, TimeUnit.MINUTES
+                15,
+                TimeUnit.MINUTES
             )
-                .setInputData(inputData)
+                .setInitialDelay(15, TimeUnit.MINUTES)
+                .setInputData(
+                    workDataOf(
+                        KEY_NAME to trackedLocation.trackedLocationName,
+                        KEY_LAT to trackedLocation.trackedLocationLatitude,
+                        KEY_LON to trackedLocation.trackedLocationLongitude
+                    )
+                )
                 .setConstraints(
-                    Constraints.Builder()
+                    Constraints
+                        .Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
                         .build()
                 )
                 .build()
 
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
-                request
-            )
+            WorkManager.getInstance(context)
+                .enqueueUniquePeriodicWork(
+                    workName(trackedLocation),
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    request
+                )
         }
 
-        fun cancel(context: Context) {
-            WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+        fun cancel(context: Context, trackedLocation: TrackedLocation) {
+            WorkManager
+                .getInstance(context)
+                .cancelUniqueWork(
+                    workName(
+                        trackedLocation
+                    )
+                )
         }
     }
 
     override suspend fun doWork(): Result {
-        val city = inputData.getString(KEY_CITY) ?: return Result.failure()
-        val lang = inputData.getString(KEY_LANG) ?: return Result.failure()
+        val lat = inputData.getDouble(KEY_LAT, Double.NaN)
+        val lon = inputData.getDouble(KEY_LON, Double.NaN)
+        val name = inputData.getString(KEY_NAME)
+
+        if (name == null || lat.isNaN() || lon.isNaN())
+            return Result.failure()
+
+        val location = TrackedLocation(
+            name,
+            lat,
+            lon
+        )
 
         return try {
-            val freshResponse = appContainer.weatherRepository.provideWeatherData(city, lang)
-            val activeAlerts = freshResponse.alerts
-            val clearedAlerts = checkAlertConditionsUseCase(activeAlerts = activeAlerts)
+            val lang = if (container.observeUserPreferencesUseCase()
+                    .first().currentLanguage == "Arabic"
+            ) "ar" else "en"
 
-            if (clearedAlerts.isEmpty()) {
-                return Result.success()
-            }
+            val snapshot = container.getWeatherUseCase(location.trackedLocationQuery, lang)
+            val cleared = container.checkAlertConditionsUseCase(location, snapshot)
 
-            notificationManager.showAlarmNotification(clearedAlerts = clearedAlerts)
+            Log.d(
+                TAG,
+                "check ${location.trackedLocationQuery}: " +
+                        "fetched=${snapshot.cityName} " +
+                        "(${snapshot.latitude},${snapshot.longitude}) " +
+                        "active=${snapshot.alerts.size} " +
+                        "cleared=${cleared.size}"
+            )
+            if (cleared.isEmpty()) return Result.success()
 
-            clearedAlerts.forEach { alert ->
-                appContainer.alertsRepository.cancelTracking(alert.id, cancelWorker = false)
-                AlertsForegroundService.removeAlert(applicationContext, alert.id)
-            }
-
-            val remainingTracked = appContainer.alertsRepository.getTrackedAlertsDirectly()
-            if (remainingTracked.isEmpty()) {
-                AlertsForegroundService.stop(applicationContext)
-            }
+            alertsNotificationManager.showAlarmNotification(
+                clearedAlerts = cleared,
+                notificationId =
+                    cleared
+                        .map { it.id }
+                        .sorted()
+                        .joinToString(",")
+                        .hashCode()
+            )
+            cleared
+                .forEach {
+                    container.untrackAlertUseCase(it.id)
+                }
 
             Result.success()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Result.retry()
         }

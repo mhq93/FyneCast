@@ -1,8 +1,6 @@
 package com.mhq.fynecast.auth.data.repoimpl.auth
 
 import android.content.Context
-import android.content.Intent
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
@@ -13,7 +11,7 @@ import com.facebook.login.LoginManager
 import com.facebook.login.LoginResult
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.mhq.fynecast.auth.domain.repository.auth.SocialAuthCredentialProvider
+import com.mhq.fynecast.auth.data.repository.auth.SocialAuthCredentialProvider
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -56,6 +54,10 @@ class SocialAuthCredentialProviderImpl(
                     continuation.resumeWithException(error)
                 }
             })
+
+            continuation.invokeOnCancellation {
+                loginManager.unregisterCallback(callbackManager)
+            }
 
             loginManager.logInWithReadPermissions(
                 activity,

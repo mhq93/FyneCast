@@ -74,8 +74,11 @@ fun FyneCastApp(
             BottomNavigationItem.Settings.route
         )
 
-        val shouldShowBar = currentRoute in rootRoutes ||
-                (currentRoute == BottomNavigationItem.Home.route && homeUiState is HomeUiState.Success)
+        val shouldShowBar = if (currentRoute == BottomNavigationItem.Home.route) {
+            homeUiState is HomeUiState.Success
+        } else {
+            currentRoute in rootRoutes
+        }
 
         val bottomContentPadding = if (shouldShowBar) {
             PaddingValues(bottom = 120.dp)
@@ -198,7 +201,7 @@ fun FyneCastApp(
                             favoritesViewModel = favoritesViewModel,
                             onCityRowSelected = { favoriteCity ->
                                 homeViewModel.onCitySelected(
-                                    suggestionName = favoriteCity.cityName,
+                                    suggestionName = "${favoriteCity.cityName}, ${favoriteCity.countryName}",
                                     lat = favoriteCity.latitude,
                                     lon = favoriteCity.longitude,
                                     langCode = appLangCode
@@ -243,7 +246,7 @@ fun FyneCastApp(
                             viewModel(factory = MapPickerViewModel.factory)
 
                         MapPickerScreen(
-                            viewModel = mapPickerViewModel,
+                            mapPickerViewModel = mapPickerViewModel,
                             langCode = mapLangCode,
                             onLocationPicked = { location ->
                                 homeViewModel.onCitySelected(
@@ -287,6 +290,6 @@ fun FyneCastApp(
 
 @Preview(showBackground = true)
 @Composable
-fun FyneCastPreview() {
+fun FyneCastAppPreview() {
     FyneCastTheme {}
 }

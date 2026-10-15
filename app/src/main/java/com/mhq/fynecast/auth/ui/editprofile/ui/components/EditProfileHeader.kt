@@ -49,7 +49,7 @@ fun EditProfileHeader(
     }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .padding(top = 24.dp, bottom = 36.dp)
             .size(100.dp),
         contentAlignment = Alignment.BottomEnd
@@ -70,10 +70,7 @@ fun EditProfileHeader(
         )
         Box(
             modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(AbyssalVoid)
-                .border(1.dp, ElectricLimeGreen, CircleShape)
+                .size(48.dp)
                 .clickable {
                     photoPickerLauncher.launch(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -81,12 +78,21 @@ fun EditProfileHeader(
                 },
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.CameraAlt,
-                contentDescription = stringResource(R.string.change_photo),
-                tint = ElectricLimeGreen,
-                modifier = Modifier.size(16.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(AbyssalVoid)
+                    .border(1.dp, ElectricLimeGreen, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.CameraAlt,
+                    contentDescription = stringResource(R.string.change_photo),
+                    tint = ElectricLimeGreen,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }

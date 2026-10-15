@@ -21,13 +21,11 @@ class ImageStorageManager(private val context: Context) {
             if (uriString.isNullOrBlank()) return@withContext null
             val sourceUri = uriString.toUri()
 
-            if (sourceUri.scheme == "file" && sourceUri.path?.contains(context.filesDir.path) == true) {
+            if (sourceUri.scheme == "file" && isWithinFilesDir(sourceUri.path)) {
                 return@withContext uriString
             }
 
             try {
-                clearOldProfileImages()
-
                 val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 context.contentResolver.openInputStream(sourceUri).use { stream ->
                     BitmapFactory.decodeStream(stream, null, options)
@@ -35,12 +33,11 @@ class ImageStorageManager(private val context: Context) {
 
                 val maxDimension = 1080
                 var inSampleSize = 1
-                if (options.outHeight > maxDimension || options.outWidth > maxDimension) {
-                    val halfHeight = options.outHeight / 2
-                    val halfWidth = options.outWidth / 2
-                    while ((halfHeight / inSampleSize) >= maxDimension && (halfWidth / inSampleSize) >= maxDimension) {
-                        inSampleSize *= 2
-                    }
+                while (
+                    options.outHeight / inSampleSize > maxDimension ||
+                    options.outWidth / inSampleSize > maxDimension
+                ) {
+                    inSampleSize *= 2
                 }
 
                 val decodeOptions = BitmapFactory.Options().apply {
@@ -59,7 +56,7 @@ class ImageStorageManager(private val context: Context) {
                 val uniqueFileName = "profile_${UUID.randomUUID()}.webp"
                 val destinationFile = File(profilePicturesDir, uniqueFileName)
 
-                FileOutputStream(destinationFile).use { outStream ->
+                val compressed = FileOutputStream(destinationFile).use { outStream ->
                     correctedBitmap.compress(Bitmap.CompressFormat.WEBP, 85, outStream)
                 }
 
@@ -67,6 +64,11 @@ class ImageStorageManager(private val context: Context) {
                     correctedBitmap.recycle()
                 }
                 sampledBitmap.recycle()
+
+                if (!compressed) {
+                    destinationFile.delete()
+                    return@withContext null
+                }
 
                 return@withContext Uri.fromFile(destinationFile).toString()
 
@@ -77,15 +79,39 @@ class ImageStorageManager(private val context: Context) {
         }
 
     /**
-     * Purges all previously generated files inside the profile_pics sandbox container directory.
+     * Deletes every sandboxed profile image except the one referenced by
+     * [keepUriString]. Call this only after the profile record has been
+     * durably saved with the new image's URI — deleting the old image any
+     * earlier risks leaving the profile pointing at a file that no longer
+     * exists if the save fails.
      */
-    private fun clearOldProfileImages() {
+    fun commitProfileImage(keepUriString: String) {
+        val keepFileName = keepUriString.toUri().path?.let { File(it).name }
+        clearOldProfileImages(excludeFileName = keepFileName)
+    }
+
+    /**
+     * Deletes a single sandboxed profile image by its file:// URI. Used to
+     * roll back a newly-created image when the profile update that was
+     * supposed to reference it fails, so it isn't left orphaned.
+     */
+    fun deleteProfileImage(uriString: String) {
+        runCatching {
+            uriString.toUri().path?.let { File(it).delete() }
+        }
+    }
+
+    /**
+     * Purges previously generated files inside the profile_pics sandbox container directory,
+     * keeping [excludeFileName] (the file that was just written) if provided.
+     */
+    private fun clearOldProfileImages(excludeFileName: String? = null) {
         try {
             val profilePicturesDir = File(context.filesDir, "profile_pics")
             if (profilePicturesDir.exists() && profilePicturesDir.isDirectory) {
                 val files = profilePicturesDir.listFiles()
                 files?.forEach { file ->
-                    if (file.isFile) {
+                    if (file.isFile && file.name != excludeFileName) {
                         file.delete()
                     }
                 }
@@ -93,6 +119,13 @@ class ImageStorageManager(private val context: Context) {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    private fun isWithinFilesDir(path: String?): Boolean {
+        if (path == null) return false
+        val canonicalFilesDir = File(context.filesDir.path).canonicalPath + File.separator
+        val canonicalTarget = runCatching { File(path).canonicalPath }.getOrNull() ?: return false
+        return canonicalTarget.startsWith(canonicalFilesDir)
     }
 
     private fun faceCorrectImageOrientation(uri: Uri, bitmap: Bitmap): Bitmap {

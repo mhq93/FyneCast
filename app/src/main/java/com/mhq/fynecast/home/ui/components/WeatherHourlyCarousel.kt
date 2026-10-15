@@ -41,12 +41,6 @@ fun WeatherHourlyCarousel(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.padding(bottom = 8.dp)
             ) {
-//                Icon(
-//                    imageVector = Icons.Filled.AccessTime,
-//                    contentDescription = stringResource(R.string.hourly_forecast),
-//                    tint = MaterialTheme.colorScheme.onBackground,
-//                    modifier = Modifier.padding(end = 4.dp)
-//                )
                 Text(
                     text = stringResource(R.string.hourly_forecast),
                     style = MaterialTheme.typography.headlineSmall,

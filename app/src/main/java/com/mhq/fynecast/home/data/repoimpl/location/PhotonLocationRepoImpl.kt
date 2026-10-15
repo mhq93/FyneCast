@@ -1,9 +1,9 @@
 package com.mhq.fynecast.home.data.repoimpl.location
 
-import android.util.Log
 import com.mhq.fynecast.home.data.api.location.LocationApiService
 import com.mhq.fynecast.home.domain.models.CitySuggestionModel
 import com.mhq.fynecast.home.domain.repository.LocationRepository
+import kotlinx.coroutines.CancellationException
 
 class PhotonLocationRepoImpl(
     private val locationApiService: LocationApiService
@@ -23,6 +23,7 @@ class PhotonLocationRepoImpl(
                 )
             }.distinctBy { it.fullName }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             emptyList()
         }
     }
@@ -43,11 +44,11 @@ class PhotonLocationRepoImpl(
             val props = bestFeature?.properties ?: return null
 
             val cityName = when {
-                !props.state.isNullOrBlank() -> props.state
                 !props.city.isNullOrBlank() -> props.city
-                !props.municipality.isNullOrBlank() -> props.municipality
                 !props.town.isNullOrBlank() -> props.town
+                !props.municipality.isNullOrBlank() -> props.municipality
                 !props.village.isNullOrBlank() -> props.village
+                !props.state.isNullOrBlank() -> props.state
                 !props.county.isNullOrBlank() -> props.county
                 else -> props.name ?: return null
             }
@@ -60,6 +61,7 @@ class PhotonLocationRepoImpl(
 
             CitySuggestionModel(fullName = fullName, latitude = lat, longitude = lon)
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             null
         }
     }

@@ -74,7 +74,8 @@ fun FavoriteCityItem(
             ) {
                 AsyncImage(
                     model = "https:${favoriteCityDomainModel.weatherIconUrl}",
-                    placeholder = painterResource(R.drawable.ic_google_primary_light),
+                    placeholder = painterResource(R.drawable.ic_launcher_foreground),
+                    error = painterResource(R.drawable.ic_launcher_foreground),
                     contentDescription = stringResource(R.string.weather_icon),
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.size(48.dp)

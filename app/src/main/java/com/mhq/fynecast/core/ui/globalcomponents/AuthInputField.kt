@@ -67,16 +67,6 @@ fun AuthInputField(
             errorBorderColor = MaterialTheme.colorScheme.error,
             errorLabelColor = MaterialTheme.colorScheme.error,
             errorContainerColor = MaterialTheme.colorScheme.surfaceVariant
-//            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-//            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-//            focusedLabelColor = MaterialTheme.colorScheme.primary,
-//            focusedBorderColor = MaterialTheme.colorScheme.primary,
-//            focusedContainerColor = MaterialTheme.colorScheme.primary,
-//            unfocusedLabelColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-//            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-//            unfocusedContainerColor = MaterialTheme.colorScheme.primary,
-//            errorBorderColor = MaterialTheme.colorScheme.error,
-//            errorLabelColor = MaterialTheme.colorScheme.error
         ),
         modifier = modifier
             .padding(vertical = 4.dp)
