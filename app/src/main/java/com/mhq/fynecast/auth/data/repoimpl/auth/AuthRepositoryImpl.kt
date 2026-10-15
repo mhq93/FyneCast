@@ -9,6 +9,7 @@ import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.userProfileChangeRequest
+import com.mhq.fynecast.auth.data.repository.auth.SocialAuthCredentialProvider
 import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
 import kotlinx.coroutines.flow.first
@@ -16,7 +17,8 @@ import kotlinx.coroutines.tasks.await
 
 class AuthRepositoryImpl(
     private val firebaseAuth: FirebaseAuth,
-    private val sessionDataStore: DataStore<Preferences>
+    private val sessionDataStore: DataStore<Preferences>,
+    private val socialAuthCredentialProvider: SocialAuthCredentialProvider
 ) : AuthRepository {
 
     private object SessionKeys {
@@ -100,5 +102,6 @@ class AuthRepositoryImpl(
     override suspend fun clearSession() {
         firebaseAuth.signOut()
         sessionDataStore.edit { prefs -> prefs.clear() }
+        socialAuthCredentialProvider.clearCredentials()
     }
 }

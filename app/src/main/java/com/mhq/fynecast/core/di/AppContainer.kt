@@ -46,6 +46,7 @@ import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentCityNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
+import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
@@ -79,6 +80,7 @@ interface AppContainer {
     val updateUserProfileUseCase: UpdateUserProfileUseCase
     val validateEditProfileUseCase: ValidateEditProfileUseCase
     val observeUserProfileUseCase: ObserveUserProfileUseCase
+    val observeSignedInUserIdUseCase: ObserveSignedInUserIdUseCase
     val userPreferencesRepository: UserPreferencesRepository
     val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase
     val updatePreferenceUseCase: UpdatePreferenceUseCase

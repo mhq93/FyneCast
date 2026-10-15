@@ -6,4 +6,6 @@ import androidx.activity.ComponentActivity
 interface SocialAuthCredentialProvider {
     suspend fun getGoogleIdToken(context: Context): String
     suspend fun getFacebookAccessToken(activity: ComponentActivity): String
+    /** Forgets the Google and Facebook sessions so the next sign-in starts clean. */
+    suspend fun clearCredentials()
 }

@@ -84,6 +84,7 @@ import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentCityNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
+import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.data.repoimpl.UserPreferencesRepositoryImpl
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
@@ -106,7 +107,6 @@ class DefaultAppContainer(
     // Infrastructure Components
     private val firebaseAuth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
     private val imageStorageManager: ImageStorageManager by lazy { ImageStorageManager(context) }
-
 
     // Networking — Weather
     private val weatherApiBaseUrl = "https://api.weatherapi.com/"
@@ -161,7 +161,7 @@ class DefaultAppContainer(
 
     // Repositories
     override val authRepository: AuthRepository by lazy {
-        AuthRepositoryImpl(firebaseAuth, sessionDataStore)
+        AuthRepositoryImpl(firebaseAuth, sessionDataStore, socialAuthCredentialProvider)
     }
     override val userProfileRepository: UserProfileRepository by lazy {
         UserProfileRepositoryImpl(firebaseAuth, sessionDataStore)
@@ -220,7 +220,8 @@ class DefaultAppContainer(
     }
     private val socialAuthCredentialProvider: SocialAuthCredentialProvider by lazy {
         SocialAuthCredentialProviderImpl(
-            serverClientId = context.getString(R.string.default_web_client_id)
+            serverClientId = context.getString(R.string.default_web_client_id),
+            appContext = context
         )
     }
     override val completeAuthSessionUseCase: CompleteAuthSessionUseCase by lazy {
@@ -256,6 +257,11 @@ class DefaultAppContainer(
     override val observeUserProfileUseCase by lazy {
         ObserveUserProfileUseCase(userProfileRepository)
     }
+    override val observeSignedInUserIdUseCase by lazy {
+        ObserveSignedInUserIdUseCase(
+            currentUserProvider
+        )
+    }
     override val updateUserProfileUseCase by lazy {
         UpdateUserProfileUseCase(
             userProfileRepository,
@@ -266,7 +272,12 @@ class DefaultAppContainer(
         CheckUserLoggedInUseCase(authRepository)
     }
     override val logoutUserUseCase by lazy {
-        LogoutUserUseCase(authRepository, userProfileRepository, cancelAllAlertTrackingUseCase, updatePreferenceUseCase)
+        LogoutUserUseCase(
+            authRepository,
+            userProfileRepository,
+            cancelAllAlertTrackingUseCase,
+            updatePreferenceUseCase
+        )
     }
 
     // Preferences Use Cases

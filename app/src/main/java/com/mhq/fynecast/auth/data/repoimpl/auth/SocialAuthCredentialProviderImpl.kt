@@ -2,6 +2,7 @@ package com.mhq.fynecast.auth.data.repoimpl.auth
 
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import com.facebook.CallbackManager
@@ -12,11 +13,13 @@ import com.facebook.login.LoginResult
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.mhq.fynecast.auth.data.repository.auth.SocialAuthCredentialProvider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 class SocialAuthCredentialProviderImpl(
+    private val appContext: Context,
     private val serverClientId: String
 ) : SocialAuthCredentialProvider {
 
@@ -65,4 +68,17 @@ class SocialAuthCredentialProviderImpl(
                 listOf("public_profile", "email")
             )
         }
+
+    override suspend fun clearCredentials() {
+        LoginManager.getInstance().logOut()
+        try {
+            CredentialManager
+                .create(appContext)
+                .clearCredentialState(ClearCredentialStateRequest())
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            // Best-effort: signing out must not fail because the credential provider did.
+        }
+    }
 }

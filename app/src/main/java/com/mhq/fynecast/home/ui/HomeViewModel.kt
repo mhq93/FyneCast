@@ -16,13 +16,16 @@ import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
 import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
+import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
 import com.mhq.fynecast.util.CityNameParser
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -37,6 +40,7 @@ class HomeViewModel(
     private val observeFavoriteStatusUseCase: ObserveFavoriteStatusUseCase,
     private val getLastSearchedCityUseCase: GetLastSearchedCityUseCase,
     private val updatePreferenceUseCase: UpdatePreferenceUseCase,
+    private val observeSignedInUserId: ObserveSignedInUserIdUseCase,
     private val defaultCityFallback: String = "Cairo"
 ) : ViewModel() {
 
@@ -49,8 +53,25 @@ class HomeViewModel(
     var isInitialLaunchPerformed = false
         private set
 
+    private var weatherJob: Job? = null
     private var searchJob: Job? = null
     private var favoriteJob: Job? = null
+
+    init {
+        observeSignedInUserId()
+            .drop(1)
+            .onEach { resetForNewSession() }
+            .launchIn(viewModelScope)
+    }
+
+    private fun resetForNewSession() {
+        weatherJob?.cancel()
+        searchJob?.cancel()
+        favoriteJob?.cancel()
+        _state.value = HomeStateContainer()
+        isInitialLaunchPerformed = false
+        lastRefreshTime = 0L
+    }
 
     fun fetchInitialLocationWeather(langCode: String) {
         fetchWeatherData(
@@ -65,7 +86,8 @@ class HomeViewModel(
         langCode: String,
         locationProvider: (suspend () -> GeoCoordinates?)? = null
     ) {
-        viewModelScope.launch {
+        weatherJob?.cancel()
+        weatherJob = viewModelScope.launch {
             if (queryCity == null && isInitialLaunchPerformed) return@launch
             _state.update { it.copy(uiState = HomeUiState.Loading) }
 
@@ -100,6 +122,8 @@ class HomeViewModel(
                 }
                 isInitialLaunchPerformed = true
                 trackFavoriteObservation(displayCityName)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _state.update {
                     it.copy(
@@ -115,7 +139,8 @@ class HomeViewModel(
         val currentTime = System.currentTimeMillis()
         if (currentTime - lastRefreshTime < refreshCooldownMillis) return
 
-        viewModelScope.launch {
+        weatherJob?.cancel()
+        weatherJob = viewModelScope.launch {
             val currentCity = _state.value.selectedCityName
             if (currentCity.isEmpty()) return@launch
 
@@ -123,6 +148,8 @@ class HomeViewModel(
             try {
                 val domainWeather = loadCurrentWeatherUseCase(currentCity, langCode)
                 _state.update { it.copy(uiState = HomeUiState.Success(domainWeather)) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to refresh weather for $currentCity", e)
             }
@@ -202,6 +229,7 @@ class HomeViewModel(
                     getCurrentLocationUseCase = app.container.getCurrentLocationUseCase,
                     toggleFavoriteUseCase = app.container.toggleFavoriteUseCase,
                     observeFavoriteStatusUseCase = app.container.observeFavoriteStatusUseCase,
+                    observeSignedInUserId = app.container.observeSignedInUserIdUseCase,
                     getLastSearchedCityUseCase = app.container.getLastSearchedCityUseCase,
                     updatePreferenceUseCase = app.container.updatePreferenceUseCase
                 )
