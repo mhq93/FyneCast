@@ -261,7 +261,7 @@ class DefaultAppContainer(
         CheckUserLoggedInUseCase(authRepository)
     }
     override val logoutUserUseCase by lazy {
-        LogoutUserUseCase(authRepository, userProfileRepository)
+        LogoutUserUseCase(authRepository, userProfileRepository, cancelAllAlertTrackingUseCase)
     }
 
     // Preferences Use Cases
