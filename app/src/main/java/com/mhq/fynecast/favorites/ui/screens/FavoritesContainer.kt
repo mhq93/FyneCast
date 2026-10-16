@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -25,6 +26,7 @@ import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.mhq.fynecast.R
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
+import com.mhq.fynecast.favorites.ui.FavoritesEvent
 import com.mhq.fynecast.favorites.ui.FavoritesViewModel
 import com.mhq.fynecast.favorites.ui.components.UndoDeleteSnackbar
 import kotlinx.coroutines.launch
@@ -37,13 +39,11 @@ fun FavoritesContainer(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     modifier: Modifier = Modifier
 ) {
-    val lazyFavoriteCities = favoritesViewModel.favoritesPageFlow.collectAsLazyPagingItems()
-    val hasPendingDeletion by favoritesViewModel.hasPendingDeletion.collectAsStateWithLifecycle()
-
-    val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-    val cityRemovedTemplate = stringResource(R.string.city_removed)
+    val resources = LocalResources.current
     val undoLabel = stringResource(R.string.undo)
+    val lazyFavoriteCities = favoritesViewModel.favoritesPageFlow.collectAsLazyPagingItems()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val cityRemovedTemplate = stringResource(R.string.city_removed)
 
     LaunchedEffect(Unit) {
         favoritesViewModel.uiEvent.collect { message ->
@@ -52,6 +52,29 @@ fun FavoritesContainer(
                 message = message,
                 duration = SnackbarDuration.Short
             )
+        }
+    }
+
+    LaunchedEffect(favoritesViewModel, resources) {
+        favoritesViewModel.events.collect { event ->
+            launch {   // each event gets its own coroutine so a new message replaces the old one
+                snackbarHostState.currentSnackbarData?.dismiss()
+                when (event) {
+                    is FavoritesEvent.Removed -> {
+                        val result = snackbarHostState.showSnackbar(
+                            message = resources.getString(R.string.city_removed, event.cityName),
+                            actionLabel = undoLabel,
+                            duration = SnackbarDuration.Short
+                        )
+                        if (result == SnackbarResult.ActionPerformed) favoritesViewModel.onUndoRemove()
+                    }
+                    is FavoritesEvent.RemoveFailed ->
+                        snackbarHostState.showSnackbar(
+                            message = resources.getString(R.string.city_remove_failed, event.cityName),
+                            duration = SnackbarDuration.Short
+                        )
+                }
+            }
         }
     }
 
@@ -73,30 +96,7 @@ fun FavoritesContainer(
                 FavoritesContent(
                     favoriteCities = lazyFavoriteCities,
                     onCityRowSelected = onCityRowSelected,
-                    hasPendingDeletion = hasPendingDeletion,
-                    onDeleteFavorite = { favorite ->
-                        favoritesViewModel.markPendingDeletion(favorite)
-                        scope.launch {
-                            var undone = false
-                            try {
-                                val result = snackbarHostState.showSnackbar(
-                                    message = String.format(cityRemovedTemplate, favorite.cityName),
-                                    actionLabel = undoLabel,
-                                    duration = SnackbarDuration.Short
-                                )
-                                undone = result == SnackbarResult.ActionPerformed
-                            } finally {
-                                // Runs even if this scope is cancelled by
-                                // navigating away mid-snackbar (e.g. tapping
-                                // Home). undoDelete/confirmDelete are plain,
-                                // non-suspending calls on the ViewModel, so
-                                // they still execute during cancellation and
-                                // pendingDeletion never gets stuck.
-                                if (undone) favoritesViewModel.undoDelete()
-                                else favoritesViewModel.confirmDelete()
-                            }
-                        }
-                    },
+                    onDeleteFavorite = favoritesViewModel::onDeleteFavorite,
                     contentPadding = contentPadding,
                     isMetric = isMetric
                 )

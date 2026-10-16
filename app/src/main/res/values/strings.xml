@@ -87,7 +87,8 @@
     <string name="no_favorites_yet">No favorites yet</string>
     <string name="cities_you_like_will_appear_here">Cities you like will appear here.</string>
     <string name="tab_below_to_go_back_to_home_page">Tab ⌂ below to go back to home page.</string>
-    <string name="couldnt_remove_city">Couldn\'t remove %1$s. Please, try again.</string>
+<!--    <string name="couldnt_remove_city">Couldn\'t remove %1$s. Please, try again.</string>-->
+    <string name="city_remove_failed">Couldn\'t remove %1$s. Please try again.</string>
     <string name="city_removed">%1$s removed</string>
     <string name="undo">Undo</string>
 

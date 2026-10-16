@@ -35,6 +35,8 @@ import com.mhq.fynecast.core.domain.infra.AppInitializer
 import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
 import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
 import com.mhq.fynecast.home.domain.repository.LocationRepository
@@ -99,6 +101,8 @@ interface AppContainer {
     val deleteFavoriteUseCase: DeleteFavoriteUseCase
     val toggleFavoriteUseCase: ToggleFavoriteUseCase
     val observeFavoriteStatusUseCase: ObserveFavoriteStatusUseCase
+    val refreshFavoriteSnapshotUseCase: RefreshFavoriteSnapshotUseCase
+    val restoreFavoriteUseCase: RestoreFavoriteUseCase
 
     // Alerts Use Cases
     val getAlertsUseCase: GetAlertsUseCase

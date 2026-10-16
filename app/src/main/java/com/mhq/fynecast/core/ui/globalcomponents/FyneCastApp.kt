@@ -1,7 +1,9 @@
 package com.mhq.fynecast.core.ui.globalcomponents
 
 import android.app.Activity
+import android.os.Build
 import androidx.activity.compose.BackHandler
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -46,6 +48,7 @@ import com.mhq.fynecast.map.ui.screens.MapPickerScreen
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 import com.mhq.fynecast.settings.ui.screens.SettingsContainer
 
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 fun FyneCastApp(
     homeViewModel: HomeViewModel,

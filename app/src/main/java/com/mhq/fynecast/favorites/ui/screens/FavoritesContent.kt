@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -24,17 +23,14 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
-import com.mhq.fynecast.favorites.domain.models.stableKey
 import com.mhq.fynecast.favorites.ui.components.FavoriteCityItem
 import com.mhq.fynecast.favorites.ui.components.SwipeBackground
 import kotlinx.coroutines.flow.flowOf
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FavoritesContent(
     favoriteCities: LazyPagingItems<FavoriteCityDomainModel>,
     onCityRowSelected: (FavoriteCityDomainModel) -> Unit,
-    hasPendingDeletion: Boolean,
     onDeleteFavorite: (FavoriteCityDomainModel) -> Unit,
     isMetric: Boolean,
     contentPadding: PaddingValues = PaddingValues(8.dp),
@@ -51,17 +47,14 @@ fun FavoritesContent(
         ) {
             items(
                 count = favoriteCities.itemCount,
-                key = favoriteCities.itemKey { it.stableKey }
+                key = favoriteCities.itemKey { it.id }
             ) { index ->
                 val favorite = favoriteCities[index]
                 if (favorite != null) {
                     val currentFavorite by rememberUpdatedState(favorite)
                     val currentOnDelete by rememberUpdatedState(onDeleteFavorite)
-                    val currentHasPendingDeletion by rememberUpdatedState(hasPendingDeletion)
                     val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            value == SwipeToDismissBoxValue.EndToStart && !currentHasPendingDeletion
-                        }
+                        confirmValueChange = { value -> value == SwipeToDismissBoxValue.EndToStart }
                     )
 
                     LaunchedEffect(dismissState.currentValue) {
@@ -73,15 +66,12 @@ fun FavoritesContent(
                     SwipeToDismissBox(
                         state = dismissState,
                         backgroundContent = { SwipeBackground(dismissState) },
-                        enableDismissFromStartToEnd = false,
-                        enableDismissFromEndToStart = !hasPendingDeletion
+                        enableDismissFromStartToEnd = false
                     ) {
                         FavoriteCityItem(
                             favoriteCityDomainModel = favorite,
                             isMetric = isMetric,
-                            modifier = Modifier.clickable(enabled = !hasPendingDeletion) {
-                                onCityRowSelected(favorite)
-                            }
+                            modifier = Modifier.clickable { onCityRowSelected(favorite) }
                         )
                     }
                 }
@@ -102,7 +92,6 @@ private fun FavoritesContentPreview() {
             favoriteCities = mockFavoriteCities,
             onCityRowSelected = {},
             onDeleteFavorite = {},
-            hasPendingDeletion = true,
             isMetric = true
         )
     }

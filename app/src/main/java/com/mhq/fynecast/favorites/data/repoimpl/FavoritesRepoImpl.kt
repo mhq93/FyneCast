@@ -10,26 +10,29 @@ import com.mhq.fynecast.favorites.data.mapper.toDomain
 import com.mhq.fynecast.favorites.data.mapper.toEntity
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class FavoritesRepoImpl(
     private val favoriteDao: FavoriteDao,
     private val currentUserProvider: CurrentUserProvider
 ) : FavoritesRepository {
 
-    override fun observeIsFavorite(name: String, country: String): Flow<Boolean> =
+    override fun observeIsFavorite(id: String): Flow<Boolean> =
         currentUserProvider.observeUserId().flatMapLatest { userId ->
-            if (userId == null) flowOf(false)
-            else favoriteDao.observeIsFavorite(userId, name, country)
+            if (userId == null)
+                flowOf(false)
+            else
+                favoriteDao.observeIsFavorite(userId, id)
         }
 
-
-    override suspend fun isFavorite(name: String, country: String): Boolean {
-        val userId = currentUserProvider.currentUserId() ?: return false
-        return favoriteDao.isFavorite(userId, name, country)
+    override suspend fun toggleFavorite(city: FavoriteCityDomainModel) {
+        val userId = currentUserProvider.currentUserId() ?: return
+        favoriteDao.toggle(city.toEntity(userId))
     }
 
     override suspend fun saveFavorite(city: FavoriteCityDomainModel) {
@@ -37,9 +40,20 @@ class FavoritesRepoImpl(
         favoriteDao.insertFavorite(city.toEntity(userId))
     }
 
-    override suspend fun deleteFavorite(name: String, country: String) {
+    override suspend fun deleteFavorite(id: String) {
         val userId = currentUserProvider.currentUserId() ?: return
-        favoriteDao.deleteFavorite(userId, name, country)
+        favoriteDao.deleteFavorite(userId, id)
+    }
+
+    override suspend fun refreshSnapshot(city: FavoriteCityDomainModel) {
+        val userId = currentUserProvider.currentUserId() ?: return
+        favoriteDao.updateSnapshot(
+            userId,
+            city.id,
+            city.temperatureC,
+            city.temperatureF,
+            city.weatherIconUrl
+        )
     }
 
     override fun getAllFavorites(): Flow<PagingData<FavoriteCityDomainModel>> =

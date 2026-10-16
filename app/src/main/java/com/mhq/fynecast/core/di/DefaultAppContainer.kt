@@ -63,6 +63,8 @@ import com.mhq.fynecast.favorites.data.repoimpl.FavoritesRepoImpl
 import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
 import com.mhq.fynecast.home.data.api.location.LocationApiService
 import com.mhq.fynecast.home.data.api.weather.WeatherApiService
@@ -314,6 +316,12 @@ class DefaultAppContainer(
     }
     override val observeFavoriteStatusUseCase: ObserveFavoriteStatusUseCase by lazy {
         ObserveFavoriteStatusUseCase(favoritesRepository)
+    }
+    override val refreshFavoriteSnapshotUseCase: RefreshFavoriteSnapshotUseCase by lazy {
+        RefreshFavoriteSnapshotUseCase(favoritesRepository)
+    }
+    override val restoreFavoriteUseCase: RestoreFavoriteUseCase by lazy {
+        RestoreFavoriteUseCase(favoritesRepository)
     }
 
     // Time

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
 
 class AndroidLocationStatusChecker(
@@ -23,10 +24,9 @@ class AndroidLocationStatusChecker(
         return fineLocation || coarseLocation
     }
 
-    override fun isGpsProviderEnabled(): Boolean {
+    override fun isLocationEnabled(): Boolean {
         val locationManager =
             appContext.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        return locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ||
-                locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+        return LocationManagerCompat.isLocationEnabled(locationManager)
     }
 }

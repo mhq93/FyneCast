@@ -15,6 +15,7 @@ fun FavoriteEntity.toDomain() = FavoriteCityDomainModel(
 
 fun FavoriteCityDomainModel.toEntity(userId: String) = FavoriteEntity(
     userId = userId,
+    locationKey = id,
     cityName = cityName,
     countryName = countryName,
     latitude = latitude,
