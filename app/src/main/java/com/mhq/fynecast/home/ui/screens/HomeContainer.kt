@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mhq.fynecast.home.ui.HomeRetryAction
 import com.mhq.fynecast.home.ui.HomeUiState
 import com.mhq.fynecast.home.ui.HomeViewModel
 
@@ -64,8 +65,12 @@ fun HomeContainer(
         is HomeUiState.Error -> {
             HomeError(
                 retryAction = {
-                    onRequestPermission(langCode)
-                    homeViewModel.fetchWeatherData(langCode = langCode)
+                    when (uiState.retry) {
+                        // One load: the permission result starts it. If the permission is already
+                        // decided, the callback fires immediately and the load starts anyway.
+                        HomeRetryAction.RequestLocation -> onRequestPermission(langCode)
+                        HomeRetryAction.ReloadPlace -> homeViewModel.onRetryClicked(langCode)
+                    }
                 },
                 contentPadding = contentPadding,
                 modifier = modifier

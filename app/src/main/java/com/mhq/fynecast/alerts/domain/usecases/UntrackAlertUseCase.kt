@@ -3,6 +3,9 @@ package com.mhq.fynecast.alerts.domain.usecases
 import com.mhq.fynecast.alerts.domain.repository.AlertTrackingController
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
 
+/**
+ * Use case for stopping the tracking of a specific alert and cleaning up associated workers.
+ */
 class UntrackAlertUseCase(
     private val alertsRepository: AlertsRepository,
     private val alertTrackingController: AlertTrackingController

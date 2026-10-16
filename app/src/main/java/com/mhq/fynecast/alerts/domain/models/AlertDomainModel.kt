@@ -1,5 +1,8 @@
 package com.mhq.fynecast.alerts.domain.models
 
+/**
+ * Pure domain representation of a weather alert.
+ */
 data class AlertDomainModel(
     val id: String,
     val headline: String,

@@ -9,6 +9,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+/**
+ * Broadcast receiver handling actions related to alert tracking notifications (e.g. cancel all, dismiss).
+ */
 class AlertTrackingReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {

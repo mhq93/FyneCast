@@ -6,6 +6,9 @@ import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesU
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
 import kotlinx.coroutines.flow.first
 
+/**
+ * Use case that synchronizes notification preferences with actual system runtime permissions.
+ */
 class SyncNotificationPermissionUseCase(
     private val notificationPermissionChecker: NotificationPermissionChecker,
     private val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase,

@@ -13,6 +13,9 @@ import com.mhq.fynecast.alerts.notifications.WeatherRefreshWorker
 import com.mhq.fynecast.alerts.notifications.ui.AlertsNotificationManager
 import java.util.concurrent.TimeUnit
 
+/**
+ * Concrete implementation of [AlertTrackingController] managing Android WorkManager tasks and notifications.
+ */
 class AlertTrackingControllerImpl(
     private val context: Context
 ) : AlertTrackingController {

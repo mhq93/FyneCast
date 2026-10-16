@@ -18,12 +18,14 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.BlankPagePlaceholder
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
+/**
+ * Empty state screen shown when there are no active weather alerts in the area.
+ */
 @Composable
 fun AlertsBlank(
     contentPadding: PaddingValues = PaddingValues(8.dp),
     modifier: Modifier = Modifier
 ) {
-
     Column(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -37,26 +39,5 @@ fun AlertsBlank(
             blankSectionTitle = stringResource(R.string.no_active_alerts_in_this_area),
             blankSectionSubtitle = stringResource(R.string.a_great_chance_to_enjoy_the_weather_outdoors)
         )
-    }
-}
-
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview(showBackground = true)
-@Composable
-fun AlertsBlankPreview() {
-    FyneCastTheme() {
-        AlertsBlank()
     }
 }

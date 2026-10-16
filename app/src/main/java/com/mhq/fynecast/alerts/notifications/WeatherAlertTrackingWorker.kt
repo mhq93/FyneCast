@@ -8,6 +8,9 @@ import com.mhq.fynecast.alerts.notifications.ui.AlertsNotificationManager
 import com.mhq.fynecast.core.di.FyneCastApplication
 import kotlinx.coroutines.CancellationException
 
+/**
+ * Background worker that periodically checks the status of a specific tracked alert.
+ */
 class WeatherAlertTrackingWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
 

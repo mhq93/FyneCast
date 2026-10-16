@@ -3,6 +3,9 @@ package com.mhq.fynecast.alerts.data.dto
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/**
+ * Data Transfer Object (DTO) representing an individual weather alert payload from network APIs.
+ */
 @Serializable
 data class AlertDto(
     @SerialName("headline")

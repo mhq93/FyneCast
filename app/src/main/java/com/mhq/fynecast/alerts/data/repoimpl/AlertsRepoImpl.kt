@@ -7,6 +7,9 @@ import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
 import com.mhq.fynecast.alerts.domain.models.TrackedLocation
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
 
+/**
+ * Concrete implementation of the [AlertsRepository] using Room database operations.
+ */
 class AlertsRepoImpl(private val alertDao: AlertDao) : AlertsRepository {
     override fun getTrackedAlertIds() =
         alertDao.getTrackedAlertIds()

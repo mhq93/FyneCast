@@ -4,12 +4,19 @@ import com.mhq.fynecast.alerts.domain.repository.AlertTrackingController
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
 import com.mhq.fynecast.core.domain.time.TimeProvider
 
+/**
+ * Use case used upon device reboot or app startup to restore active alert tracking workers and prune expired items.
+ */
 class RestoreAlertTrackingUseCase(
     private val alertsRepository: AlertsRepository,
     private val alertTrackingController: AlertTrackingController,
     private val untrackAlertUseCase: UntrackAlertUseCase,
     private val timeProvider: TimeProvider
 ) {
+    /**
+     * Partitions stored tracked alerts into expired versus live sets against the current time.
+     * Expired alerts are immediately untracked and removed, while live alerts have their tracking workers and location refresh checks rescheduled.
+     */
     suspend operator fun invoke() {
         val now = timeProvider.nowMillis()
         val (expired, live) = alertsRepository.getTrackedAlerts()

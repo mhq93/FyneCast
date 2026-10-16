@@ -7,6 +7,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.mhq.fynecast.R
 
+/**
+ * Reusable alert dialog prompting the user for notification permissions or settings adjustments.
+ */
 @Composable
 fun NotificationsDialog(
     message: String,

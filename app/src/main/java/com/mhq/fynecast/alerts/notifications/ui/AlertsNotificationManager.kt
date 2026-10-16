@@ -14,19 +14,29 @@ import com.mhq.fynecast.core.ui.MainActivity
 import com.mhq.fynecast.core.ui.withAppLocale
 import kotlin.jvm.java
 
+/**
+ * Manages system notifications for tracked weather alerts and lifted warning alarms.
+ */
 class AlertsNotificationManager(baseContext: Context) {
 
     private val context: Context = baseContext.withAppLocale()
     private val notificationManager = context.getSystemService(NotificationManager::class.java)
 
+    /** Displays a high-priority alarm notification when a tracked weather alert is lifted or expired. */
     fun showAlarmNotification(
         clearedAlerts: List<TrackedAlertDomainModel>,
         notificationId: Int
     ) {
         val title = if (clearedAlerts.size == 1) {
-            context.getString(R.string.alert_lifted_title_single, clearedAlerts.first().event)
+            context.getString(
+                R.string.alert_lifted_title_single,
+                clearedAlerts.first().event
+            )
         } else {
-            context.getString(R.string.alert_lifted_title_multiple, clearedAlerts.size)
+            context.getString(
+                R.string.alert_lifted_title_multiple,
+                clearedAlerts.size
+            )
         }
 
         val body = if (clearedAlerts.size == 1) {
@@ -56,15 +66,22 @@ class AlertsNotificationManager(baseContext: Context) {
         notificationManager.notify(notificationId, notification)
     }
 
+    /** Displays or updates the persistent ongoing tracking notification listing active tracked alerts. */
     fun showTrackingNotification(alerts: List<TrackedAlertDomainModel>) {
         if (alerts.isEmpty()) {
             cancelTrackingNotification()
             return
         }
         val title = if (alerts.size == 1)
-            context.getString(R.string.alert_tracking_title_single, alerts.first().event)
+            context.getString(
+                R.string.alert_tracking_title_single,
+                alerts.first().event
+            )
         else
-            context.getString(R.string.alert_tracking_title_multiple, alerts.size)
+            context.getString(
+                R.string.alert_tracking_title_multiple,
+                alerts.size
+            )
 
         val clickPendingIntent = PendingIntent.getActivity(
             context, 0,
@@ -94,7 +111,8 @@ class AlertsNotificationManager(baseContext: Context) {
                     )
                 )
                 .addAction(
-                    R.drawable.ic_cancel, context.getString(R.string.cancel_tracking),
+                    R.drawable.ic_cancel,
+                    context.getString(R.string.cancel_tracking),
                     receiverIntent(AlertTrackingReceiver.ACTION_CANCEL_ALL, requestCode = 2)
                 )
                 .setOngoing(true)
@@ -106,8 +124,10 @@ class AlertsNotificationManager(baseContext: Context) {
         notificationManager.notify(TRACKING_NOTIFICATION_ID, notification)
     }
 
+    /** Cancels the persistent tracking notification. */
     fun cancelTrackingNotification() = notificationManager.cancel(TRACKING_NOTIFICATION_ID)
 
+    /** Helper method to build broadcast intents for notification actions. */
     private fun receiverIntent(action: String, requestCode: Int) = PendingIntent.getBroadcast(
         context, requestCode,
         Intent(context, AlertTrackingReceiver::class.java).setAction(action),

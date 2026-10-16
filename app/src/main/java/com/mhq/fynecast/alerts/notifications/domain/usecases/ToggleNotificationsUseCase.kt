@@ -4,6 +4,9 @@ import com.mhq.fynecast.alerts.domain.usecases.CancelAllAlertTrackingUseCase
 import com.mhq.fynecast.alerts.notifications.domain.infra.NotificationPermissionChecker
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
 
+/**
+ * Use case for enabling or disabling notifications, handling permissions and tracker cleanup.
+ */
 class ToggleNotificationsUseCase(
     private val updatePreferenceUseCase: UpdatePreferenceUseCase,
     private val notificationPermissionChecker: NotificationPermissionChecker,

@@ -13,6 +13,7 @@ val BabyBlue = Color(0xFFE0F2FE)            // Soft ice blue — light backgroun
 val PalerSkyBlue = Color(0xFFBAE6FD)        // Gentle sky — light surface variant, was LightBabyBlue
 val SkyBlue = Color(0xFF7DD3FC)             // Clear sky — light outlines/accents, was LightMiddayBlue
 val LightBlue = Color(0xFF80D8FF)
+val EditorialRoyalBlue = Color(0xFF007AFF)
 val ElectricCyan = Color(0xFF02FEF7)
 val SuccessDark = Color(0xFF81C784)
 
@@ -22,6 +23,7 @@ val JewelForestGreen = Color(0xFF15803D)    // Primary accent — light theme
 
 // ─── Other Colors ────────────────────────────────────────────────
 val PersianRed = Color(0xFFD32F2F)
+val AppleRed = Color(0xFFFF3B30)
 val VividRed = Color(0xFFEF4444)
 val StrawberryRed = Color(0xFFEF5350)
 val SoftCoral = Color(0xFFFF8A80)

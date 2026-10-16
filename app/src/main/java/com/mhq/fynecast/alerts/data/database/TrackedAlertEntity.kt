@@ -3,6 +3,9 @@ package com.mhq.fynecast.alerts.data.database
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
+/**
+ * Room database entity representing a weather alert that the user has chosen to track.
+ */
 @Entity(tableName = "alerts")
 data class TrackedAlertEntity(
     @PrimaryKey

@@ -7,13 +7,21 @@ import com.mhq.fynecast.core.domain.time.TimeProvider
 import com.mhq.fynecast.home.domain.models.WeatherDomainModel
 import kotlin.math.abs
 
+/**
+ * Use case that evaluates weather snapshots against tracked alerts to determine which alerts have expired or been lifted.
+ */
 class CheckAlertConditionsUseCase(
     private val alertsRepository: AlertsRepository,
     private val timeProvider: TimeProvider
 ) {
     /**
-     * [weatherSnapshot] null, or for a different place than [trackedLocation], means "unknown":
-     * only expiry counts. Only a matching location's alert list can declare an alert lifted.
+     * Evaluates whether any tracked alerts for the given [trackedLocation] have expired or been cleared based on the [weatherSnapshot].
+     *
+     * Edge case: If [weatherSnapshot] is `null` or corresponds to a different location than [trackedLocation], it is treated as "unknown"—meaning only expiration timestamps are evaluated, preventing false-positive lifted alerts.
+     *
+     * @param trackedLocation The location whose tracked alerts are being verified.
+     * @param weatherSnapshot The latest fetched weather model containing active alerts, or `null`.
+     * @return A list of [TrackedAlertDomainModel] instances that are either past their expiry time or missing from the current active weather payload.
      */
     suspend operator fun invoke(
         trackedLocation: TrackedLocation,
@@ -33,6 +41,9 @@ class CheckAlertConditionsUseCase(
             .filter { now >= it.expiresTimeMillis || (activeIds != null && it.id !in activeIds) }
     }
 
+    /**
+     * Validates whether a weather snapshot's coordinates fall within acceptable proximity tolerance of the tracked location.
+     */
     private fun WeatherDomainModel.isNear(location: TrackedLocation) =
         abs(latitude - location.trackedLocationLatitude) < TOLERANCE_DEGREES &&
                 abs(longitude - location.trackedLocationLongitude) < TOLERANCE_DEGREES

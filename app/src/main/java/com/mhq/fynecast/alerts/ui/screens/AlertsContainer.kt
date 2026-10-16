@@ -44,6 +44,9 @@ import com.mhq.fynecast.alerts.ui.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.components.NotificationsDialog
 import kotlinx.coroutines.launch
 
+/**
+ * Root container composable for the alerts feature, managing snackbars, dialogs, and permission flows.
+ */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 fun AlertsContainer(
@@ -51,7 +54,6 @@ fun AlertsContainer(
     contentPadding: PaddingValues = PaddingValues(0.dp),
     modifier: Modifier = Modifier
 ) {
-
     val context = LocalContext.current
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
@@ -95,7 +97,6 @@ fun AlertsContainer(
                     permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
 
                 AlertsEvent.NotificationPermissionDenied -> {
-                    // Denied with no rationale available means "don't ask again": only settings can fix it.
                     val activity = context.findActivity()
                     val blockedForGood = activity != null &&
                             !ActivityCompat.shouldShowRequestPermissionRationale(

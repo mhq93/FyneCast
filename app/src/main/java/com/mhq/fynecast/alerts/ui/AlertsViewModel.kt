@@ -26,6 +26,9 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/**
+ * ViewModel managing state, user actions, permission flows, and event channels for the alerts feature.
+ */
 class AlertsViewModel(
     private val getAlertsUseCase: GetAlertsUseCase,
     private val getTrackedAlertIdsUseCase: GetTrackedAlertIdsUseCase,
@@ -35,6 +38,7 @@ class AlertsViewModel(
     private val handleNotificationPermissionResultUseCase: HandleNotificationPermissionResultUseCase
 ) : ViewModel() {
 
+    /** Exposes reactive UI state for alerts, transitioning between loading and success states. */
     val uiState: StateFlow<AlertsUiState> = getAlertsUseCase()
         .map { alerts ->
             if (alerts == null) AlertsUiState.Loading else AlertsUiState.Success(alerts)
@@ -45,6 +49,7 @@ class AlertsViewModel(
             AlertsUiState.Loading
         )
 
+    /** Stream of IDs representing currently tracked alerts. */
     val trackedAlertIds: StateFlow<List<String>> = getTrackedAlertIdsUseCase()
         .stateIn(
             viewModelScope,
@@ -52,6 +57,7 @@ class AlertsViewModel(
             emptyList()
         )
 
+    /** Stream tracking the user's current location context. */
     val currentLocation: StateFlow<TrackedLocation?> =
         observeCurrentLocationUseCase()
             .stateIn(
@@ -68,10 +74,18 @@ class AlertsViewModel(
     private val _events = Channel<AlertsEvent>(Channel.BUFFERED)
     val events: Flow<AlertsEvent> = _events.receiveAsFlow()
 
+    /**
+     * Triggered when the user clicks the tracking toggle on an alert card.
+     */
     fun onAlertTrackToggled(alert: AlertDomainModel) {
         viewModelScope.launch { toggle(alert) }
     }
 
+    /**
+     * Called when the user confirms the notification prompt dialog.
+     * 
+     * Attempts to enable notifications; if system permission is required, emits an event to request it.
+     */
     fun onNotificationsPromptConfirmed() {
         _showNotificationsPrompt.value = false
         viewModelScope.launch {
@@ -85,11 +99,19 @@ class AlertsViewModel(
         }
     }
 
+    /**
+     * Dismisses the notification prompt dialog and clears any pending alert reference.
+     */
     fun onNotificationsPromptDismissed() {
         _showNotificationsPrompt.value = false
         pendingAlert = null
     }
 
+    /**
+     * Processes the runtime permission result for notifications.
+     * 
+     * If granted, resumes tracking the pending alert; if denied, emits a denial event.
+     */
     fun onNotificationPermissionResult(granted: Boolean) {
         viewModelScope.launch {
             handleNotificationPermissionResultUseCase(granted)
@@ -102,12 +124,14 @@ class AlertsViewModel(
         }
     }
 
+    /** Resumes tracking for an alert that was held pending notification permission. */
     private suspend fun trackPendingAlert() {
         val alert = pendingAlert ?: return
         pendingAlert = null
         toggle(alert)
     }
 
+    /** Executes toggle logic and handles resulting states (e.g. triggering permission dialogs or emitting snackbar events). */
     private suspend fun toggle(alert: AlertDomainModel) {
         val location = currentLocation.value ?: return
         when (toggleAlertsUseCase(alert, location)) {
@@ -120,6 +144,7 @@ class AlertsViewModel(
     }
 
     companion object {
+        /** Factory providing dependency injection wiring from the application container. */
         val factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val app = (this[APPLICATION_KEY] as FyneCastApplication)

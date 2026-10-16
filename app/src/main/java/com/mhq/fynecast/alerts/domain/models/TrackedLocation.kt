@@ -1,5 +1,8 @@
 package com.mhq.fynecast.alerts.domain.models
 
+/**
+ * Represents a geographical location being monitored for weather alerts.
+ */
 data class TrackedLocation(
     val trackedLocationName: String,
     val trackedLocationLatitude: Double,

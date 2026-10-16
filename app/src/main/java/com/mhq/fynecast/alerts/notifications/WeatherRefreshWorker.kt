@@ -17,6 +17,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
+/**
+ * Background CoroutineWorker that periodically fetches weather updates for monitored locations and triggers alarms if alerts are lifted.
+ */
 class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
 
@@ -35,6 +38,9 @@ class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
         private fun workName(trackedLocation: TrackedLocation) =
             "weather_refresh_${trackedLocation.trackedLocationQuery}"
 
+        /**
+         * Schedules a unique periodic work request with network constraints to check for lifted alerts every 15 minutes.
+         */
         fun schedule(context: Context, trackedLocation: TrackedLocation) {
             val request = PeriodicWorkRequestBuilder<WeatherRefreshWorker>(
                 15,
@@ -64,6 +70,9 @@ class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
                 )
         }
 
+        /**
+         * Cancels unique periodic refresh work for a specific tracked location.
+         */
         fun cancel(context: Context, trackedLocation: TrackedLocation) {
             WorkManager
                 .getInstance(context)
@@ -75,6 +84,11 @@ class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
         }
     }
 
+    /**
+     * Executes the background refresh work: fetches live weather data, evaluates alert conditions, displays alarm notifications for cleared alerts, and untracks them.
+     *
+     * Edge case handling: Re-throws [CancellationException] while catching other exceptions to request a retry.
+     */
     override suspend fun doWork(): Result {
         val lat = inputData.getDouble(KEY_LAT, Double.NaN)
         val lon = inputData.getDouble(KEY_LON, Double.NaN)

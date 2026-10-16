@@ -7,6 +7,9 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import com.mhq.fynecast.alerts.notifications.domain.infra.NotificationPermissionChecker
 
+/**
+ * Android-specific implementation of [NotificationPermissionChecker] using runtime permission checks.
+ */
 class AndroidNotificationPermissionChecker(
     private val context: Context
 ) : NotificationPermissionChecker {

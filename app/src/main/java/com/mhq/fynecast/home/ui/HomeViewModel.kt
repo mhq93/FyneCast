@@ -34,15 +34,31 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class HomeViewModel(
     private val loadCurrentWeatherUseCase: LoadCurrentWeatherUseCase,
-    private val getLocationSuggestionsUseCase: GetLocationSuggestionsUseCase,
     private val getCurrentLocationUseCase: GetCurrentLocationUseCase,
-    private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
-    private val observeFavoriteStatusUseCase: ObserveFavoriteStatusUseCase,
+    private val getLocationSuggestionsUseCase: GetLocationSuggestionsUseCase,
     private val getLastSearchedCityUseCase: GetLastSearchedCityUseCase,
+    private val observeSignedInUserIdUseCase: ObserveSignedInUserIdUseCase,
+    private val observeFavoriteStatusUseCase: ObserveFavoriteStatusUseCase,
+    private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val updatePreferenceUseCase: UpdatePreferenceUseCase,
-    private val observeSignedInUserId: ObserveSignedInUserIdUseCase,
     private val defaultCityFallback: String = "Cairo"
 ) : ViewModel() {
+
+    private sealed interface LoadTarget {
+        val retry: HomeRetryAction
+
+        data class Startup(val useDeviceLocation: Boolean) : LoadTarget {
+            override val retry = HomeRetryAction.RequestLocation
+        }
+
+        data class Place(
+            val name: String,
+            val latitude: Double,
+            val longitude: Double
+        ) : LoadTarget {
+            override val retry = HomeRetryAction.ReloadPlace
+        }
+    }
 
     private val _state = MutableStateFlow(HomeStateContainer())
     val state: StateFlow<HomeStateContainer> = _state.asStateFlow()
@@ -50,118 +66,126 @@ class HomeViewModel(
     private var lastRefreshTime = 0L
     private val refreshCooldownMillis = 60 * 1000L
 
+    /** True once any load has been requested; the UI uses it to ask for location only once. */
     var isInitialLaunchPerformed = false
         private set
 
-    private var weatherJob: Job? = null
+    private var loadTarget: LoadTarget = LoadTarget.Startup(useDeviceLocation = false)
+    private var loadJob: Job? = null
     private var searchJob: Job? = null
     private var favoriteJob: Job? = null
 
     init {
-        observeSignedInUserId()
-            .drop(1)
+        observeSignedInUserIdUseCase()
+            .drop(1) // the first value is whoever is already signed in
             .onEach { resetForNewSession() }
             .launchIn(viewModelScope)
     }
 
+    fun onLocationPermissionResult(isGranted: Boolean, langCode: String) {
+        load(LoadTarget.Startup(useDeviceLocation = isGranted), langCode)
+    }
+
+    fun onCitySelected(
+        suggestionName: String,
+        lat: Double,
+        lon: Double,
+        langCode: String
+    ) {
+        viewModelScope.launch {
+            updatePreferenceUseCase.lastSearchedCity(name = suggestionName, lat = lat, lon = lon)
+        }
+        load(
+            LoadTarget.Place(suggestionName, lat, lon), langCode)
+    }
+
+    /** Reloads the place that failed. Startup failures retry through the location flow instead. */
+    fun onRetryClicked(langCode: String) = load(loadTarget, langCode)
+
+    private fun load(target: LoadTarget, langCode: String) {
+        loadTarget = target
+        isInitialLaunchPerformed = true
+
+        loadJob?.cancel()                    // the newest request wins
+        loadJob = viewModelScope.launch {
+            _state.update { it.copy(uiState = HomeUiState.Loading) }
+            try {
+                val (weather, displayName) = when (target) {
+                    is LoadTarget.Place ->
+                        loadCurrentWeatherUseCase(
+                            "${target.latitude},${target.longitude}",
+                            langCode
+                        ) to target.name
+
+                    is LoadTarget.Startup -> {
+                        val weather = loadCurrentWeatherUseCase(startupQuery(target), langCode)
+                        weather to "${weather.cityName}, ${weather.country}"
+                    }
+                }
+
+                _state.update {
+                    it.copy(uiState = HomeUiState.Success(weather), selectedCityName = displayName)
+                }
+                trackFavoriteObservation(displayName)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // selectedCityName is untouched: no city was loaded, so none should be claimed.
+                _state.update {
+                    it.copy(uiState = HomeUiState.Error(e.message ?: "Unknown Error", target.retry))
+                }
+            }
+        }
+    }
+
+    /** GPS (when allowed) → last searched city → default city. */
+    private suspend fun startupQuery(target: LoadTarget.Startup): String {
+        delay(300.milliseconds)
+        val coordinates = if (target.useDeviceLocation) currentCoordinatesOrNull() else null
+        if (coordinates != null) return "${coordinates.latitude},${coordinates.longitude}"
+
+        val savedCity = getLastSearchedCityUseCase()
+        return savedCity?.let { "${it.latitude},${it.longitude}" } ?: defaultCityFallback
+    }
+
+    private suspend fun currentCoordinatesOrNull(): GeoCoordinates? =
+        try {
+            getCurrentLocationUseCase()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+
+    fun refreshCurrentCity(langCode: String) {
+        val now = System.currentTimeMillis()
+        if (now - lastRefreshTime < refreshCooldownMillis) return
+        if (loadJob?.isActive == true) return                                   // never interrupt a load
+        val weather = (_state.value.uiState as? HomeUiState.Success)?.weather ?: return
+
+        loadJob = viewModelScope.launch {
+            try {
+                val fresh =
+                    loadCurrentWeatherUseCase("${weather.latitude},${weather.longitude}", langCode)
+                _state.update { it.copy(uiState = HomeUiState.Success(fresh)) }
+                lastRefreshTime =
+                    System.currentTimeMillis()                    // only after success
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to refresh weather", e)
+            }
+        }
+    }
+
     private fun resetForNewSession() {
-        weatherJob?.cancel()
+        loadJob?.cancel()
         searchJob?.cancel()
         favoriteJob?.cancel()
         _state.value = HomeStateContainer()
         isInitialLaunchPerformed = false
         lastRefreshTime = 0L
-    }
-
-    fun fetchInitialLocationWeather(langCode: String) {
-        fetchWeatherData(
-            queryCity = null,
-            langCode = langCode,
-            locationProvider = { getCurrentLocationUseCase() }
-        )
-    }
-
-    fun fetchWeatherData(
-        queryCity: String? = null,
-        langCode: String,
-        locationProvider: (suspend () -> GeoCoordinates?)? = null
-    ) {
-        weatherJob?.cancel()
-        weatherJob = viewModelScope.launch {
-            if (queryCity == null && isInitialLaunchPerformed) return@launch
-            _state.update { it.copy(uiState = HomeUiState.Loading) }
-
-            try {
-                val finalQuery = if (queryCity == null) {
-                    delay(300.milliseconds)
-                    val coordinates = runCatching { locationProvider?.invoke() }.getOrNull()
-
-                    if (coordinates != null) {
-                        "${coordinates.latitude},${coordinates.longitude}"
-                    } else {
-                        val savedCity = getLastSearchedCityUseCase()
-                        savedCity?.let { "${it.latitude},${it.longitude}" } ?: defaultCityFallback
-                    }
-                } else {
-                    queryCity
-                }
-
-                val domainWeather = loadCurrentWeatherUseCase(finalQuery, langCode)
-
-                val displayCityName = if (queryCity == null) {
-                    "${domainWeather.cityName}, ${domainWeather.country}"
-                } else {
-                    _state.value.selectedCityName
-                }
-
-                _state.update {
-                    it.copy(
-                        uiState = HomeUiState.Success(domainWeather),
-                        selectedCityName = displayCityName
-                    )
-                }
-                isInitialLaunchPerformed = true
-                trackFavoriteObservation(displayCityName)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        uiState = HomeUiState.Error(e.message ?: "Unknown Error"),
-                        selectedCityName = if (queryCity == null) "$defaultCityFallback, Egypt" else it.selectedCityName
-                    )
-                }
-            }
-        }
-    }
-
-    fun refreshCurrentCity(langCode: String) {
-        val currentTime = System.currentTimeMillis()
-        if (currentTime - lastRefreshTime < refreshCooldownMillis) return
-
-        weatherJob?.cancel()
-        weatherJob = viewModelScope.launch {
-            val currentCity = _state.value.selectedCityName
-            if (currentCity.isEmpty()) return@launch
-
-            lastRefreshTime = currentTime
-            try {
-                val domainWeather = loadCurrentWeatherUseCase(currentCity, langCode)
-                _state.update { it.copy(uiState = HomeUiState.Success(domainWeather)) }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to refresh weather for $currentCity", e)
-            }
-        }
-    }
-
-    fun onLocationPermissionResult(isGranted: Boolean, langCode: String) {
-        if (isGranted) {
-            fetchInitialLocationWeather(langCode)
-        } else {
-            fetchWeatherData(queryCity = null, langCode = langCode)
-        }
+        loadTarget = LoadTarget.Startup(useDeviceLocation = false)
     }
 
     fun onSearchQueryChanged(newQuery: String, langCode: String) {
@@ -172,14 +196,6 @@ class HomeViewModel(
                 getLocationSuggestionsUseCase(newQuery, langCode)
             }.getOrNull() ?: emptyList()
             _state.update { it.copy(citySuggestions = suggestions) }
-        }
-    }
-
-    fun onCitySelected(suggestionName: String, lat: Double, lon: Double, langCode: String) {
-        viewModelScope.launch {
-            _state.update { it.copy(selectedCityName = suggestionName) }
-            updatePreferenceUseCase.lastSearchedCity(name = suggestionName, lat = lat, lon = lon)
-            fetchWeatherData(queryCity = "$lat,$lon", langCode = langCode)
         }
     }
 
@@ -229,7 +245,7 @@ class HomeViewModel(
                     getCurrentLocationUseCase = app.container.getCurrentLocationUseCase,
                     toggleFavoriteUseCase = app.container.toggleFavoriteUseCase,
                     observeFavoriteStatusUseCase = app.container.observeFavoriteStatusUseCase,
-                    observeSignedInUserId = app.container.observeSignedInUserIdUseCase,
+                    observeSignedInUserIdUseCase = app.container.observeSignedInUserIdUseCase,
                     getLastSearchedCityUseCase = app.container.getLastSearchedCityUseCase,
                     updatePreferenceUseCase = app.container.updatePreferenceUseCase
                 )
