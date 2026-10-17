@@ -16,5 +16,7 @@ data class LocationDto(
     @SerialName("lon")
     val cityLongitude: Double,
     @SerialName("localtime")
-    val cityLocaltime: String
+    val cityLocaltime: String,
+    @SerialName("tz_id")
+    val timeZoneId: String? = null
 )

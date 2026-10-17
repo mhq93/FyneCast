@@ -13,6 +13,7 @@ data class WeatherDomainModel(
     val conditionText: String,
     val conditionIcon: String,
     val lastUpdated: LocalDateTime?,
+    val timeZoneId: String?,
     val alerts: List<AlertDomainModel>,
     val stats: WeatherStatsDomainModel,
     val dailyForecasts: List<DailyForecastDomainModel>,

@@ -80,6 +80,7 @@ fun WeatherApiResponse.toDomain(): WeatherDomainModel {
         conditionText = this.current.condition.description,
         conditionIcon = this.current.condition.icon,
         lastUpdated = parseDateTime(current.lastUpdated, API_DATE_TIME),
+        timeZoneId = this.location.timeZoneId,
         alerts = domainAlerts,
         stats = domainStats,
         dailyForecasts = domainDailyList,

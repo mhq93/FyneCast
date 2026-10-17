@@ -22,6 +22,7 @@ import com.mhq.fynecast.home.ui.components.WeatherHeroCard
 import com.mhq.fynecast.home.ui.components.WeatherHourlyCarousel
 import com.mhq.fynecast.home.ui.components.WeatherSearchBar
 import com.mhq.fynecast.home.ui.components.WeatherStatsGrid
+import com.mhq.fynecast.home.ui.components.rememberCityTime
 
 @Composable
 fun HomeContent(
@@ -62,9 +63,12 @@ fun HomeContent(
             WeatherHeroCard(
                 icon = weatherDomainModel.conditionIcon,
                 city = selectedCityName.substringBefore(","),
-                timestamp = weatherDomainModel.lastUpdated?.let {
-                    DateTimeFormats.lastUpdated(it, currentLocale())
-                }.orEmpty(),
+                timestamp = rememberCityTime(
+                    timeZoneId = weatherDomainModel.timeZoneId,
+                    fallback = weatherDomainModel.lastUpdated?.let {
+                        DateTimeFormats.lastUpdated(it, currentLocale())
+                    }.orEmpty()
+                ),
                 description = weatherDomainModel.conditionText,
                 temperature = if (isMetric)
                     "${weatherDomainModel.currentTempC}°"
