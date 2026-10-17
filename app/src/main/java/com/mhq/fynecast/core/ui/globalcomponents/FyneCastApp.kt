@@ -8,6 +8,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -62,7 +63,8 @@ fun FyneCastApp(
 ) {
 
     val context = LocalContext.current
-    val isDarkMode by settingsViewModel.isDarkMode.collectAsState()
+    val storedDarkMode by settingsViewModel.isDarkMode.collectAsState()
+    val isDarkMode = storedDarkMode ?: isSystemInDarkTheme()
     val isMetric by settingsViewModel.isMetric.collectAsState()
     val currentLanguage by settingsViewModel.currentLanguage.collectAsState()
     val appLangCode = AppLanguage.fromStoredName(currentLanguage).code

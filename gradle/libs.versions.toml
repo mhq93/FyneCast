@@ -18,6 +18,7 @@ pagingCompose = "3.5.0"
 pagingCommon = "3.5.0"
 lifecycleService = "2.11.0"
 foundation = "1.11.4"
+foundationVersion = "1.12.1"
 
 [libraries]
 androidx-compose-material-icons-core = { module = "androidx.compose.material:material-icons-core" }
@@ -46,6 +47,7 @@ androidx-paging-compose = { group = "androidx.paging", name = "paging-compose", 
 androidx-paging-common = { group = "androidx.paging", name = "paging-common", version.ref = "pagingCommon" }
 androidx-lifecycle-service = { group = "androidx.lifecycle", name = "lifecycle-service", version.ref = "lifecycleService" }
 androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
+foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundationVersion" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

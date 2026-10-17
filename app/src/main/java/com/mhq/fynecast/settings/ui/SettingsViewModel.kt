@@ -82,6 +82,15 @@ class SettingsViewModel(
                 true
             )
 
+    init {
+        viewModelScope.launch {
+            preferencesFlow
+                .map { AppLanguage.fromStoredName(it.currentLanguage).code }
+                .distinctUntilChanged()
+                .collect { _localeEvent.tryEmit(it) }
+        }
+    }
+
     fun toggleUnitSystem(isMetric: Boolean) {
         viewModelScope.launch {
             updatePreference.metricSystem(isMetric)
@@ -134,12 +143,12 @@ class SettingsViewModel(
         viewModelScope.launch { updatePreference.language(language) }
     }
 
-    val isDarkMode: StateFlow<Boolean> =
+    val isDarkMode: StateFlow<Boolean?> =
         preferencesFlow.map { it.isDarkMode }
             .stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5000),
-                true
+                null
             )
 
     fun toggleDarkMode(enabled: Boolean) {
@@ -161,14 +170,15 @@ class SettingsViewModel(
         }
     }
 
-    init {
-        viewModelScope.launch {
-            preferencesFlow
-                .map { AppLanguage.fromStoredName(it.currentLanguage).code }
-                .distinctUntilChanged()
-                .collect { _localeEvent.tryEmit(it) }
-        }
-    }
+    /** True once the first preferences read has finished;
+     * the splash screen waits for it. */
+    val arePreferencesLoaded: StateFlow<Boolean> =
+        preferencesFlow.map { true }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                false
+            )
 
     companion object {
         val factory: ViewModelProvider.Factory = viewModelFactory {

@@ -58,7 +58,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        splashScreen.setKeepOnScreenCondition { false }
+        splashScreen.setKeepOnScreenCondition { !settingsViewModel.arePreferencesLoaded.value }
 
         lifecycleScope.launch {
             settingsViewModel.localeEvent.collect { langCode ->

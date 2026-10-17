@@ -52,6 +52,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.foundation)
     val nav_version = "2.9.8"
     val room_version = "2.8.4"
     val paging_version = "3.4.2"

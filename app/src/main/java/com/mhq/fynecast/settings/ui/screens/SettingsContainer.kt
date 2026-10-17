@@ -1,5 +1,6 @@
 package com.mhq.fynecast.settings.ui.screens
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -35,7 +36,8 @@ fun SettingsContainer(
     val currentLanguage by settingsViewModel.currentLanguage.collectAsStateWithLifecycle()
 
     val isMetric by settingsViewModel.isMetric.collectAsStateWithLifecycle()
-    val isDarkMode by settingsViewModel.isDarkMode.collectAsStateWithLifecycle()
+    val storedDarkMode by settingsViewModel.isDarkMode.collectAsStateWithLifecycle()
+    val isDarkMode = storedDarkMode ?: isSystemInDarkTheme()
     val notificationsEnabled by settingsViewModel.notificationsEnabled.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {

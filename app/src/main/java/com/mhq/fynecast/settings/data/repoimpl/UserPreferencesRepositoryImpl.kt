@@ -83,8 +83,7 @@ class UserPreferencesRepositoryImpl(
             isMetric = preferences[PreferencesKeys.IS_METRIC] ?: true,
             notificationsEnabled = preferences[PreferencesKeys.NOTIFICATIONS_ENABLED] ?: true,
             currentLanguage = preferences[PreferencesKeys.CURRENT_LANGUAGE] ?: "English",
-            isDarkMode = preferences[PreferencesKeys.IS_DARK_MODE] ?: true,
-            lastSearchedCityName = preferences[PreferencesKeys.LAST_CITY_NAME],
+            isDarkMode = preferences[PreferencesKeys.IS_DARK_MODE],            lastSearchedCityName = preferences[PreferencesKeys.LAST_CITY_NAME],
             lastSearchedCityLat = preferences[PreferencesKeys.LAST_CITY_LAT],
             lastSearchedCityLon = preferences[PreferencesKeys.LAST_CITY_LON]
         )
