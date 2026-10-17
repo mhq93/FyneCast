@@ -1,13 +1,15 @@
 package com.mhq.fynecast.auth.data.repoimpl.profile
 
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.userProfileChangeRequest
+import com.mhq.fynecast.auth.data.session.SessionKeys
 import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,15 +22,9 @@ import kotlinx.coroutines.withContext
 
 class UserProfileRepositoryImpl(
     private val firebaseAuth: FirebaseAuth,
-    private val sessionDataStore: DataStore<Preferences>
+    private val sessionDataStore: DataStore<Preferences>,
+    externalScope: CoroutineScope
 ) : UserProfileRepository {
-
-    private object SessionKeys {
-        val USER_ID = stringPreferencesKey("user_id")
-        val USERNAME = stringPreferencesKey("username")
-        val EMAIL = stringPreferencesKey("email")
-        val PROFILE_IMAGE_URI = stringPreferencesKey("profile_image_uri")
-    }
 
     private val _profileState =
         MutableStateFlow(
@@ -43,14 +39,24 @@ class UserProfileRepositoryImpl(
     override val profileState: StateFlow<UserDomainModel> = _profileState.asStateFlow()
 
     init {
-        CoroutineScope(Dispatchers.IO).launch { refreshActiveUserSession() }
+        externalScope.launch(Dispatchers.IO) {
+            try {
+                refreshActiveUserSession()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("UserProfileRepository", "Initial profile refresh failed", e)
+            }
+        }
     }
 
     override suspend fun getProfile(): UserDomainModel = withContext(Dispatchers.IO) {
         val user = firebaseAuth.currentUser
         val snapshot = sessionDataStore.data.first()
         val name = snapshot[SessionKeys.USERNAME] ?: user?.displayName ?: "Username"
-        val email = snapshot[SessionKeys.EMAIL] ?: user?.email ?: "username@gmail.com"
+        val email = user?.email?.takeIf { it.isNotBlank() }
+            ?: snapshot[SessionKeys.EMAIL]
+            ?: "username@gmail.com"
         val img = snapshot[SessionKeys.PROFILE_IMAGE_URI]
         UserDomainModel(user?.uid ?: snapshot[SessionKeys.USER_ID] ?: "", name, email, img)
     }
@@ -85,7 +91,13 @@ class UserProfileRepositoryImpl(
         }
 
     override suspend fun refreshActiveUserSession() {
-        val current = getProfile()
-        _profileState.value = current
+        /** Picks up an email change verified outside the app. (Best effort), offline is fine. */
+        try {
+            firebaseAuth.currentUser?.reload()?.await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+        _profileState.value = getProfile()
     }
 }

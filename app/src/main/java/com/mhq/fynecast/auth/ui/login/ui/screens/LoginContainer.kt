@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -20,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginContainer(
@@ -35,7 +37,12 @@ fun LoginContainer(
     val isPasswordVisible by loginViewModel.passwordVisible.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        loginViewModel.navigationEvent.collect { onLoginClick() }
+    }
 
     LaunchedEffect(Unit) {
         loginViewModel.uiEvent.collectLatest { errorMessage ->
@@ -57,14 +64,14 @@ fun LoginContainer(
             isPasswordVisible = isPasswordVisible,
             onTogglePasswordVisibility = loginViewModel::togglePasswordVisibility,
             onSignUpClick = onSignUpNavigate,
-            onLoginClick = { loginViewModel.validateThenLogin(onSuccess = onLoginClick) },
+            onLoginClick = { loginViewModel.validateThenLogin() },
             onForgotPasswordClick = onForgotPasswordClick,
             onGoogleAuthenticate = {
-                loginViewModel.onGoogleAuthenticate(context, onLoginClick)
+                scope.launch { loginViewModel.onGoogleAuthenticate(context) }
             },
             onFacebookAuthenticate = {
                 (context as? ComponentActivity)?.let { activity ->
-                    loginViewModel.onFacebookAuthenticate(activity, onLoginClick)
+                    scope.launch { loginViewModel.onFacebookAuthenticate(activity) }
                 }
             },
             modifier = modifier

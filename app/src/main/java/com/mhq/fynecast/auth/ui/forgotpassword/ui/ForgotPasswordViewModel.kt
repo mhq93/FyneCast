@@ -18,21 +18,26 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 class ForgotPasswordViewModel(
     private val validateLoginFormUseCase: ValidateLoginFormUseCase,
     private val sendPasswordResetUseCase: SendPasswordResetUseCase
 ) : ViewModel() {
 
-    private val _forgotPasswordUiState = MutableStateFlow<ForgotPasswordUiState>(ForgotPasswordUiState.Idle)
+    private val _forgotPasswordUiState =
+        MutableStateFlow<ForgotPasswordUiState>(ForgotPasswordUiState.Idle)
     private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
     val uiEvent = _uiEventChannel.receiveAsFlow()
+    private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
+    val navigationEvent = _navigationEvent.receiveAsFlow()
 
     private val _email = MutableStateFlow("")
     val email = _email.asStateFlow()
     fun onEmailChanged(newEmail: String) {
         _email.value = newEmail.trim()
     }
+
     val isEmailValid = _email
         .map { validateLoginFormUseCase.validateEmailFormat(it) }
         .stateIn(
@@ -41,15 +46,17 @@ class ForgotPasswordViewModel(
             true
         )
 
-    fun handlePasswordReset(onSuccess: () -> Unit) {
+    fun handlePasswordReset() {
+        val state = _forgotPasswordUiState.value
+        if (state is ForgotPasswordUiState.Loading || state is ForgotPasswordUiState.Success) return
         viewModelScope.launch {
             _forgotPasswordUiState.value = ForgotPasswordUiState.Loading
             sendPasswordResetUseCase(_email.value)
                 .onSuccess {
                     _forgotPasswordUiState.value = ForgotPasswordUiState.Success
                     _uiEventChannel.send("Reset link successfully sent to ${_email.value}")
-                    delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS)
-                    onSuccess()
+                    delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
+                    _navigationEvent.send(Unit)
                 }
                 .onFailure { error ->
                     val msg = error.localizedMessage ?: "Failed to send reset link. Try again."

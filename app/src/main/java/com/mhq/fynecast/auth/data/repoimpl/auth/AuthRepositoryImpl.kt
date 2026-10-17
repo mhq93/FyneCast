@@ -4,12 +4,12 @@ import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
 import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.userProfileChangeRequest
 import com.mhq.fynecast.auth.data.repository.auth.SocialAuthCredentialProvider
+import com.mhq.fynecast.auth.data.session.SessionKeys
 import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
 import kotlinx.coroutines.flow.first
@@ -21,12 +21,6 @@ class AuthRepositoryImpl(
     private val socialAuthCredentialProvider: SocialAuthCredentialProvider
 ) : AuthRepository {
 
-    private object SessionKeys {
-        val USER_ID = stringPreferencesKey("user_id")
-        val USERNAME = stringPreferencesKey("username")
-        val EMAIL = stringPreferencesKey("email")
-    }
-
     override suspend fun registerWithEmail(
         name: String,
         email: String,
@@ -35,10 +29,10 @@ class AuthRepositoryImpl(
         val authResult = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
         val user = authResult.user ?: throw Exception("Auth registration failed.")
 
-        // Account already exists at this point; displayName is cosmetic, so a
-        // failure here shouldn't fail the whole registration. Retry once so a
-        // transient failure doesn't leave the name unpersisted server-side,
-        // and surface it if it still doesn't stick so it isn't silently lost.
+        /** Account already exists at this point; displayName is cosmetic,
+         * so a failure here shouldn't fail the whole registration.
+         * Retry once so a transient failure doesn't leave the name unpersisted server-side,
+         * and surface it if it still doesn't stick so it isn't silently lost. */
         val profileSynced = runCatching {
             user.updateProfile(userProfileChangeRequest { displayName = name }).await()
         }.isSuccess
@@ -61,8 +55,9 @@ class AuthRepositoryImpl(
         runCatching {
             val authResult = firebaseAuth.signInWithEmailAndPassword(email, password).await()
             val user = authResult.user ?: throw Exception("Auth login failed.")
-            // The local cache lookup is a best-effort fallback only; a DataStore
-            // read failure here must not fail an otherwise-successful login.
+
+            /** The local cache lookup is a best-effort fallback only;
+             * a DataStore read failure here must not fail an otherwise-successful login. */
             val snapshot = runCatching { sessionDataStore.data.first() }.getOrNull()
             val cachedUsername = snapshot?.get(SessionKeys.USERNAME)
                 ?.takeIf { snapshot[SessionKeys.USER_ID] == user.uid }

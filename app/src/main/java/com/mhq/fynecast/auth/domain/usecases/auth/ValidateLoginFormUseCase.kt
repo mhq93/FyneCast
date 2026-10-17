@@ -5,7 +5,7 @@ import com.mhq.fynecast.auth.domain.validation.EmailFormatValidator
 
 class ValidateLoginFormUseCase {
     fun validateEmailFormat(email: String): Boolean {
-        return EmailFormatValidator.isValid(email)
+        return EmailFormatValidator.isValidOrEmpty(email)
     }
 
     operator fun invoke(email: String, password: String): ValidationResult {

@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -20,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 @Composable
 fun SignupContainer(
@@ -39,7 +41,12 @@ fun SignupContainer(
     val arePasswordsVisible by signupViewModel.arePasswordsVisible.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        signupViewModel.navigationEvent.collect { onSignupClick() }
+    }
 
     LaunchedEffect(Unit) {
         signupViewModel.uiEvent.collectLatest { errorMessage ->
@@ -70,15 +77,15 @@ fun SignupContainer(
             arePasswordsVisible = arePasswordsVisible,
             onTogglePasswordVisibility = signupViewModel::togglePasswordsVisibility,
             onGoogleAuthenticate = {
-                signupViewModel.onGoogleAuthenticate(context, onSignupClick)
+                scope.launch { signupViewModel.onGoogleAuthenticate(context) }
             },
             onFacebookAuthenticate = {
                 (context as? ComponentActivity)?.let { activity ->
-                    signupViewModel.onFacebookAuthenticate(activity, onSignupClick)
+                    scope.launch { signupViewModel.onFacebookAuthenticate(activity) }
                 }
             },
             onLoginClick = onLoginNavigate,
-            onSignupClick = { signupViewModel.validateThenRegister(onSignupClick) },
+            onSignupClick = { signupViewModel.validateThenRegister() },
             modifier = modifier
         )
 

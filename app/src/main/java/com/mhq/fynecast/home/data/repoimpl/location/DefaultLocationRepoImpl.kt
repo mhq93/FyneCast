@@ -26,7 +26,7 @@ class DefaultLocationRepoImpl(
 
         val location = try {
             withTimeoutOrNull(FRESH_FIX_TIMEOUT_MILLIS.milliseconds) { requestFreshLocation() }
-                ?: lastKnownLocation()
+                ?: withTimeoutOrNull(LAST_KNOWN_TIMEOUT_MILLIS.milliseconds) { lastKnownLocation() }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -65,6 +65,7 @@ class DefaultLocationRepoImpl(
         (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos) / 1_000_000
 
     private companion object {
+        const val LAST_KNOWN_TIMEOUT_MILLIS = 2_000L
         const val FRESH_FIX_TIMEOUT_MILLIS = 8_000L
         const val MAX_CACHED_FIX_AGE_MILLIS = 30 * 60 * 1000L
     }

@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.auth.data.usecases.auth.AuthenticateWithSocialProviderUseCase
+import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.auth.LoginWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
@@ -32,6 +33,8 @@ class LoginViewModel(
     val loginUiState = _loginUiState.asStateFlow()
     private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
     val uiEvent = _uiEventChannel.receiveAsFlow()
+    private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
+    val navigationEvent = _navigationEvent.receiveAsFlow()
 
     private val _email = MutableStateFlow("")
     val email = _email.asStateFlow()
@@ -57,53 +60,55 @@ class LoginViewModel(
         _passwordVisible.value = !_passwordVisible.value
     }
 
-    fun validateThenLogin(onSuccess: () -> Unit) {
-        when (
-            val validation = validateLoginFormUseCase(
-                _email.value,
-                _password.value
-            )
-        ) {
+    fun validateThenLogin() {
+        if (_loginUiState.value is LoginUiState.Loading) return
+        when (val validation = validateLoginFormUseCase(_email.value, _password.value)) {
             is ValidationResult.Success -> {
                 viewModelScope.launch {
                     _loginUiState.value = LoginUiState.Loading
-                    loginWithEmailUseCase(
-                        _email.value,
-                        _password.value
-                    )
+                    loginWithEmailUseCase(_email.value, _password.value)
                         .onSuccess {
                             _loginUiState.value = LoginUiState.Success
-                            onSuccess()
+                            _navigationEvent.send(Unit)
                         }
                         .onFailure { handleLoginFailure(it) }
                 }
             }
-
             is ValidationResult.Failure -> {
                 viewModelScope.launch { _uiEventChannel.send(validation.errorMessage) }
             }
         }
     }
 
-    fun onGoogleAuthenticate(
-        context: Context,
-        onSuccess: () -> Unit
-    ) {
-        viewModelScope.launch {
+    suspend fun onGoogleAuthenticate(context: Context) =
+        runSocialSignIn("Google sign-in failed") {
             authenticateWithSocialProviderUseCase.withGoogle(context)
-                .onSuccess { onSuccess() }
-                .onFailure { _uiEventChannel.send("Google sign-in failed") }
         }
-    }
 
-    fun onFacebookAuthenticate(
-        activity: ComponentActivity,
-        onSuccess: () -> Unit
-    ) {
-        viewModelScope.launch {
+    suspend fun onFacebookAuthenticate(activity: ComponentActivity) =
+        runSocialSignIn("Facebook sign-in failed") {
             authenticateWithSocialProviderUseCase.withFacebook(activity)
-                .onSuccess { onSuccess() }
-                .onFailure { _uiEventChannel.send("Facebook sign-in failed") }
+        }
+
+    private suspend fun runSocialSignIn(
+        failureMessage: String,
+        signIn: suspend () -> Result<UserDomainModel>
+    ) {
+        if (_loginUiState.value is LoginUiState.Loading) return
+        _loginUiState.value = LoginUiState.Loading
+        try {
+            signIn()
+                .onSuccess {
+                    _loginUiState.value = LoginUiState.Success
+                    _navigationEvent.send(Unit)
+                }
+                .onFailure {
+                    _loginUiState.value = LoginUiState.Idle
+                    _uiEventChannel.send(failureMessage)
+                }
+        } finally {
+            // Canceled sign-in (user backed out): never stay stuck in Loading.
+            if (_loginUiState.value is LoginUiState.Loading) _loginUiState.value = LoginUiState.Idle
         }
     }
 

@@ -7,6 +7,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import androidx.datastore.preferences.preferencesDataStore
+import com.mhq.fynecast.BuildConfig
 
 private val Context.internalPrefsStore by preferencesDataStore(name = "user_preferences")
 private val Context.internalSessionStore by preferencesDataStore(name = "user_session")
@@ -25,6 +26,7 @@ class FyneCastApplication : Application() {
             prefsDataStore = internalPrefsStore,
             sessionDataStore = internalSessionStore
         )
+        if (BuildConfig.DEBUG) container.appInitializer.initializeDebugFeatures()
         createNotificationChannels()
     }
 

@@ -33,7 +33,7 @@ class AppInitializerImpl(
                 Log.d("AppInitializer", "Facebook key hash: $hashKey")
             }
         } catch (e: Exception) {
-
+            Log.w("AppInitializer", "Could not read the signing certificate", e)
         }
     }
 

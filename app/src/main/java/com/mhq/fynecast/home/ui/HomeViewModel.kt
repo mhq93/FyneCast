@@ -22,6 +22,7 @@ import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlin.time.Duration.Companion.milliseconds
 
 class HomeViewModel(
@@ -114,16 +116,18 @@ class HomeViewModel(
         loadJob = viewModelScope.launch {
             _state.update { it.copy(uiState = HomeUiState.Loading) }
             try {
-                val (weather, displayName) = when (target) {
-                    is LoadTarget.Place ->
-                        loadCurrentWeatherUseCase(
-                            "${target.latitude},${target.longitude}",
-                            langCode
-                        ) to target.name
+                val (weather, displayName) = withTimeout(LOAD_TIMEOUT_MILLIS.milliseconds) {
+                    when (target) {
+                        is LoadTarget.Place ->
+                            loadCurrentWeatherUseCase(
+                                "${target.latitude},${target.longitude}",
+                                langCode
+                            ) to target.name
 
-                    is LoadTarget.Startup -> {
-                        val weather = loadCurrentWeatherUseCase(startupQuery(target), langCode)
-                        weather to "${weather.cityName}, ${weather.country}"
+                        is LoadTarget.Startup -> {
+                            val weather = loadCurrentWeatherUseCase(startupQuery(target), langCode)
+                            weather to "${weather.cityName}, ${weather.country}"
+                        }
                     }
                 }
                 _state.update {
@@ -132,6 +136,8 @@ class HomeViewModel(
                 loadedLangCode = langCode
                 onWeatherShown(weather)
                 latestLangCode?.takeIf { it != langCode }?.let { onLanguageChanged(it) }
+            } catch (e: TimeoutCancellationException) {
+                _state.update { it.copy(uiState = HomeUiState.Error("timeout", target.retry)) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -229,6 +235,7 @@ class HomeViewModel(
 
     companion object {
         private const val TAG = "HomeViewModel"
+        private const val LOAD_TIMEOUT_MILLIS = 30_000L
 
         val factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {

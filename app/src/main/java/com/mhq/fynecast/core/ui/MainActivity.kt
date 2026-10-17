@@ -12,9 +12,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import com.mhq.fynecast.BuildConfig
 import com.mhq.fynecast.alerts.ui.AlertsViewModel
-import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.FyneCastApp
 import com.mhq.fynecast.home.ui.HomeViewModel
@@ -61,10 +59,6 @@ class MainActivity : AppCompatActivity() {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         splashScreen.setKeepOnScreenCondition { false }
-
-        if (BuildConfig.DEBUG) {
-            (applicationContext as? FyneCastApplication)?.container?.appInitializer?.initializeDebugFeatures()
-        }
 
         lifecycleScope.launch {
             settingsViewModel.localeEvent.collect { langCode ->

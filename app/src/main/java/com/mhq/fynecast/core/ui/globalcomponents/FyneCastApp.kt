@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -121,18 +122,8 @@ fun FyneCastApp(
                         val signupViewModel: SignupViewModel =
                             viewModel(factory = SignupViewModel.factory)
                         SignupContainer(
-                            onLoginNavigate = {
-                                navController.navigate(BottomNavigationItem.Login.route) {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onSignupClick = {
-                                navController.navigate(BottomNavigationItem.Home.route) {
-                                    popUpTo(BottomNavigationItem.Signup.route) {
-                                        inclusive = true
-                                    }
-                                }
-                            },
+                            onLoginNavigate = { navController.goToAuthScreen(BottomNavigationItem.Login.route) },
+                            onSignupClick = { navController.enterApp() },
                             modifier = Modifier,
                             signupViewModel = signupViewModel
                         )
@@ -140,22 +131,12 @@ fun FyneCastApp(
 
                     composable(BottomNavigationItem.Login.route) {
                         LoginContainer(
-                            onSignUpNavigate = {
-                                navController.navigate(BottomNavigationItem.Signup.route) {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onLoginClick = {
-                                navController.navigate(BottomNavigationItem.Home.route) {
-                                    popUpTo(BottomNavigationItem.Login.route) {
-                                        inclusive = true
-                                    }
-                                }
-                            },
+                            onSignUpNavigate = { navController.goToAuthScreen(BottomNavigationItem.Signup.route) },
+                            onLoginClick = { navController.enterApp() },
                             onForgotPasswordClick = {
-                                navController.navigate(BottomNavigationItem.ForgotPassword.route) {
-                                    launchSingleTop = true
-                                }
+                                navController.goToAuthScreen(
+                                    BottomNavigationItem.ForgotPassword.route
+                                )
                             },
                             modifier = Modifier
                         )
@@ -163,17 +144,11 @@ fun FyneCastApp(
 
                     composable(BottomNavigationItem.ForgotPassword.route) {
                         ForgotPasswordContainer(
-                            onBackToLoginClick = {
-                                navController.navigate(BottomNavigationItem.Login.route) {
-                                    launchSingleTop = true
-                                }
-                            },
+                            onBackToLoginClick = { navController.goToAuthScreen(BottomNavigationItem.Login.route) },
                             onSendLinkSuccessNavigate = {
-                                navController.navigate(BottomNavigationItem.Login.route) {
-                                    popUpTo(BottomNavigationItem.Login.route) {
-                                        inclusive = true
-                                    }
-                                }
+                                navController.goToAuthScreen(
+                                    BottomNavigationItem.Login.route
+                                )
                             },
                             modifier = Modifier
                         )
@@ -301,4 +276,19 @@ fun FyneCastApp(
 @Composable
 fun FyneCastAppPreview() {
     FyneCastTheme {}
+}
+
+private fun NavController.goToAuthScreen(route: String) {
+    /** Return to it if it is already below us;
+     * otherwise push it. Never stack duplicates. */
+    if (!popBackStack(route, inclusive = false)) {
+        navigate(route) { launchSingleTop = true }
+    }
+}
+
+private fun NavController.enterApp() {
+    navigate(BottomNavigationItem.Home.route) {
+        popUpTo(graph.findStartDestination().id) { inclusive = true }
+        launchSingleTop = true
+    }
 }

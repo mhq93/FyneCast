@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.auth.data.usecases.auth.AuthenticateWithSocialProviderUseCase
+import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.auth.RegisterWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
@@ -34,12 +35,15 @@ class SignupViewModel(
     private val _signupUiState = MutableStateFlow<SignupUiState>(SignupUiState.Idle)
     private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
     val uiEvent = _uiEventChannel.receiveAsFlow()
+    private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
+    val navigationEvent = _navigationEvent.receiveAsFlow()
 
     private val _username = MutableStateFlow("")
     val username = _username.asStateFlow()
     fun onUsernameChanged(newUsername: String) {
         _username.value = newUsername
     }
+
     val isUsernameValid = _username
         .map { validateSignupFormUseCase.validateUsername(it) }
         .stateIn(
@@ -51,8 +55,9 @@ class SignupViewModel(
     private val _userEmail = MutableStateFlow("")
     val userEmail = _userEmail.asStateFlow()
     fun onUserEmailChanged(newEmail: String) {
-        _userEmail.value = newEmail
+        _userEmail.value = newEmail.trim()
     }
+
     val isEmailValid = _userEmail
         .map { validateSignupFormUseCase.validateEmail(it) }
         .stateIn(
@@ -66,6 +71,7 @@ class SignupViewModel(
     fun onUserPasswordChanged(newPassword: String) {
         _userPassword.value = newPassword
     }
+
     val isPasswordValid = _userPassword
         .map { validateSignupFormUseCase.validatePassword(it) }
         .stateIn(
@@ -94,23 +100,19 @@ class SignupViewModel(
         true
     )
 
-    fun validateThenRegister(onSuccess: () -> Unit) {
-        if (_signupUiState.value is SignupUiState.Loading) return
-
+    fun validateThenRegister() {
+        val state = _signupUiState.value
+        if (state is SignupUiState.Loading || state is SignupUiState.Success) return
         val validation = validateSignupFormUseCase(
             username = _username.value,
             email = _userEmail.value,
             password = _userPassword.value,
             confirmPassword = _confirmPassword.value
         )
-
         if (validation is ValidationResult.Failure) {
-            viewModelScope.launch {
-                _uiEventChannel.send(validation.errorMessage)
-            }
+            viewModelScope.launch { _uiEventChannel.send(validation.errorMessage) }
             return
         }
-
         viewModelScope.launch {
             _signupUiState.value = SignupUiState.Loading
             registerWithEmailUseCase(
@@ -122,35 +124,47 @@ class SignupViewModel(
                     _signupUiState.value = SignupUiState.Success
                     _uiEventChannel.send("Account created successfully.")
                     delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
-                    onSuccess()
+                    _navigationEvent.send(Unit)
                 }
                 .onFailure { error ->
-                    val msg = error.localizedMessage ?: "An unexpected authentication error occurred."
+                    val msg =
+                        error.localizedMessage ?: "An unexpected authentication error occurred."
                     _signupUiState.value = SignupUiState.Error(msg)
                     _uiEventChannel.send(msg)
                 }
         }
     }
 
-    fun onGoogleAuthenticate(
-        context: Context,
-        onSuccess: () -> Unit
-    ) {
-        viewModelScope.launch {
+    suspend fun onGoogleAuthenticate(context: Context) =
+        runSocialSignIn("Google sign-in failed") {
             authenticateWithSocialProviderUseCase.withGoogle(context)
-                .onSuccess { onSuccess() }
-                .onFailure { _uiEventChannel.send("Google sign-in failed") }
         }
-    }
 
-    fun onFacebookAuthenticate(
-        activity: ComponentActivity,
-        onSuccess: () -> Unit
-    ) {
-        viewModelScope.launch {
+    suspend fun onFacebookAuthenticate(activity: ComponentActivity) =
+        runSocialSignIn("Facebook sign-in failed") {
             authenticateWithSocialProviderUseCase.withFacebook(activity)
-                .onSuccess { onSuccess() }
-                .onFailure { _uiEventChannel.send("Facebook sign-in failed") }
+        }
+
+    private suspend fun runSocialSignIn(
+        failureMessage: String,
+        signIn: suspend () -> Result<UserDomainModel>
+    ) {
+        val state = _signupUiState.value
+        if (state is SignupUiState.Loading || state is SignupUiState.Success) return
+        _signupUiState.value = SignupUiState.Loading
+        try {
+            signIn()
+                .onSuccess {
+                    _signupUiState.value = SignupUiState.Success
+                    _navigationEvent.send(Unit)
+                }
+                .onFailure {
+                    _signupUiState.value = SignupUiState.Idle
+                    _uiEventChannel.send(failureMessage)
+                }
+        } finally {
+            if (_signupUiState.value is SignupUiState.Loading) _signupUiState.value =
+                SignupUiState.Idle
         }
     }
 

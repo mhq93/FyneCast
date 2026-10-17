@@ -16,6 +16,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -70,11 +71,13 @@ class EditProfileViewModel(
 
     init {
         viewModelScope.launch {
-            observeUserProfileUseCase().collect { profile ->
-                _username.value = profile.name
-                _userEmail.value = profile.email
-                _profileImageUri.value = profile.profileImageUri
-            }
+            /** Seed the form once.
+            The flow starts with a placeholder (empty id) and re-emits on every refresh,
+            so collecting it would overwrite what the user is typing. */
+            val profile = observeUserProfileUseCase().first { it.id.isNotEmpty() }
+            if (_username.value.isEmpty()) _username.value = profile.name
+            if (_userEmail.value.isEmpty()) _userEmail.value = profile.email
+            if (_profileImageUri.value == null) _profileImageUri.value = profile.profileImageUri
         }
     }
 
@@ -97,9 +100,14 @@ class EditProfileViewModel(
                         newEmail = _userEmail.value,
                         localImageUriString = _profileImageUri.value
                     )
-                        .onSuccess {
+                        .onSuccess { verificationSent ->
                             _editProfileUiState.value = EditProfileUiState.Success
-                            _uiEventChannel.send("Profile changes saved successfully!")
+                            _uiEventChannel.send(
+                                if (verificationSent)
+                                    "Saved. Check your new email inbox to verify the change."
+                                else
+                                    "Profile changes saved successfully!"
+                            )
                             delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
                             _navigationEventChannel.send(Unit)
                         }

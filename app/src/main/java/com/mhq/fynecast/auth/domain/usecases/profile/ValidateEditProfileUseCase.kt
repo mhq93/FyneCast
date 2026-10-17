@@ -11,7 +11,7 @@ class ValidateEditProfileUseCase {
     }
 
     fun validateEmailFormat(email: String): Boolean {
-        return EmailFormatValidator.isValid(email)
+        return EmailFormatValidator.isValidOrEmpty(email)
     }
 
     operator fun invoke(username: String, email: String): ValidationResult {

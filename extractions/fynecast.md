@@ -1252,12 +1252,14 @@ import androidx.work.workDataOf
 import com.mhq.fynecast.alerts.domain.models.TrackedLocation
 import com.mhq.fynecast.alerts.notifications.ui.AlertsNotificationManager
 import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.settings.domain.models.AppLanguage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 /**
- * Background CoroutineWorker that periodically fetches weather updates for monitored locations and triggers alarms if alerts are lifted.
+ * Background CoroutineWorker that periodically fetches weather updates
+ * for monitored locations and triggers alarms if alerts are lifted.
  */
 class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
@@ -1278,7 +1280,8 @@ class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
             "weather_refresh_${trackedLocation.trackedLocationQuery}"
 
         /**
-         * Schedules a unique periodic work request with network constraints to check for lifted alerts every 15 minutes.
+         * Schedules a unique periodic work request with network constraints
+         * to check for lifted alerts every 15 minutes.
          */
         fun schedule(context: Context, trackedLocation: TrackedLocation) {
             val request = PeriodicWorkRequestBuilder<WeatherRefreshWorker>(
@@ -1324,9 +1327,12 @@ class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
     }
 
     /**
-     * Executes the background refresh work: fetches live weather data, evaluates alert conditions, displays alarm notifications for cleared alerts, and untracks them.
+     * Executes the background refresh work:
+     * fetches live weather data, evaluates alert conditions,
+     * displays alarm notifications for cleared alerts, and untracks them.
      *
-     * Edge case handling: Re-throws [CancellationException] while catching other exceptions to request a retry.
+     * Edge case handling: Re-throws [CancellationException]
+     * while catching other exceptions to request a retry.
      */
     override suspend fun doWork(): Result {
         val lat = inputData.getDouble(KEY_LAT, Double.NaN)
@@ -1343,10 +1349,8 @@ class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
         )
 
         return try {
-            val lang = if (container.observeUserPreferencesUseCase()
-                    .first().currentLanguage == "Arabic"
-            ) "ar" else "en"
-
+            val prefs = container.observeUserPreferencesUseCase().first()
+            val lang = AppLanguage.fromStoredName(prefs.currentLanguage).code
             val snapshot = container.getWeatherUseCase(location.trackedLocationQuery, lang)
             val cleared = container.checkAlertConditionsUseCase(location, snapshot)
 
@@ -1413,6 +1417,7 @@ import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
  */
 sealed interface AlertsUiState {
     object Loading : AlertsUiState
+    object Unavailable : AlertsUiState
     data class Success(val alerts: List<AlertDomainModel>) : AlertsUiState
 }
 ```
@@ -1437,7 +1442,9 @@ import com.mhq.fynecast.alerts.notifications.domain.usecases.HandleNotificationP
 import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
 import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -1446,6 +1453,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 
 /**
@@ -1461,9 +1469,16 @@ class AlertsViewModel(
 ) : ViewModel() {
 
     /** Exposes reactive UI state for alerts, transitioning between loading and success states. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<AlertsUiState> = getAlertsUseCase()
-        .map { alerts ->
-            if (alerts == null) AlertsUiState.Loading else AlertsUiState.Success(alerts)
+        .transformLatest { alerts ->
+            if (alerts != null) {
+                emit(AlertsUiState.Success(alerts))
+            } else {
+                emit(AlertsUiState.Loading)
+                delay(LOAD_TIMEOUT_MILLIS)
+                emit(AlertsUiState.Unavailable)
+            }
         }
         .stateIn(
             viewModelScope,
@@ -1566,6 +1581,8 @@ class AlertsViewModel(
     }
 
     companion object {
+        private const val LOAD_TIMEOUT_MILLIS = 20_000L
+
         /** Factory providing dependency injection wiring from the application container. */
         val factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -1629,12 +1646,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
 import com.mhq.fynecast.core.ui.theme.AppleRed
 import com.mhq.fynecast.core.ui.theme.EditorialRoyalBlue
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.core.ui.theme.Tangerine
 import com.mhq.fynecast.core.ui.theme.VividAmber
 
@@ -1710,7 +1729,10 @@ fun AlertCard(
                     Box(
                         modifier = Modifier
                             .size(8.dp)
-                            .background(color = severityColor, shape = RoundedCornerShape(50))
+                            .background(
+                                color = severityColor,
+                                shape = RoundedCornerShape(50)
+                            )
                     )
                     Text(
                         text = alert.event.uppercase(),
@@ -1809,6 +1831,29 @@ fun AlertCard(
                 onTrackToggle = onTrackToggle
             )
         }
+    }
+}
+
+@Preview
+@Composable
+private fun AlertCardPreview() {
+    FyneCastTheme() {
+        AlertCard(
+            alert = AlertDomainModel(
+                id = "",
+                headline = "",
+                severity = "",
+                event = "",
+                effectiveMillis = 10L,
+                expiresMillis = 10L,
+                description = "",
+                instruction = ""
+            ),
+            isTracked = true,
+            isExpanded = true,
+            onTrackToggle = {},
+            onExpandToggle = {}
+        )
     }
 }
 ```
@@ -2009,6 +2054,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -2022,6 +2068,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -2141,6 +2188,12 @@ fun AlertsContainer(
                 }
             }
 
+            is AlertsUiState.Unavailable -> {
+                AlertsUnavailable(
+                    contentPadding = contentPadding,
+                )
+            }
+
             is AlertsUiState.Success -> {
                 if (state.alerts.isEmpty()) {
                     AlertsBlank(contentPadding = contentPadding)
@@ -2257,6 +2310,59 @@ fun AlertsContent(
 }
 ```
 
+## alerts\ui\screens\AlertsUnavailable.kt
+
+```kotlin
+package com.mhq.fynecast.alerts.ui.screens
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.globalcomponents.BlankPagePlaceholder
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
+import com.mhq.fynecast.favorites.ui.screens.FavoritesBlank
+
+@Composable
+fun AlertsUnavailable(
+    contentPadding: PaddingValues = PaddingValues(8.dp),
+    modifier: Modifier = Modifier
+) {
+    Column(
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .padding(contentPadding)
+            .fillMaxSize()
+    ) {
+        BlankPagePlaceholder(
+            blankSectionIcon = Icons.Default.WifiOff,
+            blankSectionIconDescription = null,
+            blankSectionTitle = stringResource(R.string.alerts_unavailable),
+            blankSectionSubtitle = stringResource(R.string.alerts_connect_to_the_internet)
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun AlertsUnavailablePreview() {
+    FyneCastTheme() {
+        AlertsUnavailable()
+    }
+}
+```
+
 ## auth\data\repoimpl\auth\AuthRepositoryImpl.kt
 
 ```kotlin
@@ -2266,12 +2372,12 @@ import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
 import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.userProfileChangeRequest
 import com.mhq.fynecast.auth.data.repository.auth.SocialAuthCredentialProvider
+import com.mhq.fynecast.auth.data.session.SessionKeys
 import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
 import kotlinx.coroutines.flow.first
@@ -2283,12 +2389,6 @@ class AuthRepositoryImpl(
     private val socialAuthCredentialProvider: SocialAuthCredentialProvider
 ) : AuthRepository {
 
-    private object SessionKeys {
-        val USER_ID = stringPreferencesKey("user_id")
-        val USERNAME = stringPreferencesKey("username")
-        val EMAIL = stringPreferencesKey("email")
-    }
-
     override suspend fun registerWithEmail(
         name: String,
         email: String,
@@ -2297,10 +2397,10 @@ class AuthRepositoryImpl(
         val authResult = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
         val user = authResult.user ?: throw Exception("Auth registration failed.")
 
-        // Account already exists at this point; displayName is cosmetic, so a
-        // failure here shouldn't fail the whole registration. Retry once so a
-        // transient failure doesn't leave the name unpersisted server-side,
-        // and surface it if it still doesn't stick so it isn't silently lost.
+        /** Account already exists at this point; displayName is cosmetic,
+         * so a failure here shouldn't fail the whole registration.
+         * Retry once so a transient failure doesn't leave the name unpersisted server-side,
+         * and surface it if it still doesn't stick so it isn't silently lost. */
         val profileSynced = runCatching {
             user.updateProfile(userProfileChangeRequest { displayName = name }).await()
         }.isSuccess
@@ -2323,8 +2423,9 @@ class AuthRepositoryImpl(
         runCatching {
             val authResult = firebaseAuth.signInWithEmailAndPassword(email, password).await()
             val user = authResult.user ?: throw Exception("Auth login failed.")
-            // The local cache lookup is a best-effort fallback only; a DataStore
-            // read failure here must not fail an otherwise-successful login.
+
+            /** The local cache lookup is a best-effort fallback only;
+             * a DataStore read failure here must not fail an otherwise-successful login. */
             val snapshot = runCatching { sessionDataStore.data.first() }.getOrNull()
             val cachedUsername = snapshot?.get(SessionKeys.USERNAME)
                 ?.takeIf { snapshot[SessionKeys.USER_ID] == user.uid }
@@ -2505,14 +2606,16 @@ class ImageStorageRepositoryImpl(
 ```kotlin
 package com.mhq.fynecast.auth.data.repoimpl.profile
 
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.userProfileChangeRequest
+import com.mhq.fynecast.auth.data.session.SessionKeys
 import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -2525,15 +2628,9 @@ import kotlinx.coroutines.withContext
 
 class UserProfileRepositoryImpl(
     private val firebaseAuth: FirebaseAuth,
-    private val sessionDataStore: DataStore<Preferences>
+    private val sessionDataStore: DataStore<Preferences>,
+    externalScope: CoroutineScope
 ) : UserProfileRepository {
-
-    private object SessionKeys {
-        val USER_ID = stringPreferencesKey("user_id")
-        val USERNAME = stringPreferencesKey("username")
-        val EMAIL = stringPreferencesKey("email")
-        val PROFILE_IMAGE_URI = stringPreferencesKey("profile_image_uri")
-    }
 
     private val _profileState =
         MutableStateFlow(
@@ -2548,14 +2645,24 @@ class UserProfileRepositoryImpl(
     override val profileState: StateFlow<UserDomainModel> = _profileState.asStateFlow()
 
     init {
-        CoroutineScope(Dispatchers.IO).launch { refreshActiveUserSession() }
+        externalScope.launch(Dispatchers.IO) {
+            try {
+                refreshActiveUserSession()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("UserProfileRepository", "Initial profile refresh failed", e)
+            }
+        }
     }
 
     override suspend fun getProfile(): UserDomainModel = withContext(Dispatchers.IO) {
         val user = firebaseAuth.currentUser
         val snapshot = sessionDataStore.data.first()
         val name = snapshot[SessionKeys.USERNAME] ?: user?.displayName ?: "Username"
-        val email = snapshot[SessionKeys.EMAIL] ?: user?.email ?: "username@gmail.com"
+        val email = user?.email?.takeIf { it.isNotBlank() }
+            ?: snapshot[SessionKeys.EMAIL]
+            ?: "username@gmail.com"
         val img = snapshot[SessionKeys.PROFILE_IMAGE_URI]
         UserDomainModel(user?.uid ?: snapshot[SessionKeys.USER_ID] ?: "", name, email, img)
     }
@@ -2590,8 +2697,14 @@ class UserProfileRepositoryImpl(
         }
 
     override suspend fun refreshActiveUserSession() {
-        val current = getProfile()
-        _profileState.value = current
+        /** Picks up an email change verified outside the app. (Best effort), offline is fine. */
+        try {
+            firebaseAuth.currentUser?.reload()?.await()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+        _profileState.value = getProfile()
     }
 }
 ```
@@ -2609,6 +2722,21 @@ interface SocialAuthCredentialProvider {
     suspend fun getFacebookAccessToken(activity: ComponentActivity): String
     /** Forgets the Google and Facebook sessions so the next sign-in starts clean. */
     suspend fun clearCredentials()
+}
+```
+
+## auth\data\session\SessionKeys.kt
+
+```kotlin
+package com.mhq.fynecast.auth.data.session
+
+import androidx.datastore.preferences.core.stringPreferencesKey
+
+internal object SessionKeys {
+    val USER_ID = stringPreferencesKey("user_id")
+    val USERNAME = stringPreferencesKey("username")
+    val EMAIL = stringPreferencesKey("email")
+    val PROFILE_IMAGE_URI = stringPreferencesKey("profile_image_uri")
 }
 ```
 
@@ -2873,7 +3001,7 @@ import com.mhq.fynecast.auth.domain.validation.EmailFormatValidator
 
 class ValidateLoginFormUseCase {
     fun validateEmailFormat(email: String): Boolean {
-        return EmailFormatValidator.isValid(email)
+        return EmailFormatValidator.isValidOrEmpty(email)
     }
 
     operator fun invoke(email: String, password: String): ValidationResult {
@@ -2893,13 +3021,11 @@ class ValidateLoginFormUseCase {
 package com.mhq.fynecast.auth.domain.usecases.auth
 
 import com.mhq.fynecast.auth.domain.models.ValidationResult
+import com.mhq.fynecast.auth.domain.validation.EmailFormatValidator
 
 class ValidateSignupFormUseCase {
     private val usernameRegex =
         Regex("^[a-zA-Z0-9_]{3,15}$")
-
-    private val emailRegex =
-        Regex("[a-zA-Z\\d._-]+@[a-z]+\\.+[a-z]+")
 
     private val passwordRegex =
         Regex("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=])(?=\\S+$).{6,}$")
@@ -2908,7 +3034,7 @@ class ValidateSignupFormUseCase {
         username.isEmpty() || username.matches(usernameRegex)
 
     fun validateEmail(email: String): Boolean =
-        email.isEmpty() || email.matches(emailRegex)
+        EmailFormatValidator.isValidOrEmpty(email)
 
     fun validatePassword(password: String): Boolean =
         password.isEmpty() || password.matches(passwordRegex)
@@ -2927,7 +3053,7 @@ class ValidateSignupFormUseCase {
             !username.matches(usernameRegex) -> ValidationResult.Failure("Name must be 3-15 non-special characters.")
 
             email.isBlank() -> ValidationResult.Failure("Email field cannot be empty.")
-            !email.matches(emailRegex) -> ValidationResult.Failure("Please, enter a valid email address.")
+            !EmailFormatValidator.isValid(email) -> ValidationResult.Failure("Please, enter a valid email address.")
 
             password.isBlank() -> ValidationResult.Failure("Password field cannot be empty.")
             !password.matches(passwordRegex) -> ValidationResult.Failure("Password must be +6 chars with upper, lower, numeric and special character.")
@@ -2971,7 +3097,11 @@ class UpdateUserProfileUseCase(
     private val profileRepository: UserProfileRepository,
     private val imageRepository: ImageStorageRepository
 ) {
-    suspend operator fun invoke(newName: String, newEmail: String, localImageUriString: String?): Result<Boolean> {
+    suspend operator fun invoke(
+        newName: String,
+        newEmail: String,
+        localImageUriString: String?
+    ): Result<Boolean> {
         val currentProfile = profileRepository.getProfile()
         var finalImageUri = currentProfile.profileImageUri
         var newImageWasCreated = false
@@ -2991,34 +3121,38 @@ class UpdateUserProfileUseCase(
         var profileSaved = false
 
         return runCatching {
-            val remoteUpdateVerification = profileRepository.updateRemoteProfile(newName, newEmail).getOrThrow()
+            val remoteUpdateVerification =
+                profileRepository.updateRemoteProfile(newName, newEmail).getOrThrow()
 
             profileRepository.saveProfile(
                 currentProfile.copy(
                     name = newName,
-                    email = newEmail,
+                     /** A changed email only applies after the user clicks the verification link,
+                     so keep showing the current one until then.*/
+                    email = if (remoteUpdateVerification) currentProfile.email else newEmail,
                     profileImageUri = finalImageUri
                 )
             )
             profileSaved = true
             profileRepository.refreshActiveUserSession()
 
-            // The profile now durably references the new image, so it's
-            // safe to purge the old one (ones). Doing this any earlier risked
-            // leaving the profile pointing at an image that was already
-            // deleted if the save above failed.
+             /**The profile now durably references the new image,
+              * so it's safe to purge the old one (ones).
+              * Doing this any earlier risked leaving
+              * the profile pointing at an image that was already deleted
+              * if the save above failed.*/
             if (newImageWasCreated) {
                 imageRepository.commitProfileImage(finalImageUri!!)
             }
 
             remoteUpdateVerification
         }.onFailure {
-            // Only roll back if the profile never ended up pointing at this
-            // file. If saveProfile already succeeded and a later step
-            // (refreshActiveUserSession, commitProfileImage) is what threw,
-            // deleting the file now would leave the saved profile pointing
-            // at a file that no longer exists — the exact thing this
-            // rollback exists to prevent.
+             /**Only roll back if the profile never ended up pointing at this file.
+              * If saveProfile already succeeded
+              * and a later step (refreshActiveUserSession, commitProfileImage)
+              * is what threw, deleting the file now would leave
+              * the saved profile pointing at a file that no longer exists
+              * — the exact thing this rollback exists to prevent.*/
             if (newImageWasCreated && !profileSaved) {
                 imageRepository.deleteProfileImage(finalImageUri!!)
             }
@@ -3043,7 +3177,7 @@ class ValidateEditProfileUseCase {
     }
 
     fun validateEmailFormat(email: String): Boolean {
-        return EmailFormatValidator.isValid(email)
+        return EmailFormatValidator.isValidOrEmpty(email)
     }
 
     operator fun invoke(username: String, email: String): ValidationResult {
@@ -3104,11 +3238,15 @@ class LogoutUserUseCase(
 package com.mhq.fynecast.auth.domain.validation
 
 object EmailFormatValidator {
-    private val emailRegex = Regex("^[a-zA-Z0-9+._-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$")
+    private val emailRegex = Regex(
+        "^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?\\.)+[A-Za-z]{2,}$"
+    )
 
-    fun isValid(email: String): Boolean {
-        return email.isEmpty() || email.matches(emailRegex)
-    }
+    /** Strict: an empty string is NOT a valid email. */
+    fun isValid(email: String): Boolean = email.matches(emailRegex)
+
+    /** For live typing feedback: nothing is flagged until the user has typed something. */
+    fun isValidOrEmpty(email: String): Boolean = email.isEmpty() || isValid(email)
 }
 ```
 
@@ -3526,6 +3664,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -3580,11 +3719,13 @@ class EditProfileViewModel(
 
     init {
         viewModelScope.launch {
-            observeUserProfileUseCase().collect { profile ->
-                _username.value = profile.name
-                _userEmail.value = profile.email
-                _profileImageUri.value = profile.profileImageUri
-            }
+            /** Seed the form once.
+            The flow starts with a placeholder (empty id) and re-emits on every refresh,
+            so collecting it would overwrite what the user is typing. */
+            val profile = observeUserProfileUseCase().first { it.id.isNotEmpty() }
+            if (_username.value.isEmpty()) _username.value = profile.name
+            if (_userEmail.value.isEmpty()) _userEmail.value = profile.email
+            if (_profileImageUri.value == null) _profileImageUri.value = profile.profileImageUri
         }
     }
 
@@ -3607,9 +3748,14 @@ class EditProfileViewModel(
                         newEmail = _userEmail.value,
                         localImageUriString = _profileImageUri.value
                     )
-                        .onSuccess {
+                        .onSuccess { verificationSent ->
                             _editProfileUiState.value = EditProfileUiState.Success
-                            _uiEventChannel.send("Profile changes saved successfully!")
+                            _uiEventChannel.send(
+                                if (verificationSent)
+                                    "Saved. Check your new email inbox to verify the change."
+                                else
+                                    "Profile changes saved successfully!"
+                            )
                             delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
                             _navigationEventChannel.send(Unit)
                         }
@@ -4044,21 +4190,26 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 class ForgotPasswordViewModel(
     private val validateLoginFormUseCase: ValidateLoginFormUseCase,
     private val sendPasswordResetUseCase: SendPasswordResetUseCase
 ) : ViewModel() {
 
-    private val _forgotPasswordUiState = MutableStateFlow<ForgotPasswordUiState>(ForgotPasswordUiState.Idle)
+    private val _forgotPasswordUiState =
+        MutableStateFlow<ForgotPasswordUiState>(ForgotPasswordUiState.Idle)
     private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
     val uiEvent = _uiEventChannel.receiveAsFlow()
+    private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
+    val navigationEvent = _navigationEvent.receiveAsFlow()
 
     private val _email = MutableStateFlow("")
     val email = _email.asStateFlow()
     fun onEmailChanged(newEmail: String) {
         _email.value = newEmail.trim()
     }
+
     val isEmailValid = _email
         .map { validateLoginFormUseCase.validateEmailFormat(it) }
         .stateIn(
@@ -4067,15 +4218,17 @@ class ForgotPasswordViewModel(
             true
         )
 
-    fun handlePasswordReset(onSuccess: () -> Unit) {
+    fun handlePasswordReset() {
+        val state = _forgotPasswordUiState.value
+        if (state is ForgotPasswordUiState.Loading || state is ForgotPasswordUiState.Success) return
         viewModelScope.launch {
             _forgotPasswordUiState.value = ForgotPasswordUiState.Loading
             sendPasswordResetUseCase(_email.value)
                 .onSuccess {
                     _forgotPasswordUiState.value = ForgotPasswordUiState.Success
                     _uiEventChannel.send("Reset link successfully sent to ${_email.value}")
-                    delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS)
-                    onSuccess()
+                    delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
+                    _navigationEvent.send(Unit)
                 }
                 .onFailure { error ->
                     val msg = error.localizedMessage ?: "Failed to send reset link. Try again."
@@ -4139,6 +4292,10 @@ fun ForgotPasswordContainer(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
+        forgotPasswordViewModel.navigationEvent.collect { onSendLinkSuccessNavigate() }
+    }
+
+    LaunchedEffect(Unit) {
         forgotPasswordViewModel.uiEvent.collectLatest { message ->
             snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar(
@@ -4154,9 +4311,7 @@ fun ForgotPasswordContainer(
             isEmailValid = isEmailValid,
             onEmailChanged = forgotPasswordViewModel::onEmailChanged,
             onBackToLoginClick = onBackToLoginClick,
-            onSendLink = {
-                forgotPasswordViewModel.handlePasswordReset(onSuccess = onSendLinkSuccessNavigate)
-            },
+            onSendLink = { forgotPasswordViewModel.handlePasswordReset() },
             modifier = modifier
         )
 
@@ -4452,6 +4607,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.auth.data.usecases.auth.AuthenticateWithSocialProviderUseCase
+import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.auth.LoginWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
@@ -4475,6 +4631,8 @@ class LoginViewModel(
     val loginUiState = _loginUiState.asStateFlow()
     private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
     val uiEvent = _uiEventChannel.receiveAsFlow()
+    private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
+    val navigationEvent = _navigationEvent.receiveAsFlow()
 
     private val _email = MutableStateFlow("")
     val email = _email.asStateFlow()
@@ -4500,53 +4658,55 @@ class LoginViewModel(
         _passwordVisible.value = !_passwordVisible.value
     }
 
-    fun validateThenLogin(onSuccess: () -> Unit) {
-        when (
-            val validation = validateLoginFormUseCase(
-                _email.value,
-                _password.value
-            )
-        ) {
+    fun validateThenLogin() {
+        if (_loginUiState.value is LoginUiState.Loading) return
+        when (val validation = validateLoginFormUseCase(_email.value, _password.value)) {
             is ValidationResult.Success -> {
                 viewModelScope.launch {
                     _loginUiState.value = LoginUiState.Loading
-                    loginWithEmailUseCase(
-                        _email.value,
-                        _password.value
-                    )
+                    loginWithEmailUseCase(_email.value, _password.value)
                         .onSuccess {
                             _loginUiState.value = LoginUiState.Success
-                            onSuccess()
+                            _navigationEvent.send(Unit)
                         }
                         .onFailure { handleLoginFailure(it) }
                 }
             }
-
             is ValidationResult.Failure -> {
                 viewModelScope.launch { _uiEventChannel.send(validation.errorMessage) }
             }
         }
     }
 
-    fun onGoogleAuthenticate(
-        context: Context,
-        onSuccess: () -> Unit
-    ) {
-        viewModelScope.launch {
+    suspend fun onGoogleAuthenticate(context: Context) =
+        runSocialSignIn("Google sign-in failed") {
             authenticateWithSocialProviderUseCase.withGoogle(context)
-                .onSuccess { onSuccess() }
-                .onFailure { _uiEventChannel.send("Google sign-in failed") }
         }
-    }
 
-    fun onFacebookAuthenticate(
-        activity: ComponentActivity,
-        onSuccess: () -> Unit
-    ) {
-        viewModelScope.launch {
+    suspend fun onFacebookAuthenticate(activity: ComponentActivity) =
+        runSocialSignIn("Facebook sign-in failed") {
             authenticateWithSocialProviderUseCase.withFacebook(activity)
-                .onSuccess { onSuccess() }
-                .onFailure { _uiEventChannel.send("Facebook sign-in failed") }
+        }
+
+    private suspend fun runSocialSignIn(
+        failureMessage: String,
+        signIn: suspend () -> Result<UserDomainModel>
+    ) {
+        if (_loginUiState.value is LoginUiState.Loading) return
+        _loginUiState.value = LoginUiState.Loading
+        try {
+            signIn()
+                .onSuccess {
+                    _loginUiState.value = LoginUiState.Success
+                    _navigationEvent.send(Unit)
+                }
+                .onFailure {
+                    _loginUiState.value = LoginUiState.Idle
+                    _uiEventChannel.send(failureMessage)
+                }
+        } finally {
+            // Canceled sign-in (user backed out): never stay stuck in Loading.
+            if (_loginUiState.value is LoginUiState.Loading) _loginUiState.value = LoginUiState.Idle
         }
     }
 
@@ -4588,6 +4748,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -4597,6 +4758,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginContainer(
@@ -4612,7 +4774,12 @@ fun LoginContainer(
     val isPasswordVisible by loginViewModel.passwordVisible.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        loginViewModel.navigationEvent.collect { onLoginClick() }
+    }
 
     LaunchedEffect(Unit) {
         loginViewModel.uiEvent.collectLatest { errorMessage ->
@@ -4634,14 +4801,14 @@ fun LoginContainer(
             isPasswordVisible = isPasswordVisible,
             onTogglePasswordVisibility = loginViewModel::togglePasswordVisibility,
             onSignUpClick = onSignUpNavigate,
-            onLoginClick = { loginViewModel.validateThenLogin(onSuccess = onLoginClick) },
+            onLoginClick = { loginViewModel.validateThenLogin() },
             onForgotPasswordClick = onForgotPasswordClick,
             onGoogleAuthenticate = {
-                loginViewModel.onGoogleAuthenticate(context, onLoginClick)
+                scope.launch { loginViewModel.onGoogleAuthenticate(context) }
             },
             onFacebookAuthenticate = {
                 (context as? ComponentActivity)?.let { activity ->
-                    loginViewModel.onFacebookAuthenticate(activity, onLoginClick)
+                    scope.launch { loginViewModel.onFacebookAuthenticate(activity) }
                 }
             },
             modifier = modifier
@@ -5008,6 +5175,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -5017,6 +5185,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 @Composable
 fun SignupContainer(
@@ -5036,7 +5205,12 @@ fun SignupContainer(
     val arePasswordsVisible by signupViewModel.arePasswordsVisible.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        signupViewModel.navigationEvent.collect { onSignupClick() }
+    }
 
     LaunchedEffect(Unit) {
         signupViewModel.uiEvent.collectLatest { errorMessage ->
@@ -5067,15 +5241,15 @@ fun SignupContainer(
             arePasswordsVisible = arePasswordsVisible,
             onTogglePasswordVisibility = signupViewModel::togglePasswordsVisibility,
             onGoogleAuthenticate = {
-                signupViewModel.onGoogleAuthenticate(context, onSignupClick)
+                scope.launch { signupViewModel.onGoogleAuthenticate(context) }
             },
             onFacebookAuthenticate = {
                 (context as? ComponentActivity)?.let { activity ->
-                    signupViewModel.onFacebookAuthenticate(activity, onSignupClick)
+                    scope.launch { signupViewModel.onFacebookAuthenticate(activity) }
                 }
             },
             onLoginClick = onLoginNavigate,
-            onSignupClick = { signupViewModel.validateThenRegister(onSignupClick) },
+            onSignupClick = { signupViewModel.validateThenRegister() },
             modifier = modifier
         )
 
@@ -5251,6 +5425,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.auth.data.usecases.auth.AuthenticateWithSocialProviderUseCase
+import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.auth.RegisterWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
@@ -5276,12 +5451,15 @@ class SignupViewModel(
     private val _signupUiState = MutableStateFlow<SignupUiState>(SignupUiState.Idle)
     private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
     val uiEvent = _uiEventChannel.receiveAsFlow()
+    private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
+    val navigationEvent = _navigationEvent.receiveAsFlow()
 
     private val _username = MutableStateFlow("")
     val username = _username.asStateFlow()
     fun onUsernameChanged(newUsername: String) {
         _username.value = newUsername
     }
+
     val isUsernameValid = _username
         .map { validateSignupFormUseCase.validateUsername(it) }
         .stateIn(
@@ -5293,8 +5471,9 @@ class SignupViewModel(
     private val _userEmail = MutableStateFlow("")
     val userEmail = _userEmail.asStateFlow()
     fun onUserEmailChanged(newEmail: String) {
-        _userEmail.value = newEmail
+        _userEmail.value = newEmail.trim()
     }
+
     val isEmailValid = _userEmail
         .map { validateSignupFormUseCase.validateEmail(it) }
         .stateIn(
@@ -5308,6 +5487,7 @@ class SignupViewModel(
     fun onUserPasswordChanged(newPassword: String) {
         _userPassword.value = newPassword
     }
+
     val isPasswordValid = _userPassword
         .map { validateSignupFormUseCase.validatePassword(it) }
         .stateIn(
@@ -5336,23 +5516,19 @@ class SignupViewModel(
         true
     )
 
-    fun validateThenRegister(onSuccess: () -> Unit) {
-        if (_signupUiState.value is SignupUiState.Loading) return
-
+    fun validateThenRegister() {
+        val state = _signupUiState.value
+        if (state is SignupUiState.Loading || state is SignupUiState.Success) return
         val validation = validateSignupFormUseCase(
             username = _username.value,
             email = _userEmail.value,
             password = _userPassword.value,
             confirmPassword = _confirmPassword.value
         )
-
         if (validation is ValidationResult.Failure) {
-            viewModelScope.launch {
-                _uiEventChannel.send(validation.errorMessage)
-            }
+            viewModelScope.launch { _uiEventChannel.send(validation.errorMessage) }
             return
         }
-
         viewModelScope.launch {
             _signupUiState.value = SignupUiState.Loading
             registerWithEmailUseCase(
@@ -5364,35 +5540,47 @@ class SignupViewModel(
                     _signupUiState.value = SignupUiState.Success
                     _uiEventChannel.send("Account created successfully.")
                     delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
-                    onSuccess()
+                    _navigationEvent.send(Unit)
                 }
                 .onFailure { error ->
-                    val msg = error.localizedMessage ?: "An unexpected authentication error occurred."
+                    val msg =
+                        error.localizedMessage ?: "An unexpected authentication error occurred."
                     _signupUiState.value = SignupUiState.Error(msg)
                     _uiEventChannel.send(msg)
                 }
         }
     }
 
-    fun onGoogleAuthenticate(
-        context: Context,
-        onSuccess: () -> Unit
-    ) {
-        viewModelScope.launch {
+    suspend fun onGoogleAuthenticate(context: Context) =
+        runSocialSignIn("Google sign-in failed") {
             authenticateWithSocialProviderUseCase.withGoogle(context)
-                .onSuccess { onSuccess() }
-                .onFailure { _uiEventChannel.send("Google sign-in failed") }
         }
-    }
 
-    fun onFacebookAuthenticate(
-        activity: ComponentActivity,
-        onSuccess: () -> Unit
-    ) {
-        viewModelScope.launch {
+    suspend fun onFacebookAuthenticate(activity: ComponentActivity) =
+        runSocialSignIn("Facebook sign-in failed") {
             authenticateWithSocialProviderUseCase.withFacebook(activity)
-                .onSuccess { onSuccess() }
-                .onFailure { _uiEventChannel.send("Facebook sign-in failed") }
+        }
+
+    private suspend fun runSocialSignIn(
+        failureMessage: String,
+        signIn: suspend () -> Result<UserDomainModel>
+    ) {
+        val state = _signupUiState.value
+        if (state is SignupUiState.Loading || state is SignupUiState.Success) return
+        _signupUiState.value = SignupUiState.Loading
+        try {
+            signIn()
+                .onSuccess {
+                    _signupUiState.value = SignupUiState.Success
+                    _navigationEvent.send(Unit)
+                }
+                .onFailure {
+                    _signupUiState.value = SignupUiState.Idle
+                    _uiEventChannel.send(failureMessage)
+                }
+        } finally {
+            if (_signupUiState.value is SignupUiState.Loading) _signupUiState.value =
+                SignupUiState.Idle
         }
     }
 
@@ -5452,7 +5640,7 @@ class AppInitializerImpl(
                 Log.d("AppInitializer", "Facebook key hash: $hashKey")
             }
         } catch (e: Exception) {
-
+            Log.w("AppInitializer", "Could not read the signing certificate", e)
         }
     }
 
@@ -5726,6 +5914,9 @@ import com.mhq.fynecast.settings.data.repoimpl.UserPreferencesRepositoryImpl
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Retrofit
@@ -5735,6 +5926,8 @@ class DefaultAppContainer(
     private val prefsDataStore: DataStore<Preferences>,
     private val sessionDataStore: DataStore<Preferences>
 ) : AppContainer {
+
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override val appInitializer: AppInitializer by lazy {
         AppInitializerImpl(context.applicationContext as Application)
@@ -5800,7 +5993,7 @@ class DefaultAppContainer(
         AuthRepositoryImpl(firebaseAuth, sessionDataStore, socialAuthCredentialProvider)
     }
     override val userProfileRepository: UserProfileRepository by lazy {
-        UserProfileRepositoryImpl(firebaseAuth, sessionDataStore)
+        UserProfileRepositoryImpl(firebaseAuth, sessionDataStore, applicationScope)
     }
     override val imageStorageRepository: ImageStorageRepository by lazy {
         ImageStorageRepositoryImpl(context, imageStorageManager)
@@ -6053,6 +6246,7 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import androidx.datastore.preferences.preferencesDataStore
+import com.mhq.fynecast.BuildConfig
 
 private val Context.internalPrefsStore by preferencesDataStore(name = "user_preferences")
 private val Context.internalSessionStore by preferencesDataStore(name = "user_session")
@@ -6071,6 +6265,7 @@ class FyneCastApplication : Application() {
             prefsDataStore = internalPrefsStore,
             sessionDataStore = internalSessionStore
         )
+        if (BuildConfig.DEBUG) container.appInitializer.initializeDebugFeatures()
         createNotificationChannels()
     }
 
@@ -7119,6 +7314,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -7143,6 +7339,7 @@ import com.mhq.fynecast.home.ui.HomeViewModel
 import com.mhq.fynecast.home.ui.screens.HomeContainer
 import com.mhq.fynecast.map.ui.MapPickerViewModel
 import com.mhq.fynecast.map.ui.screens.MapPickerScreen
+import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 import com.mhq.fynecast.settings.ui.screens.SettingsContainer
 
@@ -7160,7 +7357,7 @@ fun FyneCastApp(
     val isDarkMode by settingsViewModel.isDarkMode.collectAsState()
     val isMetric by settingsViewModel.isMetric.collectAsState()
     val currentLanguage by settingsViewModel.currentLanguage.collectAsState()
-    val appLangCode = if (currentLanguage == "Arabic") "ar" else "en"
+    val appLangCode = AppLanguage.fromStoredName(currentLanguage).code
 
     LaunchedEffect(appLangCode) {
         homeViewModel.onLanguageChanged(appLangCode)
@@ -7217,18 +7414,8 @@ fun FyneCastApp(
                         val signupViewModel: SignupViewModel =
                             viewModel(factory = SignupViewModel.factory)
                         SignupContainer(
-                            onLoginNavigate = {
-                                navController.navigate(BottomNavigationItem.Login.route) {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onSignupClick = {
-                                navController.navigate(BottomNavigationItem.Home.route) {
-                                    popUpTo(BottomNavigationItem.Signup.route) {
-                                        inclusive = true
-                                    }
-                                }
-                            },
+                            onLoginNavigate = { navController.goToAuthScreen(BottomNavigationItem.Login.route) },
+                            onSignupClick = { navController.enterApp() },
                             modifier = Modifier,
                             signupViewModel = signupViewModel
                         )
@@ -7236,22 +7423,12 @@ fun FyneCastApp(
 
                     composable(BottomNavigationItem.Login.route) {
                         LoginContainer(
-                            onSignUpNavigate = {
-                                navController.navigate(BottomNavigationItem.Signup.route) {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onLoginClick = {
-                                navController.navigate(BottomNavigationItem.Home.route) {
-                                    popUpTo(BottomNavigationItem.Login.route) {
-                                        inclusive = true
-                                    }
-                                }
-                            },
+                            onSignUpNavigate = { navController.goToAuthScreen(BottomNavigationItem.Signup.route) },
+                            onLoginClick = { navController.enterApp() },
                             onForgotPasswordClick = {
-                                navController.navigate(BottomNavigationItem.ForgotPassword.route) {
-                                    launchSingleTop = true
-                                }
+                                navController.goToAuthScreen(
+                                    BottomNavigationItem.ForgotPassword.route
+                                )
                             },
                             modifier = Modifier
                         )
@@ -7259,17 +7436,11 @@ fun FyneCastApp(
 
                     composable(BottomNavigationItem.ForgotPassword.route) {
                         ForgotPasswordContainer(
-                            onBackToLoginClick = {
-                                navController.navigate(BottomNavigationItem.Login.route) {
-                                    launchSingleTop = true
-                                }
-                            },
+                            onBackToLoginClick = { navController.goToAuthScreen(BottomNavigationItem.Login.route) },
                             onSendLinkSuccessNavigate = {
-                                navController.navigate(BottomNavigationItem.Login.route) {
-                                    popUpTo(BottomNavigationItem.Login.route) {
-                                        inclusive = true
-                                    }
-                                }
+                                navController.goToAuthScreen(
+                                    BottomNavigationItem.Login.route
+                                )
                             },
                             modifier = Modifier
                         )
@@ -7346,7 +7517,7 @@ fun FyneCastApp(
                     }
 
                     composable("map_picker") {
-                        val mapLangCode = if (currentLanguage == "Arabic") "ar" else "en"
+                        val mapLangCode = AppLanguage.fromStoredName(currentLanguage).code
                         val mapPickerViewModel: MapPickerViewModel =
                             viewModel(factory = MapPickerViewModel.factory)
 
@@ -7397,6 +7568,21 @@ fun FyneCastApp(
 @Composable
 fun FyneCastAppPreview() {
     FyneCastTheme {}
+}
+
+private fun NavController.goToAuthScreen(route: String) {
+    /** Return to it if it is already below us;
+     * otherwise push it. Never stack duplicates. */
+    if (!popBackStack(route, inclusive = false)) {
+        navigate(route) { launchSingleTop = true }
+    }
+}
+
+private fun NavController.enterApp() {
+    navigate(BottomNavigationItem.Home.route) {
+        popUpTo(graph.findStartDestination().id) { inclusive = true }
+        launchSingleTop = true
+    }
 }
 ```
 
@@ -7475,19 +7661,18 @@ fun Context.withAppLocale(): Context {
 package com.mhq.fynecast.core.ui
 
 import android.Manifest
-import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import com.mhq.fynecast.BuildConfig
 import com.mhq.fynecast.alerts.ui.AlertsViewModel
-import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.FyneCastApp
 import com.mhq.fynecast.home.ui.HomeViewModel
@@ -7529,20 +7714,17 @@ class MainActivity : AppCompatActivity() {
         settingsViewModel.onNotificationPermissionResult(granted)
     }
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         splashScreen.setKeepOnScreenCondition { false }
 
-        if (BuildConfig.DEBUG) {
-            (applicationContext as? FyneCastApplication)?.container?.appInitializer?.initializeDebugFeatures()
-        }
-
         lifecycleScope.launch {
             settingsViewModel.localeEvent.collect { langCode ->
-                AppCompatDelegate.setApplicationLocales(
-                    LocaleListCompat.forLanguageTags(langCode)
-                )
+                if (AppCompatDelegate.getApplicationLocales().toLanguageTags() != langCode) {
+                    AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(langCode))
+                }
             }
         }
 
@@ -9777,6 +9959,7 @@ fun LikeButton(
 ) {
     Box(
         modifier = modifier
+            .minimumInteractiveComponentSize()
             .size(36.dp)
             .clip(CircleShape)
             .background(
@@ -9785,7 +9968,6 @@ fun LikeButton(
                 else
                     MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f)
             )
-            .minimumInteractiveComponentSize()
             .clickable(
                 onClick = onLikeChanged,
                 interactionSource = remember { MutableInteractionSource() },
@@ -9814,18 +9996,18 @@ package com.mhq.fynecast.home.ui.components
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
@@ -9840,45 +10022,53 @@ fun WeatherDailyCarousel(
     modifier: Modifier = Modifier
 ) {
     val locale = currentLocale()
+    val weekMin = dailyForecasts.minOfOrNull { if (isMetric) it.minTempC else it.minTempF } ?: 0.0
+    val weekMax = dailyForecasts.maxOfOrNull { if (isMetric) it.maxTempC else it.maxTempF } ?: 0.0
 
     GlassyCard(
+        cornerRadius = 28.dp,
+        padding = 20.dp,
+        containerAlpha = 0.08f,
+        borderAlpha = 0.15f,
         modifier = modifier
-            .padding(
-                horizontal = 16.dp,
-                vertical = 8.dp
-            )
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .fillMaxWidth()
     ) {
-        Column(verticalArrangement = Arrangement.Center) {
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(bottom = 8.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.daily_forecast),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(
+                text = stringResource(R.string.daily_forecast),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                ),
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(
-                    count = dailyForecasts.size,
-                    key = { index -> dailyForecasts[index].date.toString() }
-                ) { index ->
-                    val item = dailyForecasts[index]
-                    WeatherDailyItem(
+                dailyForecasts.forEachIndexed { index, item ->
+                    WeatherDailyRowItem(
                         day = DateTimeFormats.dayName(item.date, locale),
                         date = DateTimeFormats.monthDay(item.date, locale),
+                        weekMin = weekMin,
+                        weekMax = weekMax,
                         weatherIconUrl = item.iconUrl,
                         weatherDescription = item.description,
                         highTemperature = if (isMetric) item.maxTempC else item.maxTempF,
-                        lowTemperature = if (isMetric) item.minTempC else item.minTempF,
-                        isMetric = isMetric
+                        lowTemperature = if (isMetric) item.minTempC else item.minTempF
                     )
+
+                    // Prevent drawing an isolated extra separator line at the final item index boundary
+                    if (index < dailyForecasts.lastIndex) {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f),
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(top = 10.dp)
+                        )
+                    }
                 }
             }
         }
@@ -9910,90 +10100,154 @@ private fun WeatherDailyCarouselPreview() {
 }
 ```
 
-## home\ui\components\WeatherDailyItem.kt
+## home\ui\components\WeatherDailyRowItem.kt
 
 ```kotlin
 package com.mhq.fynecast.home.ui.components
 
 import android.content.res.Configuration
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.core.ui.theme.LightBlue
-import com.mhq.fynecast.core.ui.theme.SoftCoral
 import kotlin.math.roundToInt
 
 @Composable
-fun WeatherDailyItem(
+fun WeatherDailyRowItem(
     day: String,
     date: String,
+    weekMin: Double,
+    weekMax: Double,
     weatherIconUrl: String,
     weatherDescription: String,
     highTemperature: Double,
     lowTemperature: Double,
-    isMetric: Boolean,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = modifier
-            .width(72.dp)
-            .padding(vertical = 8.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = modifier.fillMaxWidth()
     ) {
-        Text(
-            text = day,
-            color = MaterialTheme.colorScheme.onBackground,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = date,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Medium
-        )
-
-        AsyncImage(
-            model = "https:$weatherIconUrl",
-            contentDescription = weatherDescription,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.size(42.dp)
-        )
-
-        Spacer(modifier = Modifier.height(2.dp))
-
-        Row {
+        // Left Column: Day Descriptor Bounds
+        Column(
+            modifier = Modifier.width(70.dp), //85
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Text(
-                text = "${highTemperature.roundToInt()}°",
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.bodyMedium,
-                color = SoftCoral
+                text = day,
+                color = MaterialTheme.colorScheme.onBackground,
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+            )
+            Text(
+                text = date,
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium)
             )
         }
-        Row {
+
+        // Center Content Element: Weather state icon representation map
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp)
+        ) {
+            AsyncImage(
+                model = "https:$weatherIconUrl",
+                contentDescription = weatherDescription,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(36.dp)
+            )
+            Text(
+                text = weatherDescription,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                ),
+                maxLines = 1,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        // Right Content Block: High/Low relative tracking balance parameters
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.End,
+            modifier = Modifier.width(130.dp) //90
+        ) {
             Text(
                 text = "${lowTemperature.roundToInt()}°",
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.bodyMedium,
-                color = LightBlue
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(32.dp)
+            )
+
+            // Premium ambient bar slider container element mimicking relative scaling layout structures
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 8.dp)
+                    .weight(1f)
+                    .height(4.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f))
+            )
+
+            val range = (weekMax - weekMin).coerceAtLeast(1.0)
+            val start = ((lowTemperature - weekMin) / range).toFloat().coerceIn(0f, 1f)
+            val end = ((highTemperature - weekMin) / range).toFloat().coerceIn(0f, 1f)
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 8.dp)
+                    .weight(1f)
+                    .height(4.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f))
+            ) {
+                Row(Modifier.fillMaxSize()) {
+                    if (start > 0f) Spacer(Modifier.weight(start))
+                    Box(
+                        Modifier
+                            .weight((end - start).coerceAtLeast(0.08f))
+                            .fillMaxHeight()
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                    if (end < 1f) Spacer(Modifier.weight(1f - end))
+                }
+            }
+
+            Text(
+                text = "${highTemperature.roundToInt()}°",
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(32.dp)
             )
         }
     }
@@ -10012,18 +10266,19 @@ fun WeatherDailyItem(
     backgroundColor = 0xFF000000
 )
 
-@Preview(showBackground = true)
+@Preview
 @Composable
-fun WeatherDailyItemPreview() {
+private fun WeatherDailyRowItemPreview() {
     FyneCastTheme() {
-        WeatherDailyItem(
-            day = "Hi",
-            date = "Hi",
-            weatherIconUrl = "Hi",
-            weatherDescription = "Hi",
-            highTemperature = 20.0,
+        WeatherDailyRowItem(
+            day = "",
+            date = "",
+            weekMin = 10.0,
+            weekMax = 10.0,
+            weatherIconUrl = "",
+            weatherDescription = "",
+            highTemperature = 10.0,
             lowTemperature = 10.0,
-            isMetric = true
         )
     }
 }
@@ -10039,6 +10294,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10046,11 +10302,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -10061,7 +10317,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -10086,35 +10341,41 @@ fun WeatherHeroCard(
     modifier: Modifier = Modifier
 ) {
     GlassyCard(
-        containerAlpha = 0.12f,
-        borderAlpha = 0.3f,
+        cornerRadius = 32.dp,
+        padding = 24.dp,
+        containerAlpha = 0.06f,
+        borderAlpha = 0.15f,
         modifier = modifier
-            .padding(
-                horizontal = 16.dp,
-                vertical = 8.dp
-            )
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 12.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    horizontalAlignment = Alignment.Start
                 ) {
                     Text(
-                        text = timestamp,
-                        color = MaterialTheme.colorScheme.onBackground.copy(
-                            alpha = 0.5f
+                        text = city,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.5).sp
                         ),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = timestamp.uppercase(),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
                     )
                 }
 
@@ -10124,98 +10385,89 @@ fun WeatherHeroCard(
                 )
             }
 
-            Spacer(
-                modifier = Modifier.height(16.dp)
-            )
+            Spacer(modifier = Modifier.height(28.dp))
 
             Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalAlignment = Alignment.Start
                 ) {
                     Text(
-                        text = city,
+                        text = temperature,
                         color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.Cursive,
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 1
+                        fontSize = 76.sp,
+                        fontWeight = FontWeight.W200,
+                        lineHeight = 76.sp,
+                        letterSpacing = (-2).sp
                     )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        AsyncImage(
-                            model = "https:$icon",
-                            contentDescription = description,
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier.size(72.dp)
+                    Text(
+                        text = description.uppercase(),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.2.sp
                         )
-                        Text(
-                            text = temperature,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            fontSize = 56.sp,
-                            fontWeight = FontWeight.Thin,
-                            lineHeight = 56.sp
-                        )
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = description.uppercase(),
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-                    }
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(92.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.03f))
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = "https:$icon",
+                        contentDescription = description,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.size(68.dp)
+                    )
                 }
             }
 
             if (alertsNumber > 0) {
-                Spacer(
-                    modifier = Modifier.height(12.dp)
-                )
-
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.onBackground.copy(
-                        alpha = 0.2f
-                    )
-                )
-
-                Spacer(
-                    modifier = Modifier.height(12.dp)
-                )
+                Spacer(modifier = Modifier.height(28.dp))
 
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onAlertsBannerClick() }
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
                         .border(
-                            1.dp,
-                            MaterialTheme.colorScheme.error.copy(alpha = 0.3f),
-                            RoundedCornerShape(8.dp)
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(18.dp)
                         )
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-
+                        .clickable { onAlertsBannerClick() }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
                     ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = stringResource(R.string.warning),
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(14.dp)
-                    )
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = stringResource(R.string.warning),
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+
                     Text(
                         text = pluralStringResource(
                             R.plurals.active_weather_warnings,
@@ -10223,16 +10475,18 @@ fun WeatherHeroCard(
                             alertsNumber
                         ),
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.5.sp,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.3.sp
+                        ),
                         modifier = Modifier.weight(1f)
                     )
+
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }
@@ -10290,14 +10544,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.home.domain.models.HourlyForecastDomainModel
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
+import java.time.LocalDateTime
 
 @Composable
 fun WeatherHourlyCarousel(
@@ -10308,28 +10565,32 @@ fun WeatherHourlyCarousel(
     val locale = currentLocale()
 
     GlassyCard(
+        cornerRadius = 28.dp,
+        padding = 20.dp,
+        containerAlpha = 0.08f,
+        borderAlpha = 0.15f,
         modifier = modifier
-            .padding(
-                horizontal = 16.dp,
-                vertical = 8.dp
-            )
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .fillMaxWidth()
     ) {
-        Column(
-            verticalArrangement = Arrangement.Center
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = stringResource(R.string.hourly_forecast),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    ),
                     color = MaterialTheme.colorScheme.onBackground
                 )
             }
+
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -10338,11 +10599,14 @@ fun WeatherHourlyCarousel(
                     key = { index -> hourlyForecasts[index].time.toString() }
                 ) { index ->
                     val item = hourlyForecasts[index]
+                    // Highlight the first element or elements matching current hour context
+                    val isCurrentHour = index == 0
+
                     WeatherHourlyItem(
                         header = DateTimeFormats.hour(item.time, locale),
                         weatherIconUrl = item.iconUrl,
                         temperature = if (isMetric) item.tempC else item.tempF,
-                        isMetric = isMetric
+                        isCurrentHour = isCurrentHour
                     )
                 }
             }
@@ -10380,24 +10644,31 @@ private fun WeatherHourlyCarouselPreview() {
 ```kotlin
 package com.mhq.fynecast.home.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
+import kotlin.String
 import kotlin.math.roundToInt
 
 @Composable
@@ -10405,38 +10676,74 @@ fun WeatherHourlyItem(
     header: String,
     weatherIconUrl: String,
     temperature: Double,
-    isMetric: Boolean,
+    isCurrentHour: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val capsuleBackground = if (isCurrentHour) {
+        Brush.verticalGradient(
+            colors = listOf(
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.05f)
+            )
+        )
+    }
+
+    val borderStrokeColor = if (isCurrentHour) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+    } else {
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
+    }
+
+    val contentColor = if (isCurrentHour) {
+        MaterialTheme.colorScheme.onPrimary
+    } else {
+        MaterialTheme.colorScheme.onBackground
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
         modifier = modifier
-            .width(64.dp)
-            .padding(vertical = 8.dp)
+            .width(68.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(capsuleBackground)
+            .border(width = 1.dp, brush = Brush.verticalGradient(listOf(borderStrokeColor, borderStrokeColor.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
+            .padding(vertical = 16.dp, horizontal = 8.dp)
     ) {
         Text(
             text = header,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold
+            color = contentColor.copy(alpha = if (isCurrentHour) 0.9f else 0.6f),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = if (isCurrentHour) FontWeight.Bold else FontWeight.Medium,
+                letterSpacing = 0.5.sp
+            )
         )
 
         AsyncImage(
             model = "https:$weatherIconUrl",
             contentDescription = stringResource(R.string.hourly_condition),
             contentScale = ContentScale.Fit,
-            modifier = Modifier.size(42.dp)
+            modifier = Modifier
+                .padding(vertical = 8.dp)
+                .size(38.dp)
         )
 
         Text(
-            text = if (isMetric) "${temperature.roundToInt()}°" else "${temperature.roundToInt()}°",
+            text = "${temperature.roundToInt()}°",
             fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground
+            style = MaterialTheme.typography.titleMedium,
+            color = contentColor
         )
     }
 }
+
 
 @Preview(showBackground = true)
 @Composable
@@ -10446,7 +10753,7 @@ fun WeatherHourlyItemPreview() {
             header = "12:00",
             weatherIconUrl = "",
             temperature = 10.0,
-            isMetric = true
+            isCurrentHour = true,
         )
     }
 }
@@ -10458,7 +10765,6 @@ fun WeatherHourlyItemPreview() {
 package com.mhq.fynecast.home.ui.components
 
 import android.content.res.Configuration
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10475,9 +10781,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -10502,10 +10805,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.home.domain.models.CitySuggestionModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeatherSearchBar(
     suggestions: List<CitySuggestionModel>,
@@ -10519,10 +10822,12 @@ fun WeatherSearchBar(
     val isListVisible = showSuggestions && suggestions.isNotEmpty() && searchQuery.length > 2
     val focusManager = LocalFocusManager.current
 
+    val onSurfaceColor = MaterialTheme.colorScheme.onBackground
+
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .zIndex(2f)
+            .zIndex(5f) // Increased to ensure dropdown sits beautifully above all carousel elements
     ) {
         OutlinedTextField(
             value = searchQuery,
@@ -10535,7 +10840,7 @@ fun WeatherSearchBar(
             placeholder = {
                 Text(
                     text = stringResource(R.string.enter_a_city_name),
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
+                    color = onSurfaceColor.copy(alpha = 0.4f),
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
@@ -10543,7 +10848,7 @@ fun WeatherSearchBar(
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = stringResource(R.string.search_icon),
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = onSurfaceColor.copy(alpha = 0.6f)
                 )
             },
             trailingIcon = {
@@ -10557,7 +10862,7 @@ fun WeatherSearchBar(
                             Icon(
                                 imageVector = Icons.Default.Clear,
                                 contentDescription = stringResource(R.string.clear_input),
-                                tint = Color.White
+                                tint = onSurfaceColor.copy(alpha = 0.6f)
                             )
                         }
                     }
@@ -10565,7 +10870,7 @@ fun WeatherSearchBar(
                         Icon(
                             imageVector = Icons.Default.LocationOn,
                             contentDescription = stringResource(R.string.pick_from_map),
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            tint = onSurfaceColor.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -10573,13 +10878,13 @@ fun WeatherSearchBar(
             singleLine = true,
             shape = RoundedCornerShape(24.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onPrimary,
-                unfocusedTextColor = MaterialTheme.colorScheme.onPrimary,
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                focusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                cursorColor = MaterialTheme.colorScheme.onPrimary
+                focusedTextColor = onSurfaceColor,
+                unfocusedTextColor = onSurfaceColor,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.08f),
+                focusedBorderColor = onSurfaceColor.copy(alpha = 0.25f),
+                unfocusedBorderColor = onSurfaceColor.copy(alpha = 0.1f),
+                cursorColor = onSurfaceColor
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
@@ -10595,20 +10900,15 @@ fun WeatherSearchBar(
         )
 
         if (isListVisible) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-                border = BorderStroke(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
-                ),
+            // Updated to leverage your premium GlassyCard framework wrapper natively
+            GlassyCard(
+                cornerRadius = 24.dp,
+                padding = 4.dp,
+                containerAlpha = 0.15f,
+                borderAlpha = 0.25f,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 4.dp)
-
+                    .padding(top = 6.dp)
             ) {
                 LazyColumn(
                     modifier = Modifier.heightIn(max = 240.dp)
@@ -10618,7 +10918,7 @@ fun WeatherSearchBar(
                             headlineContent = {
                                 Text(
                                     text = suggestion.fullName,
-                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    color = onSurfaceColor,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -10627,7 +10927,7 @@ fun WeatherSearchBar(
                                 Icon(
                                     imageVector = Icons.Default.LocationOn,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                                    tint = onSurfaceColor.copy(alpha = 0.5f),
                                     modifier = Modifier.size(18.dp)
                                 )
                             },
@@ -10681,11 +10981,14 @@ fun WeatherSearchBarPreview() {
 package com.mhq.fynecast.home.ui.components
 
 import android.content.res.Configuration
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material3.Icon
@@ -10694,8 +10997,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -10711,45 +11020,87 @@ fun WeatherStatChip(
     modifier: Modifier = Modifier
 ) {
     GlassyCard(
+        cornerRadius = 24.dp,
+        padding = 16.dp,
+        containerAlpha = 0.08f,
+        borderAlpha = 0.15f,
         modifier = modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Upper Metadata Layer: Inline icon & subtle descriptive title text
             Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = chipIcon,
-                    contentDescription = chipHeader,
-                    tint = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(end = 4.dp)
-                )
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), //surfaceVariantColor
+                                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f) //surfaceVariantColor
+                                )
+                            )
+                        )
+                ) {
+                    Icon(
+                        imageVector = chipIcon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f), //onSurfaceColor
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
                 Text(
-                    text = chipHeader,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground
+                    text = chipHeader.uppercase(),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    ),
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), //onSurfaceColor
+                    maxLines = 1
                 )
             }
+
+            // Lower Metric Block: Combined inline string for a flawless shared baseline
             Text(
-                text = chipBody,
-                fontSize = 48.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                text = buildAnnotatedString {
+                    // 1. The main numeric value
+                    withStyle(
+                        style = SpanStyle(
+                            fontSize = 28.sp, //32
+                            fontWeight = FontWeight.Light,
+                            color = MaterialTheme.colorScheme.onBackground //onSurfaceColor
+                        )
+                    ) {
+                        append(chipBody)
+                    }
+
+                    // 2. The unit suffix
+                    if (!chipSubtitle.isNullOrBlank()) {
+                        withStyle(
+                            style = SpanStyle(
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f) //onSurfaceColor
+                            )
+                        ) {
+                            append(" ${chipSubtitle.lowercase()}")
+                        }
+                    }
+                },
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.fillMaxWidth()
             )
-            chipSubtitle?.let {
-                Text(
-                    text = it,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-            }
         }
     }
 }
@@ -10819,14 +11170,14 @@ fun WeatherStatsGrid(
     }
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(modifier = Modifier.weight(1f)) {
                 WeatherStatChip(
@@ -10848,14 +11199,16 @@ fun WeatherStatsGrid(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(modifier = Modifier.weight(1f)) {
                 WeatherStatChip(
                     chipIcon = Icons.Default.Compress,
                     chipHeader = stringResource(R.string.pressure),
                     chipBody = numberFormat.format(if (isMetric) stats.pressureMb else stats.pressureIn),
-                    chipSubtitle = if (isMetric) stringResource(R.string.millibars) else stringResource(R.string.inches)
+                    chipSubtitle = if (isMetric) stringResource(R.string.millibars) else stringResource(
+                        R.string.inches
+                    )
                 )
             }
             Box(modifier = Modifier.weight(1f)) {
@@ -10971,6 +11324,7 @@ class HomeViewModel(
     private var lastRefreshTime = 0L
     private val refreshCooldownMillis = 60 * 1000L
     private var loadedLangCode: String? = null
+    private var latestLangCode: String? = null
 
     /** True once any load has been requested;
      * the UI uses it to ask for location only once. */
@@ -11041,11 +11395,12 @@ class HomeViewModel(
                         weather to "${weather.cityName}, ${weather.country}"
                     }
                 }
-
                 _state.update {
                     it.copy(uiState = HomeUiState.Success(weather), selectedCityName = displayName)
                 }
+                loadedLangCode = langCode
                 onWeatherShown(weather)
+                latestLangCode?.takeIf { it != langCode }?.let { onLanguageChanged(it) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -11084,12 +11439,11 @@ class HomeViewModel(
 
         loadJob = viewModelScope.launch {
             try {
-                val fresh =
-                    loadCurrentWeatherUseCase("${weather.latitude},${weather.longitude}", langCode)
+                val fresh = loadCurrentWeatherUseCase("${weather.latitude},${weather.longitude}", langCode)
                 _state.update { it.copy(uiState = HomeUiState.Success(fresh)) }
+                loadedLangCode = langCode
                 onWeatherShown(fresh)
-                lastRefreshTime =
-                    System.currentTimeMillis()  // only after success
+                lastRefreshTime = System.currentTimeMillis()  // only after success
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -11099,6 +11453,7 @@ class HomeViewModel(
     }
 
     fun onLanguageChanged(langCode: String) {
+        latestLangCode = langCode
         if (langCode == loadedLangCode) return
         val weather = (_state.value.uiState as? HomeUiState.Success)?.weather ?: return
         load(LoadTarget.Place(_state.value.selectedCityName, weather.latitude, weather.longitude), langCode)
@@ -12352,8 +12707,6 @@ import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -12404,14 +12757,6 @@ fun SettingsPanel(
                 onSecondOptionSelected = { onNotificationsToggle(false) }
             )
             SettingsPanelDivider()
-//            SettingsToggleRow(
-//                label = stringResource(R.string.language),
-//                isFirstOptionSelected = currentLanguage == "English",
-//                firstOptionLabel = stringResource(R.string.english),
-//                secondOptionLabel = "العربية",
-//                onFirstOptionSelected = { onLanguageChange("English") },
-//                onSecondOptionSelected = { onLanguageChange("Arabic") }
-//            )
             SettingsToggleRow(
                 label = stringResource(R.string.language),
                 isFirstOptionSelected = currentLanguage == AppLanguage.English.storedName,
@@ -13024,6 +13369,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -13165,9 +13511,10 @@ class SettingsViewModel(
 
     init {
         viewModelScope.launch {
-            currentLanguage.collect { language ->
-                _localeEvent.tryEmit(AppLanguage.fromStoredName(language).code)
-            }
+            preferencesFlow
+                .map { AppLanguage.fromStoredName(it.currentLanguage).code }
+                .distinctUntilChanged()
+                .collect { _localeEvent.tryEmit(it) }
         }
     }
 

@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.BlankPagePlaceholder
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.favorites.ui.screens.FavoritesBlank
 
 @Composable
 fun AlertsUnavailable(

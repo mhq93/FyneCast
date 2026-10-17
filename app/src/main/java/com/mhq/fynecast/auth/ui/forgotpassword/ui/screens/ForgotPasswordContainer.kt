@@ -32,6 +32,10 @@ fun ForgotPasswordContainer(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
+        forgotPasswordViewModel.navigationEvent.collect { onSendLinkSuccessNavigate() }
+    }
+
+    LaunchedEffect(Unit) {
         forgotPasswordViewModel.uiEvent.collectLatest { message ->
             snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar(
@@ -47,9 +51,7 @@ fun ForgotPasswordContainer(
             isEmailValid = isEmailValid,
             onEmailChanged = forgotPasswordViewModel::onEmailChanged,
             onBackToLoginClick = onBackToLoginClick,
-            onSendLink = {
-                forgotPasswordViewModel.handlePasswordReset(onSuccess = onSendLinkSuccessNavigate)
-            },
+            onSendLink = { forgotPasswordViewModel.handlePasswordReset() },
             modifier = modifier
         )
 

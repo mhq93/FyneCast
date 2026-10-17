@@ -92,15 +92,22 @@ import com.mhq.fynecast.settings.data.repoimpl.UserPreferencesRepositoryImpl
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
+import java.util.concurrent.TimeUnit
 
 class DefaultAppContainer(
     private val context: Context,
     private val prefsDataStore: DataStore<Preferences>,
     private val sessionDataStore: DataStore<Preferences>
 ) : AppContainer {
+
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override val appInitializer: AppInitializer by lazy {
         AppInitializerImpl(context.applicationContext as Application)
@@ -109,6 +116,14 @@ class DefaultAppContainer(
     // Infrastructure Components
     private val firebaseAuth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
     private val imageStorageManager: ImageStorageManager by lazy { ImageStorageManager(context) }
+
+    private val networkClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .callTimeout(15, TimeUnit.SECONDS)
+            .build()
+    }
 
     // Networking — Weather
     private val weatherApiBaseUrl = "https://api.weatherapi.com/"
@@ -119,6 +134,7 @@ class DefaultAppContainer(
             isLenient = true
         }
     private val weatherApiRetrofit = Retrofit.Builder()
+        .client(networkClient)
         .addConverterFactory(weatherApiJson.asConverterFactory("application/json".toMediaType()))
         .baseUrl(weatherApiBaseUrl)
         .build()
@@ -152,7 +168,8 @@ class DefaultAppContainer(
         ignoreUnknownKeys = true
         coerceInputValues = true
     }
-    private val photonRetrofit: Retrofit = Retrofit.Builder()
+    private val photonRetrofit = Retrofit.Builder()
+        .client(networkClient)
         .addConverterFactory(photonJson.asConverterFactory("application/json".toMediaType()))
         .baseUrl(photonBaseUrl)
         .build()
@@ -166,7 +183,7 @@ class DefaultAppContainer(
         AuthRepositoryImpl(firebaseAuth, sessionDataStore, socialAuthCredentialProvider)
     }
     override val userProfileRepository: UserProfileRepository by lazy {
-        UserProfileRepositoryImpl(firebaseAuth, sessionDataStore)
+        UserProfileRepositoryImpl(firebaseAuth, sessionDataStore, applicationScope)
     }
     override val imageStorageRepository: ImageStorageRepository by lazy {
         ImageStorageRepositoryImpl(context, imageStorageManager)
