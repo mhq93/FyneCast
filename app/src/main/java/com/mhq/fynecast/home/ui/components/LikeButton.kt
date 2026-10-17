@@ -34,6 +34,7 @@ fun LikeButton(
 ) {
     Box(
         modifier = modifier
+            .minimumInteractiveComponentSize()
             .size(36.dp)
             .clip(CircleShape)
             .background(
@@ -42,7 +43,6 @@ fun LikeButton(
                 else
                     MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f)
             )
-            .minimumInteractiveComponentSize()
             .clickable(
                 onClick = onLikeChanged,
                 interactionSource = remember { MutableInteractionSource() },

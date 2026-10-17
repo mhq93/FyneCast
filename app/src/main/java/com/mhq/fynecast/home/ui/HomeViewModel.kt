@@ -55,6 +55,7 @@ class HomeViewModel(
     private var lastRefreshTime = 0L
     private val refreshCooldownMillis = 60 * 1000L
     private var loadedLangCode: String? = null
+    private var latestLangCode: String? = null
 
     /** True once any load has been requested;
      * the UI uses it to ask for location only once. */
@@ -130,6 +131,7 @@ class HomeViewModel(
                 }
                 loadedLangCode = langCode
                 onWeatherShown(weather)
+                latestLangCode?.takeIf { it != langCode }?.let { onLanguageChanged(it) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -182,6 +184,7 @@ class HomeViewModel(
     }
 
     fun onLanguageChanged(langCode: String) {
+        latestLangCode = langCode
         if (langCode == loadedLangCode) return
         val weather = (_state.value.uiState as? HomeUiState.Success)?.weather ?: return
         load(LoadTarget.Place(_state.value.selectedCityName, weather.latitude, weather.longitude), langCode)

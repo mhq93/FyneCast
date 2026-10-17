@@ -1,10 +1,11 @@
 package com.mhq.fynecast.core.ui
 
 import android.Manifest
-import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
@@ -55,6 +56,7 @@ class MainActivity : AppCompatActivity() {
         settingsViewModel.onNotificationPermissionResult(granted)
     }
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -66,9 +68,9 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             settingsViewModel.localeEvent.collect { langCode ->
-                AppCompatDelegate.setApplicationLocales(
-                    LocaleListCompat.forLanguageTags(langCode)
-                )
+                if (AppCompatDelegate.getApplicationLocales().toLanguageTags() != langCode) {
+                    AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(langCode))
+                }
             }
         }
 

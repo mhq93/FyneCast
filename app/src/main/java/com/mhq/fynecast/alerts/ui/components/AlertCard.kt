@@ -40,12 +40,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
 import com.mhq.fynecast.core.ui.theme.AppleRed
 import com.mhq.fynecast.core.ui.theme.EditorialRoyalBlue
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.core.ui.theme.Tangerine
 import com.mhq.fynecast.core.ui.theme.VividAmber
 
@@ -121,7 +123,10 @@ fun AlertCard(
                     Box(
                         modifier = Modifier
                             .size(8.dp)
-                            .background(color = severityColor, shape = RoundedCornerShape(50))
+                            .background(
+                                color = severityColor,
+                                shape = RoundedCornerShape(50)
+                            )
                     )
                     Text(
                         text = alert.event.uppercase(),
@@ -220,5 +225,28 @@ fun AlertCard(
                 onTrackToggle = onTrackToggle
             )
         }
+    }
+}
+
+@Preview
+@Composable
+private fun AlertCardPreview() {
+    FyneCastTheme() {
+        AlertCard(
+            alert = AlertDomainModel(
+                id = "",
+                headline = "",
+                severity = "",
+                event = "",
+                effectiveMillis = 10L,
+                expiresMillis = 10L,
+                description = "",
+                instruction = ""
+            ),
+            isTracked = true,
+            isExpanded = true,
+            onTrackToggle = {},
+            onExpandToggle = {}
+        )
     }
 }

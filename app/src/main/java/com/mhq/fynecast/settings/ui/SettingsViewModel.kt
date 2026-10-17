@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -162,9 +163,10 @@ class SettingsViewModel(
 
     init {
         viewModelScope.launch {
-            currentLanguage.collect { language ->
-                _localeEvent.tryEmit(AppLanguage.fromStoredName(language).code)
-            }
+            preferencesFlow
+                .map { AppLanguage.fromStoredName(it.currentLanguage).code }
+                .distinctUntilChanged()
+                .collect { _localeEvent.tryEmit(it) }
         }
     }
 

@@ -13,14 +13,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.home.domain.models.HourlyForecastDomainModel
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
+import java.time.LocalDateTime
 
 @Composable
 fun WeatherHourlyCarousel(
@@ -31,28 +34,32 @@ fun WeatherHourlyCarousel(
     val locale = currentLocale()
 
     GlassyCard(
+        cornerRadius = 28.dp,
+        padding = 20.dp,
+        containerAlpha = 0.08f,
+        borderAlpha = 0.15f,
         modifier = modifier
-            .padding(
-                horizontal = 16.dp,
-                vertical = 8.dp
-            )
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .fillMaxWidth()
     ) {
-        Column(
-            verticalArrangement = Arrangement.Center
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = stringResource(R.string.hourly_forecast),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    ),
                     color = MaterialTheme.colorScheme.onBackground
                 )
             }
+
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -61,11 +68,14 @@ fun WeatherHourlyCarousel(
                     key = { index -> hourlyForecasts[index].time.toString() }
                 ) { index ->
                     val item = hourlyForecasts[index]
+                    // Highlight the first element or elements matching current hour context
+                    val isCurrentHour = index == 0
+
                     WeatherHourlyItem(
                         header = DateTimeFormats.hour(item.time, locale),
                         weatherIconUrl = item.iconUrl,
                         temperature = if (isMetric) item.tempC else item.tempF,
-                        isMetric = isMetric
+                        isCurrentHour = isCurrentHour
                     )
                 }
             }

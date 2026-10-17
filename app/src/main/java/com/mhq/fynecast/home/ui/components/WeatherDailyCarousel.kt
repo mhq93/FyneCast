@@ -3,18 +3,18 @@ package com.mhq.fynecast.home.ui.components
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
@@ -29,45 +29,53 @@ fun WeatherDailyCarousel(
     modifier: Modifier = Modifier
 ) {
     val locale = currentLocale()
+    val weekMin = dailyForecasts.minOfOrNull { if (isMetric) it.minTempC else it.minTempF } ?: 0.0
+    val weekMax = dailyForecasts.maxOfOrNull { if (isMetric) it.maxTempC else it.maxTempF } ?: 0.0
 
     GlassyCard(
+        cornerRadius = 28.dp,
+        padding = 20.dp,
+        containerAlpha = 0.08f,
+        borderAlpha = 0.15f,
         modifier = modifier
-            .padding(
-                horizontal = 16.dp,
-                vertical = 8.dp
-            )
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .fillMaxWidth()
     ) {
-        Column(verticalArrangement = Arrangement.Center) {
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(bottom = 8.dp)
-            ) {
-                Text(
-                    text = stringResource(R.string.daily_forecast),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Text(
+                text = stringResource(R.string.daily_forecast),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                ),
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(
-                    count = dailyForecasts.size,
-                    key = { index -> dailyForecasts[index].date.toString() }
-                ) { index ->
-                    val item = dailyForecasts[index]
-                    WeatherDailyItem(
+                dailyForecasts.forEachIndexed { index, item ->
+                    WeatherDailyRowItem(
                         day = DateTimeFormats.dayName(item.date, locale),
                         date = DateTimeFormats.monthDay(item.date, locale),
+                        weekMin = weekMin,
+                        weekMax = weekMax,
                         weatherIconUrl = item.iconUrl,
                         weatherDescription = item.description,
                         highTemperature = if (isMetric) item.maxTempC else item.maxTempF,
-                        lowTemperature = if (isMetric) item.minTempC else item.minTempF,
-                        isMetric = isMetric
+                        lowTemperature = if (isMetric) item.minTempC else item.minTempF
                     )
+
+                    // Prevent drawing an isolated extra separator line at the final item index boundary
+                    if (index < dailyForecasts.lastIndex) {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f),
+                            thickness = 1.dp,
+                            modifier = Modifier.padding(top = 10.dp)
+                        )
+                    }
                 }
             }
         }

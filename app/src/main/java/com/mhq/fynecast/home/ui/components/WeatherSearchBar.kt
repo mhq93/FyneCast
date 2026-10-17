@@ -1,7 +1,6 @@
 package com.mhq.fynecast.home.ui.components
 
 import android.content.res.Configuration
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,9 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -45,10 +41,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.home.domain.models.CitySuggestionModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeatherSearchBar(
     suggestions: List<CitySuggestionModel>,
@@ -62,10 +58,12 @@ fun WeatherSearchBar(
     val isListVisible = showSuggestions && suggestions.isNotEmpty() && searchQuery.length > 2
     val focusManager = LocalFocusManager.current
 
+    val onSurfaceColor = MaterialTheme.colorScheme.onBackground
+
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .zIndex(2f)
+            .zIndex(5f) // Increased to ensure dropdown sits beautifully above all carousel elements
     ) {
         OutlinedTextField(
             value = searchQuery,
@@ -78,7 +76,7 @@ fun WeatherSearchBar(
             placeholder = {
                 Text(
                     text = stringResource(R.string.enter_a_city_name),
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f),
+                    color = onSurfaceColor.copy(alpha = 0.4f),
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
@@ -86,7 +84,7 @@ fun WeatherSearchBar(
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = stringResource(R.string.search_icon),
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = onSurfaceColor.copy(alpha = 0.6f)
                 )
             },
             trailingIcon = {
@@ -100,7 +98,7 @@ fun WeatherSearchBar(
                             Icon(
                                 imageVector = Icons.Default.Clear,
                                 contentDescription = stringResource(R.string.clear_input),
-                                tint = Color.White
+                                tint = onSurfaceColor.copy(alpha = 0.6f)
                             )
                         }
                     }
@@ -108,7 +106,7 @@ fun WeatherSearchBar(
                         Icon(
                             imageVector = Icons.Default.LocationOn,
                             contentDescription = stringResource(R.string.pick_from_map),
-                            tint = MaterialTheme.colorScheme.onPrimary
+                            tint = onSurfaceColor.copy(alpha = 0.7f)
                         )
                     }
                 }
@@ -116,13 +114,13 @@ fun WeatherSearchBar(
             singleLine = true,
             shape = RoundedCornerShape(24.dp),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = MaterialTheme.colorScheme.onPrimary,
-                unfocusedTextColor = MaterialTheme.colorScheme.onPrimary,
-                focusedContainerColor = MaterialTheme.colorScheme.surface,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                focusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
-                cursorColor = MaterialTheme.colorScheme.onPrimary
+                focusedTextColor = onSurfaceColor,
+                unfocusedTextColor = onSurfaceColor,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f),
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.08f),
+                focusedBorderColor = onSurfaceColor.copy(alpha = 0.25f),
+                unfocusedBorderColor = onSurfaceColor.copy(alpha = 0.1f),
+                cursorColor = onSurfaceColor
             ),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(
@@ -138,20 +136,15 @@ fun WeatherSearchBar(
         )
 
         if (isListVisible) {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-                border = BorderStroke(
-                    width = 1.dp,
-                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
-                ),
+            // Updated to leverage your premium GlassyCard framework wrapper natively
+            GlassyCard(
+                cornerRadius = 24.dp,
+                padding = 4.dp,
+                containerAlpha = 0.15f,
+                borderAlpha = 0.25f,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 4.dp)
-
+                    .padding(top = 6.dp)
             ) {
                 LazyColumn(
                     modifier = Modifier.heightIn(max = 240.dp)
@@ -161,7 +154,7 @@ fun WeatherSearchBar(
                             headlineContent = {
                                 Text(
                                     text = suggestion.fullName,
-                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    color = onSurfaceColor,
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -170,7 +163,7 @@ fun WeatherSearchBar(
                                 Icon(
                                     imageVector = Icons.Default.LocationOn,
                                     contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                                    tint = onSurfaceColor.copy(alpha = 0.5f),
                                     modifier = Modifier.size(18.dp)
                                 )
                             },

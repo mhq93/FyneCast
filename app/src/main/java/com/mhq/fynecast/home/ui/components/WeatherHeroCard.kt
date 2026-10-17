@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,11 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,7 +28,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -52,35 +52,41 @@ fun WeatherHeroCard(
     modifier: Modifier = Modifier
 ) {
     GlassyCard(
-        containerAlpha = 0.12f,
-        borderAlpha = 0.3f,
+        cornerRadius = 32.dp,
+        padding = 24.dp,
+        containerAlpha = 0.06f,
+        borderAlpha = 0.15f,
         modifier = modifier
-            .padding(
-                horizontal = 16.dp,
-                vertical = 8.dp
-            )
+            .padding(horizontal = 16.dp, vertical = 6.dp)
             .fillMaxWidth()
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(end = 12.dp)
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                    horizontalAlignment = Alignment.Start
                 ) {
                     Text(
-                        text = timestamp,
-                        color = MaterialTheme.colorScheme.onBackground.copy(
-                            alpha = 0.5f
+                        text = city,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-0.5).sp
                         ),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = timestamp.uppercase(),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
                     )
                 }
 
@@ -90,98 +96,89 @@ fun WeatherHeroCard(
                 )
             }
 
-            Spacer(
-                modifier = Modifier.height(16.dp)
-            )
+            Spacer(modifier = Modifier.height(28.dp))
 
             Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalAlignment = Alignment.Start
                 ) {
                     Text(
-                        text = city,
+                        text = temperature,
                         color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.Cursive,
-                        overflow = TextOverflow.Ellipsis,
-                        maxLines = 1
+                        fontSize = 76.sp,
+                        fontWeight = FontWeight.W200,
+                        lineHeight = 76.sp,
+                        letterSpacing = (-2).sp
                     )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        AsyncImage(
-                            model = "https:$icon",
-                            contentDescription = description,
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier.size(72.dp)
+                    Text(
+                        text = description.uppercase(),
+                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.2.sp
                         )
-                        Text(
-                            text = temperature,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            fontSize = 56.sp,
-                            fontWeight = FontWeight.Thin,
-                            lineHeight = 56.sp
-                        )
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = description.uppercase(),
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-                    }
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(92.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.03f))
+                        .border(
+                            1.dp,
+                            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage(
+                        model = "https:$icon",
+                        contentDescription = description,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier.size(68.dp)
+                    )
                 }
             }
 
             if (alertsNumber > 0) {
-                Spacer(
-                    modifier = Modifier.height(12.dp)
-                )
-
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.onBackground.copy(
-                        alpha = 0.2f
-                    )
-                )
-
-                Spacer(
-                    modifier = Modifier.height(12.dp)
-                )
+                Spacer(modifier = Modifier.height(28.dp))
 
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onAlertsBannerClick() }
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.error.copy(alpha = 0.12f))
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
                         .border(
-                            1.dp,
-                            MaterialTheme.colorScheme.error.copy(alpha = 0.3f),
-                            RoundedCornerShape(8.dp)
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(18.dp)
                         )
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-
+                        .clickable { onAlertsBannerClick() }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
                     ) {
-                    Icon(
-                        imageVector = Icons.Default.Warning,
-                        contentDescription = stringResource(R.string.warning),
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(14.dp)
-                    )
+                        Icon(
+                            imageVector = Icons.Default.Warning,
+                            contentDescription = stringResource(R.string.warning),
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+
                     Text(
                         text = pluralStringResource(
                             R.plurals.active_weather_warnings,
@@ -189,16 +186,18 @@ fun WeatherHeroCard(
                             alertsNumber
                         ),
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.5.sp,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.3.sp
+                        ),
                         modifier = Modifier.weight(1f)
                     )
+
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(16.dp)
                     )
                 }
             }

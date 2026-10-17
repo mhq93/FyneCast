@@ -33,14 +33,14 @@ fun WeatherStatsGrid(
     }
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(modifier = Modifier.weight(1f)) {
                 WeatherStatChip(
@@ -62,14 +62,16 @@ fun WeatherStatsGrid(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Box(modifier = Modifier.weight(1f)) {
                 WeatherStatChip(
                     chipIcon = Icons.Default.Compress,
                     chipHeader = stringResource(R.string.pressure),
                     chipBody = numberFormat.format(if (isMetric) stats.pressureMb else stats.pressureIn),
-                    chipSubtitle = if (isMetric) stringResource(R.string.millibars) else stringResource(R.string.inches)
+                    chipSubtitle = if (isMetric) stringResource(R.string.millibars) else stringResource(
+                        R.string.inches
+                    )
                 )
             }
             Box(modifier = Modifier.weight(1f)) {
