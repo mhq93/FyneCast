@@ -16,9 +16,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.home.domain.models.HourlyForecastDomainModel
+import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 
 @Composable
 fun WeatherHourlyCarousel(
@@ -26,6 +28,8 @@ fun WeatherHourlyCarousel(
     isMetric: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val locale = currentLocale()
+
     GlassyCard(
         modifier = modifier
             .padding(
@@ -54,11 +58,11 @@ fun WeatherHourlyCarousel(
             ) {
                 items(
                     count = hourlyForecasts.size,
-                    key = { index -> hourlyForecasts[index].formattedHour + index }
+                    key = { index -> hourlyForecasts[index].time.toString() }
                 ) { index ->
                     val item = hourlyForecasts[index]
                     WeatherHourlyItem(
-                        header = item.formattedHour,
+                        header = DateTimeFormats.hour(item.time, locale),
                         weatherIconUrl = item.iconUrl,
                         temperature = if (isMetric) item.tempC else item.tempF,
                         isMetric = isMetric

@@ -6,7 +6,17 @@ import com.mhq.fynecast.home.domain.models.DailyForecastDomainModel
 import com.mhq.fynecast.home.domain.models.HourlyForecastDomainModel
 import com.mhq.fynecast.home.domain.models.WeatherDomainModel
 import com.mhq.fynecast.home.domain.models.WeatherStatsDomainModel
-import com.mhq.fynecast.util.TimestampFormatter
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoUnit
+
+private val API_DATE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+private val API_LOCAL_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd H:mm")
+private const val HOURLY_WINDOW = 24
+
+private fun parseDateTime(raw: String, formatter: DateTimeFormatter): LocalDateTime? =
+    runCatching { LocalDateTime.parse(raw, formatter) }.getOrNull()
 
 fun WeatherApiResponse.toDomain(): WeatherDomainModel {
     val domainStats = WeatherStatsDomainModel(
@@ -18,11 +28,11 @@ fun WeatherApiResponse.toDomain(): WeatherDomainModel {
         uvIndex = this.current.uv
     )
 
-    val domainDailyList = this.forecast.forecastDay.map { dayDto ->
-        val formattedDates = TimestampFormatter.getFormattedDateAndTime(dayDto.date)
+    val domainDailyList = forecast.forecastDay.mapNotNull { dayDto ->
+        val date =
+            runCatching { LocalDate.parse(dayDto.date) }.getOrNull() ?: return@mapNotNull null
         DailyForecastDomainModel(
-            dayName = formattedDates.first,
-            monthDayStr = formattedDates.second,
+            date = date,
             iconUrl = dayDto.day.dayCondition.icon,
             description = dayDto.day.dayCondition.description,
             maxTempC = dayDto.day.maxTempC,
@@ -32,17 +42,34 @@ fun WeatherApiResponse.toDomain(): WeatherDomainModel {
         )
     }
 
-    val firstDayDto = this.forecast.forecastDay.firstOrNull()
-    val domainHourlyList = firstDayDto?.hour?.map { hourDto ->
-        HourlyForecastDomainModel(
-            formattedHour = TimestampFormatter.getFormattedHour(hourDto.hourTime),
-            iconUrl = hourDto.hourCondition.icon,
-            tempC = hourDto.hourTempC,
-            tempF = hourDto.hourTempF
-        )
-    } ?: emptyList()
+    // Hours of the city's current local hour onward, across all forecast days.
+    val allHours = forecast.forecastDay
+        .flatMap { it.hour }
+        .mapNotNull { hourDto ->
+            parseDateTime(hourDto.hourTime, API_DATE_TIME)?.let { time ->
+                HourlyForecastDomainModel(
+                    time = time,
+                    iconUrl = hourDto.hourCondition.icon,
+                    tempC = hourDto.hourTempC,
+                    tempF = hourDto.hourTempF
+                )
+            }
+        }
 
-    val domainAlerts = this.alerts?.alerts?.map { it.toDomain() }?.distinctBy { it.id } ?: emptyList()
+    val currentLocalHour = parseDateTime(
+        location.cityLocaltime,
+        API_LOCAL_TIME
+    )?.truncatedTo(ChronoUnit.HOURS)
+
+    val domainHourlyList = (
+            if (currentLocalHour == null)
+                allHours
+            else
+                allHours.filter { !it.time.isBefore(currentLocalHour) }
+            ).take(HOURLY_WINDOW)
+
+    val domainAlerts = alerts?.alerts?.map { it.toDomain() }?.distinctBy { it.id } ?: emptyList()
+
     return WeatherDomainModel(
         cityName = this.location.cityName,
         country = this.location.country,
@@ -52,7 +79,7 @@ fun WeatherApiResponse.toDomain(): WeatherDomainModel {
         currentTempF = this.current.tempF,
         conditionText = this.current.condition.description,
         conditionIcon = this.current.condition.icon,
-        lastUpdatedFormatted = TimestampFormatter.getFormattedHour(this.current.lastUpdated),
+        lastUpdated = parseDateTime(current.lastUpdated, API_DATE_TIME),
         alerts = domainAlerts,
         stats = domainStats,
         dailyForecasts = domainDailyList,

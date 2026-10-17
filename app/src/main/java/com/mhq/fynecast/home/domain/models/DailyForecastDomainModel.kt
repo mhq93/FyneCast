@@ -1,8 +1,9 @@
 package com.mhq.fynecast.home.domain.models
 
+import java.time.LocalDate
+
 data class DailyForecastDomainModel(
-    val dayName: String,
-    val monthDayStr: String,
+    val date: LocalDate,
     val iconUrl: String,
     val description: String,
     val maxTempC: Double,

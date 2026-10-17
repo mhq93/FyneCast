@@ -4,8 +4,6 @@ import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -14,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
+import com.mhq.fynecast.settings.domain.models.AppLanguage
 
 @Composable
 fun SettingsPanel(
@@ -57,11 +56,11 @@ fun SettingsPanel(
             SettingsPanelDivider()
             SettingsToggleRow(
                 label = stringResource(R.string.language),
-                isFirstOptionSelected = currentLanguage == "English",
+                isFirstOptionSelected = currentLanguage == AppLanguage.English.storedName,
                 firstOptionLabel = stringResource(R.string.english),
                 secondOptionLabel = "العربية",
-                onFirstOptionSelected = { onLanguageChange("English") },
-                onSecondOptionSelected = { onLanguageChange("Arabic") }
+                onFirstOptionSelected = { onLanguageChange(AppLanguage.English.storedName) },
+                onSecondOptionSelected = { onLanguageChange(AppLanguage.Arabic.storedName) }
             )
             SettingsPanelDivider()
             SettingsToggleRow(

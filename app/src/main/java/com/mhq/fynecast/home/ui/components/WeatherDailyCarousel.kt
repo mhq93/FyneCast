@@ -16,7 +16,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
+import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.home.domain.models.DailyForecastDomainModel
 
@@ -26,6 +28,8 @@ fun WeatherDailyCarousel(
     isMetric: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val locale = currentLocale()
+
     GlassyCard(
         modifier = modifier
             .padding(
@@ -52,12 +56,12 @@ fun WeatherDailyCarousel(
             ) {
                 items(
                     count = dailyForecasts.size,
-                    key = { index -> dailyForecasts[index].dayName + index }
+                    key = { index -> dailyForecasts[index].date.toString() }
                 ) { index ->
                     val item = dailyForecasts[index]
                     WeatherDailyItem(
-                        day = item.dayName,
-                        date = item.monthDayStr,
+                        day = DateTimeFormats.dayName(item.date, locale),
+                        date = DateTimeFormats.monthDay(item.date, locale),
                         weatherIconUrl = item.iconUrl,
                         weatherDescription = item.description,
                         highTemperature = if (isMetric) item.maxTempC else item.maxTempF,

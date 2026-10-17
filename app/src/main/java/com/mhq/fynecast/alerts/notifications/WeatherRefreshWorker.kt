@@ -13,12 +13,14 @@ import androidx.work.workDataOf
 import com.mhq.fynecast.alerts.domain.models.TrackedLocation
 import com.mhq.fynecast.alerts.notifications.ui.AlertsNotificationManager
 import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.settings.domain.models.AppLanguage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
 
 /**
- * Background CoroutineWorker that periodically fetches weather updates for monitored locations and triggers alarms if alerts are lifted.
+ * Background CoroutineWorker that periodically fetches weather updates
+ * for monitored locations and triggers alarms if alerts are lifted.
  */
 class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
@@ -39,7 +41,8 @@ class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
             "weather_refresh_${trackedLocation.trackedLocationQuery}"
 
         /**
-         * Schedules a unique periodic work request with network constraints to check for lifted alerts every 15 minutes.
+         * Schedules a unique periodic work request with network constraints
+         * to check for lifted alerts every 15 minutes.
          */
         fun schedule(context: Context, trackedLocation: TrackedLocation) {
             val request = PeriodicWorkRequestBuilder<WeatherRefreshWorker>(
@@ -85,9 +88,12 @@ class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
     }
 
     /**
-     * Executes the background refresh work: fetches live weather data, evaluates alert conditions, displays alarm notifications for cleared alerts, and untracks them.
+     * Executes the background refresh work:
+     * fetches live weather data, evaluates alert conditions,
+     * displays alarm notifications for cleared alerts, and untracks them.
      *
-     * Edge case handling: Re-throws [CancellationException] while catching other exceptions to request a retry.
+     * Edge case handling: Re-throws [CancellationException]
+     * while catching other exceptions to request a retry.
      */
     override suspend fun doWork(): Result {
         val lat = inputData.getDouble(KEY_LAT, Double.NaN)
@@ -104,10 +110,8 @@ class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
         )
 
         return try {
-            val lang = if (container.observeUserPreferencesUseCase()
-                    .first().currentLanguage == "Arabic"
-            ) "ar" else "en"
-
+            val prefs = container.observeUserPreferencesUseCase().first()
+            val lang = AppLanguage.fromStoredName(prefs.currentLanguage).code
             val snapshot = container.getWeatherUseCase(location.trackedLocationQuery, lang)
             val cleared = container.checkAlertConditionsUseCase(location, snapshot)
 

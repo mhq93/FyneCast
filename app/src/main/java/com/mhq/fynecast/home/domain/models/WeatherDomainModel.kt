@@ -1,6 +1,7 @@
 package com.mhq.fynecast.home.domain.models
 
 import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
+import java.time.LocalDateTime
 
 data class WeatherDomainModel(
     val cityName: String,
@@ -11,7 +12,7 @@ data class WeatherDomainModel(
     val currentTempF: Double,
     val conditionText: String,
     val conditionIcon: String,
-    val lastUpdatedFormatted: String,
+    val lastUpdated: LocalDateTime?,
     val alerts: List<AlertDomainModel>,
     val stats: WeatherStatsDomainModel,
     val dailyForecasts: List<DailyForecastDomainModel>,

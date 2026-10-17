@@ -13,6 +13,7 @@ import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotifications
 import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
 import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
 import kotlinx.coroutines.channels.Channel
@@ -162,7 +163,7 @@ class SettingsViewModel(
     init {
         viewModelScope.launch {
             currentLanguage.collect { language ->
-                _localeEvent.tryEmit(if (language == "Arabic") "ar" else "en")
+                _localeEvent.tryEmit(AppLanguage.fromStoredName(language).code)
             }
         }
     }

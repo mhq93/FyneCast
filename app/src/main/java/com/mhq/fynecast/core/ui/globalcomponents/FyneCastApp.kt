@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -45,6 +46,7 @@ import com.mhq.fynecast.home.ui.HomeViewModel
 import com.mhq.fynecast.home.ui.screens.HomeContainer
 import com.mhq.fynecast.map.ui.MapPickerViewModel
 import com.mhq.fynecast.map.ui.screens.MapPickerScreen
+import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 import com.mhq.fynecast.settings.ui.screens.SettingsContainer
 
@@ -62,7 +64,11 @@ fun FyneCastApp(
     val isDarkMode by settingsViewModel.isDarkMode.collectAsState()
     val isMetric by settingsViewModel.isMetric.collectAsState()
     val currentLanguage by settingsViewModel.currentLanguage.collectAsState()
-    val appLangCode = if (currentLanguage == "Arabic") "ar" else "en"
+    val appLangCode = AppLanguage.fromStoredName(currentLanguage).code
+
+    LaunchedEffect(appLangCode) {
+        homeViewModel.onLanguageChanged(appLangCode)
+    }
 
     FyneCastTheme(isDarkMode = isDarkMode) {
         val navController = rememberNavController()
@@ -78,7 +84,7 @@ fun FyneCastApp(
         )
 
         val shouldShowBar = if (currentRoute == BottomNavigationItem.Home.route) {
-            homeUiState is HomeUiState.Success
+            homeUiState !is HomeUiState.Loading
         } else {
             currentRoute in rootRoutes
         }
@@ -244,7 +250,7 @@ fun FyneCastApp(
                     }
 
                     composable("map_picker") {
-                        val mapLangCode = if (currentLanguage == "Arabic") "ar" else "en"
+                        val mapLangCode = AppLanguage.fromStoredName(currentLanguage).code
                         val mapPickerViewModel: MapPickerViewModel =
                             viewModel(factory = MapPickerViewModel.factory)
 

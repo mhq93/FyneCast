@@ -46,6 +46,21 @@ class HomeViewModel(
     private val defaultCityFallback: String = "Cairo"
 ) : ViewModel() {
 
+    private val _state = MutableStateFlow(HomeStateContainer())
+    val state: StateFlow<HomeStateContainer> = _state.asStateFlow()
+    private var loadTarget: LoadTarget = LoadTarget.Startup(useDeviceLocation = false)
+    private var loadJob: Job? = null
+    private var searchJob: Job? = null
+    private var favoriteJob: Job? = null
+    private var lastRefreshTime = 0L
+    private val refreshCooldownMillis = 60 * 1000L
+    private var loadedLangCode: String? = null
+
+    /** True once any load has been requested;
+     * the UI uses it to ask for location only once. */
+    var isInitialLaunchPerformed = false
+        private set
+
     private sealed interface LoadTarget {
         val retry: HomeRetryAction
 
@@ -61,21 +76,6 @@ class HomeViewModel(
             override val retry = HomeRetryAction.ReloadPlace
         }
     }
-
-    private val _state = MutableStateFlow(HomeStateContainer())
-    val state: StateFlow<HomeStateContainer> = _state.asStateFlow()
-
-    private var lastRefreshTime = 0L
-    private val refreshCooldownMillis = 60 * 1000L
-
-    /** True once any load has been requested; the UI uses it to ask for location only once. */
-    var isInitialLaunchPerformed = false
-        private set
-
-    private var loadTarget: LoadTarget = LoadTarget.Startup(useDeviceLocation = false)
-    private var loadJob: Job? = null
-    private var searchJob: Job? = null
-    private var favoriteJob: Job? = null
 
     init {
         observeSignedInUserIdUseCase()
@@ -125,10 +125,10 @@ class HomeViewModel(
                         weather to "${weather.cityName}, ${weather.country}"
                     }
                 }
-
                 _state.update {
                     it.copy(uiState = HomeUiState.Success(weather), selectedCityName = displayName)
                 }
+                loadedLangCode = langCode
                 onWeatherShown(weather)
             } catch (e: CancellationException) {
                 throw e
@@ -168,18 +168,23 @@ class HomeViewModel(
 
         loadJob = viewModelScope.launch {
             try {
-                val fresh =
-                    loadCurrentWeatherUseCase("${weather.latitude},${weather.longitude}", langCode)
+                val fresh = loadCurrentWeatherUseCase("${weather.latitude},${weather.longitude}", langCode)
                 _state.update { it.copy(uiState = HomeUiState.Success(fresh)) }
+                loadedLangCode = langCode
                 onWeatherShown(fresh)
-                lastRefreshTime =
-                    System.currentTimeMillis()  // only after success
+                lastRefreshTime = System.currentTimeMillis()  // only after success
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to refresh weather", e)
             }
         }
+    }
+
+    fun onLanguageChanged(langCode: String) {
+        if (langCode == loadedLangCode) return
+        val weather = (_state.value.uiState as? HomeUiState.Success)?.weather ?: return
+        load(LoadTarget.Place(_state.value.selectedCityName, weather.latitude, weather.longitude), langCode)
     }
 
     private fun resetForNewSession() {
@@ -190,6 +195,7 @@ class HomeViewModel(
         isInitialLaunchPerformed = false
         lastRefreshTime = 0L
         loadTarget = LoadTarget.Startup(useDeviceLocation = false)
+        loadedLangCode = null
     }
 
     fun onSearchQueryChanged(newQuery: String, langCode: String) {

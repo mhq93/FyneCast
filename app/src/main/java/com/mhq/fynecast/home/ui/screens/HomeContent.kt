@@ -13,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.mhq.fynecast.core.ui.format.DateTimeFormats
+import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.home.domain.models.CitySuggestionModel
 import com.mhq.fynecast.home.domain.models.WeatherDomainModel
 import com.mhq.fynecast.home.ui.components.WeatherDailyCarousel
@@ -60,9 +62,14 @@ fun HomeContent(
             WeatherHeroCard(
                 icon = weatherDomainModel.conditionIcon,
                 city = selectedCityName.substringBefore(","),
-                timestamp = weatherDomainModel.lastUpdatedFormatted,
+                timestamp = weatherDomainModel.lastUpdated?.let {
+                    DateTimeFormats.lastUpdated(it, currentLocale())
+                }.orEmpty(),
                 description = weatherDomainModel.conditionText,
-                temperature = if (isMetric) "${weatherDomainModel.currentTempC}°" else "${weatherDomainModel.currentTempF}°",
+                temperature = if (isMetric)
+                    "${weatherDomainModel.currentTempC}°"
+                else
+                    "${weatherDomainModel.currentTempF}°",
                 isFavorite = isFavorite,
                 alertsNumber = weatherDomainModel.alerts.size,
                 onToggleFavorite = onToggleFavorite,

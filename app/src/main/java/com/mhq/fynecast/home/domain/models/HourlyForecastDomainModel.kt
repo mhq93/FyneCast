@@ -1,7 +1,9 @@
 package com.mhq.fynecast.home.domain.models
 
+import java.time.LocalDateTime
+
 data class HourlyForecastDomainModel(
-    val formattedHour: String,
+    val time: LocalDateTime,
     val iconUrl: String,
     val tempC: Double,
     val tempF: Double
