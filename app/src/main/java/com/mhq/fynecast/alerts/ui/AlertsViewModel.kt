@@ -15,7 +15,9 @@ import com.mhq.fynecast.alerts.notifications.domain.usecases.HandleNotificationP
 import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
 import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,6 +26,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
 
 /**
@@ -39,9 +42,16 @@ class AlertsViewModel(
 ) : ViewModel() {
 
     /** Exposes reactive UI state for alerts, transitioning between loading and success states. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<AlertsUiState> = getAlertsUseCase()
-        .map { alerts ->
-            if (alerts == null) AlertsUiState.Loading else AlertsUiState.Success(alerts)
+        .transformLatest { alerts ->
+            if (alerts != null) {
+                emit(AlertsUiState.Success(alerts))
+            } else {
+                emit(AlertsUiState.Loading)
+                delay(LOAD_TIMEOUT_MILLIS)
+                emit(AlertsUiState.Unavailable)
+            }
         }
         .stateIn(
             viewModelScope,
@@ -144,6 +154,8 @@ class AlertsViewModel(
     }
 
     companion object {
+        private const val LOAD_TIMEOUT_MILLIS = 20_000L
+
         /** Factory providing dependency injection wiring from the application container. */
         val factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {

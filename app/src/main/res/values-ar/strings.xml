@@ -92,7 +92,6 @@
     <string name="no_favorites_yet">لا توجد تفضيلات</string>
     <string name="cities_you_like_will_appear_here">ستظهر مدنك المفضلة هنا</string>
     <string name="tab_below_to_go_back_to_home_page">اضغط ⌂ بالأسفل للتوجه إلى الصفحة الرئيسية</string>
-<!--    <string name="couldnt_remove_city">لم نستطع حذف %1$. من فضلك، حاول مرة أخرى</string>-->
     <string name="city_remove_failed">تعذّرت إزالة %1$s. حاول مرة أخرى.</string>
     <string name="city_removed">%1$s تم حذف</string>
     <string name="undo">إلغاء</string>
@@ -100,6 +99,8 @@
     <!-- ALERTS MODULE -->
     <string name="alerts">التحذيرات</string>
     <string name="alert_info">معلومات بشأن تحذيرات المناخ</string>
+    <string name="alerts_unavailable">التنبيهات غير متاحة حاليًا</string>
+    <string name="alerts_connect_to_the_internet">اتصل بالإنترنت وتحقق من الصفحة الرئيسية</string>
     <!-- Alert Tracking Toggles -->
     <string name="track_this_alert">تتبع هذا التحذير</string>
     <string name="cancel_tracking">إلغاء التتبع</string>

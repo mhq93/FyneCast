@@ -7,5 +7,6 @@ import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
  */
 sealed interface AlertsUiState {
     object Loading : AlertsUiState
+    object Unavailable : AlertsUiState
     data class Success(val alerts: List<AlertDomainModel>) : AlertsUiState
 }

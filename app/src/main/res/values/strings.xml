@@ -24,8 +24,8 @@
     <!-- Password Recovery Screen -->
     <string name="recover_password">Recover Password</string>
     <string name="forgot_password">Forgot Password?</string>
-    <string name="enter_the_email_associated_with_your_account">Enter the email associated with your account.</string>
-    <string name="we_will_send_a_link_to_reset_your_password">We will send a link to reset your password.</string>
+    <string name="enter_the_email_associated_with_your_account">Enter the email associated with your account</string>
+    <string name="we_will_send_a_link_to_reset_your_password">We will send a link to reset your password</string>
     <string name="send_link">Send Link</string>
     <string name="remembered_credentials">Remembered Credentials?</string>
     <!-- Profile Management Screen -->
@@ -69,7 +69,7 @@
     </plurals>
     <!-- Network Failure Components -->
     <string name="please_wait">Please, wait…</string>
-    <string name="please_check_your_network_then_retry">Please, check your network then retry.</string>
+    <string name="please_check_your_network_then_retry">Please, check your network then retry</string>
     <string name="retry">Retry</string>
 
     <!-- MAP MODULE -->
@@ -85,16 +85,17 @@
     <string name="favorite">Favorite</string>
     <string name="delete">Delete</string>
     <string name="no_favorites_yet">No favorites yet</string>
-    <string name="cities_you_like_will_appear_here">Cities you like will appear here.</string>
-    <string name="tab_below_to_go_back_to_home_page">Tab ⌂ below to go back to home page.</string>
-<!--    <string name="couldnt_remove_city">Couldn\'t remove %1$s. Please, try again.</string>-->
-    <string name="city_remove_failed">Couldn\'t remove %1$s. Please try again.</string>
+    <string name="cities_you_like_will_appear_here">Cities you like will appear here</string>
+    <string name="tab_below_to_go_back_to_home_page">Tab ⌂ below to go back to home page</string>
+    <string name="city_remove_failed">Couldn\'t remove %1$s. Please, try again.</string>
     <string name="city_removed">%1$s removed</string>
     <string name="undo">Undo</string>
 
     <!-- ALERTS MODULE -->
     <string name="alerts">Alerts</string>
     <string name="alert_info">Alert Info</string>
+    <string name="alerts_unavailable">Alerts aren\'t available yet</string>
+    <string name="alerts_connect_to_the_internet">Connect to the internet and check the Home tab</string>
     <!-- Alert Tracking Toggles -->
     <string name="track_this_alert">Track This Alert</string>
     <string name="cancel_tracking">Cancel Tracking</string>
@@ -107,8 +108,8 @@
     <string name="alert_lifted_body_multiple">%1$s warnings have been cleared</string>
     <string name="alert_already_expired">This alert has already expired</string>
     <!-- Empty/Blank Section Placeholders -->
-    <string name="no_active_alerts_in_this_area">No active alerts in this area.</string>
-    <string name="a_great_chance_to_enjoy_the_weather_outdoors">A great chance to enjoy the weather outdoors.</string>
+    <string name="no_active_alerts_in_this_area">No active alerts in this area</string>
+    <string name="a_great_chance_to_enjoy_the_weather_outdoors">A great chance to enjoy the weather outdoors</string>
     <string name="monitor_future_alerts">Monitor Future Alerts</string>
     <!-- Detail Components -->
     <string name="instructions">INSTRUCTIONS:</string>
@@ -147,5 +148,5 @@
     <string name="arabic">Arabic</string>
     <!-- Session Exiting Action -->
     <string name="logout">LOGOUT</string>
-    <string name="logout_failed">Couldn\'t log out. Please try again.</string>
+    <string name="logout_failed">Couldn\'t log out. Please, try again.</string>
 </resources>
