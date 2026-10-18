@@ -1,8 +1,6 @@
 package com.mhq.fynecast.core.ui.globalcomponents
 
-import android.app.Activity
 import android.os.Build
-import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
@@ -19,12 +17,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -62,7 +58,6 @@ fun FyneCastApp(
     onRequestPermission: (String) -> Unit
 ) {
 
-    val context = LocalContext.current
     val storedDarkMode by settingsViewModel.isDarkMode.collectAsState()
     val isDarkMode = storedDarkMode ?: isSystemInDarkTheme()
     val isMetric by settingsViewModel.isMetric.collectAsState()
@@ -96,17 +91,6 @@ fun FyneCastApp(
             PaddingValues(bottom = 120.dp)
         } else {
             PaddingValues(0.dp)
-        }
-
-        BackHandler(enabled = currentRoute in rootRoutes) {
-            if (currentRoute == BottomNavigationItem.Home.route) {
-                (context as? Activity)?.finish()
-            } else {
-                navController.navigate(BottomNavigationItem.Home.route) {
-                    popUpTo(BottomNavigationItem.Home.route) { inclusive = false }
-                    launchSingleTop = true
-                }
-            }
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
@@ -261,7 +245,7 @@ fun FyneCastApp(
                     currentRoute = currentRoute,
                     onItemSelected = { screen ->
                         navController.navigate(screen.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(BottomNavigationItem.Home.route) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -290,7 +274,7 @@ private fun NavController.goToAuthScreen(route: String) {
 
 private fun NavController.enterApp() {
     navigate(BottomNavigationItem.Home.route) {
-        popUpTo(graph.findStartDestination().id) { inclusive = true }
+        popUpTo(0) { inclusive = true }
         launchSingleTop = true
     }
 }

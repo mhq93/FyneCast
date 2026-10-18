@@ -18,9 +18,11 @@ import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesU
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -74,15 +76,30 @@ class SettingsViewModel(
                 null
             )
 
-    val isMetric: StateFlow<Boolean> =
-        preferencesFlow.map { it.isMetric }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                true
-            )
+    private val _isMetric = MutableStateFlow(true)
+    val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
+
+    private val _currentLanguage = MutableStateFlow("English")
+    val currentLanguage: StateFlow<String> = _currentLanguage.asStateFlow()
+
+    private val _isDarkMode = MutableStateFlow<Boolean?>(null)
+    val isDarkMode: StateFlow<Boolean?> = _isDarkMode.asStateFlow()
+
+    private val _arePreferencesLoaded = MutableStateFlow(false)
+
+    /** True once the first preferences read has finished; the splash screen waits for it. */
+    val arePreferencesLoaded: StateFlow<Boolean> = _arePreferencesLoaded.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            preferencesFlow.collect { prefs ->
+                _isMetric.value = prefs.isMetric
+                _currentLanguage.value = prefs.currentLanguage
+                _isDarkMode.value = prefs.isDarkMode
+                // Last, so the splash only lifts once every value above is set.
+                _arePreferencesLoaded.value = true
+            }
+        }
         viewModelScope.launch {
             preferencesFlow
                 .map { AppLanguage.fromStoredName(it.currentLanguage).code }
@@ -131,25 +148,9 @@ class SettingsViewModel(
         }
     }
 
-    val currentLanguage: StateFlow<String> =
-        preferencesFlow.map { it.currentLanguage }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                "English"
-            )
-
     fun toggleLanguage(language: String) {
         viewModelScope.launch { updatePreference.language(language) }
     }
-
-    val isDarkMode: StateFlow<Boolean?> =
-        preferencesFlow.map { it.isDarkMode }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                null
-            )
 
     fun toggleDarkMode(enabled: Boolean) {
         viewModelScope.launch { updatePreference.darkMode(enabled) }
@@ -169,16 +170,6 @@ class SettingsViewModel(
             }
         }
     }
-
-    /** True once the first preferences read has finished;
-     * the splash screen waits for it. */
-    val arePreferencesLoaded: StateFlow<Boolean> =
-        preferencesFlow.map { true }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.Eagerly,
-                false
-            )
 
     companion object {
         val factory: ViewModelProvider.Factory = viewModelFactory {

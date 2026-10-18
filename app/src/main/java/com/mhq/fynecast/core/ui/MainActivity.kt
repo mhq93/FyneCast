@@ -1,6 +1,7 @@
 package com.mhq.fynecast.core.ui
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
@@ -8,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.ViewModelProvider
@@ -18,6 +20,7 @@ import com.mhq.fynecast.core.ui.globalcomponents.FyneCastApp
 import com.mhq.fynecast.home.ui.HomeViewModel
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -61,9 +64,27 @@ class MainActivity : AppCompatActivity() {
         splashScreen.setKeepOnScreenCondition { !settingsViewModel.arePreferencesLoaded.value }
 
         lifecycleScope.launch {
+            var isStartupEvent = true
             settingsViewModel.localeEvent.collect { langCode ->
-                if (AppCompatDelegate.getApplicationLocales().toLanguageTags() != langCode) {
-                    AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(langCode))
+                val appLocales = AppCompatDelegate.getApplicationLocales()
+                val needsChange = if (isStartupEvent) {
+                    /**
+                     * Fresh install: no app language saved yet.
+                     * If the phone already uses this language, skip the change,
+                     * because applying it recreates the activity and shows up as a black flash.
+                     * */
+                    val effectiveLanguage =
+                        (appLocales[0] ?: resources.configuration.locales[0]).language
+                    effectiveLanguage != Locale.forLanguageTag(langCode).language
+                } else {
+                    // Later events come from the language picker: always apply and save the choice.
+                    appLocales.toLanguageTags() != langCode
+                }
+                isStartupEvent = false
+                if (needsChange) {
+                    AppCompatDelegate.setApplicationLocales(
+                        LocaleListCompat.forLanguageTags(langCode)
+                    )
                 }
             }
         }
@@ -87,12 +108,25 @@ class MainActivity : AppCompatActivity() {
                             langCode = activeLangCode
                         )
                     }
-                    locationPermissionLauncher.launch(
-                        arrayOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
+                    val alreadyGranted =
+                        ContextCompat.checkSelfPermission(
+                            this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION
+                        ) == PackageManager.PERMISSION_GRANTED ||
+                                ContextCompat.checkSelfPermission(
+                                    this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION
+                                ) == PackageManager.PERMISSION_GRANTED
+                    if (alreadyGranted) {
+                        // Nothing to ask: skip the system permission screen, it flashes the app.
+                        onLocationPermissionResult?.invoke(true)
+                        settingsViewModel.requestNotificationPermissionOnFirstLaunch()
+                    } else {
+                        locationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
                         )
-                    )
+                    }
                 }
             )
         }

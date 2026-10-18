@@ -2331,7 +2331,6 @@ import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.BlankPagePlaceholder
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.favorites.ui.screens.FavoritesBlank
 
 @Composable
 fun AlertsUnavailable(
@@ -5919,7 +5918,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
+import java.util.concurrent.TimeUnit
 
 class DefaultAppContainer(
     private val context: Context,
@@ -5937,6 +5938,14 @@ class DefaultAppContainer(
     private val firebaseAuth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
     private val imageStorageManager: ImageStorageManager by lazy { ImageStorageManager(context) }
 
+    private val networkClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .callTimeout(15, TimeUnit.SECONDS)
+            .build()
+    }
+
     // Networking — Weather
     private val weatherApiBaseUrl = "https://api.weatherapi.com/"
     private val weatherApiJson =
@@ -5946,6 +5955,7 @@ class DefaultAppContainer(
             isLenient = true
         }
     private val weatherApiRetrofit = Retrofit.Builder()
+        .client(networkClient)
         .addConverterFactory(weatherApiJson.asConverterFactory("application/json".toMediaType()))
         .baseUrl(weatherApiBaseUrl)
         .build()
@@ -5979,7 +5989,8 @@ class DefaultAppContainer(
         ignoreUnknownKeys = true
         coerceInputValues = true
     }
-    private val photonRetrofit: Retrofit = Retrofit.Builder()
+    private val photonRetrofit = Retrofit.Builder()
+        .client(networkClient)
         .addConverterFactory(photonJson.asConverterFactory("application/json".toMediaType()))
         .baseUrl(photonBaseUrl)
         .build()
@@ -7292,14 +7303,13 @@ fun dynamicBackgroundGradient(): List<Color> {
 ```kotlin
 package com.mhq.fynecast.core.ui.globalcomponents
 
-import android.app.Activity
 import android.os.Build
-import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7310,12 +7320,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -7353,8 +7361,8 @@ fun FyneCastApp(
     onRequestPermission: (String) -> Unit
 ) {
 
-    val context = LocalContext.current
-    val isDarkMode by settingsViewModel.isDarkMode.collectAsState()
+    val storedDarkMode by settingsViewModel.isDarkMode.collectAsState()
+    val isDarkMode = storedDarkMode ?: isSystemInDarkTheme()
     val isMetric by settingsViewModel.isMetric.collectAsState()
     val currentLanguage by settingsViewModel.currentLanguage.collectAsState()
     val appLangCode = AppLanguage.fromStoredName(currentLanguage).code
@@ -7386,17 +7394,6 @@ fun FyneCastApp(
             PaddingValues(bottom = 120.dp)
         } else {
             PaddingValues(0.dp)
-        }
-
-        BackHandler(enabled = currentRoute in rootRoutes) {
-            if (currentRoute == BottomNavigationItem.Home.route) {
-                (context as? Activity)?.finish()
-            } else {
-                navController.navigate(BottomNavigationItem.Home.route) {
-                    popUpTo(BottomNavigationItem.Home.route) { inclusive = false }
-                    launchSingleTop = true
-                }
-            }
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
@@ -7551,7 +7548,7 @@ fun FyneCastApp(
                     currentRoute = currentRoute,
                     onItemSelected = { screen ->
                         navController.navigate(screen.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
+                            popUpTo(BottomNavigationItem.Home.route) {
                                 saveState = true
                             }
                             launchSingleTop = true
@@ -7580,7 +7577,7 @@ private fun NavController.goToAuthScreen(route: String) {
 
 private fun NavController.enterApp() {
     navigate(BottomNavigationItem.Home.route) {
-        popUpTo(graph.findStartDestination().id) { inclusive = true }
+        popUpTo(0) { inclusive = true }
         launchSingleTop = true
     }
 }
@@ -7718,7 +7715,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        splashScreen.setKeepOnScreenCondition { false }
+        splashScreen.setKeepOnScreenCondition { !settingsViewModel.arePreferencesLoaded.value }
 
         lifecycleScope.launch {
             settingsViewModel.localeEvent.collect { langCode ->
@@ -9202,7 +9199,9 @@ data class LocationDto(
     @SerialName("lon")
     val cityLongitude: Double,
     @SerialName("localtime")
-    val cityLocaltime: String
+    val cityLocaltime: String,
+    @SerialName("tz_id")
+    val timeZoneId: String? = null
 )
 ```
 
@@ -9372,6 +9371,7 @@ fun WeatherApiResponse.toDomain(): WeatherDomainModel {
         conditionText = this.current.condition.description,
         conditionIcon = this.current.condition.icon,
         lastUpdated = parseDateTime(current.lastUpdated, API_DATE_TIME),
+        timeZoneId = this.location.timeZoneId,
         alerts = domainAlerts,
         stats = domainStats,
         dailyForecasts = domainDailyList,
@@ -9411,7 +9411,7 @@ class DefaultLocationRepoImpl(
 
         val location = try {
             withTimeoutOrNull(FRESH_FIX_TIMEOUT_MILLIS.milliseconds) { requestFreshLocation() }
-                ?: lastKnownLocation()
+                ?: withTimeoutOrNull(LAST_KNOWN_TIMEOUT_MILLIS.milliseconds) { lastKnownLocation() }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -9450,6 +9450,7 @@ class DefaultLocationRepoImpl(
         (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos) / 1_000_000
 
     private companion object {
+        const val LAST_KNOWN_TIMEOUT_MILLIS = 2_000L
         const val FRESH_FIX_TIMEOUT_MILLIS = 8_000L
         const val MAX_CACHED_FIX_AGE_MILLIS = 30 * 60 * 1000L
     }
@@ -9679,6 +9680,7 @@ data class WeatherDomainModel(
     val conditionText: String,
     val conditionIcon: String,
     val lastUpdated: LocalDateTime?,
+    val timeZoneId: String?,
     val alerts: List<AlertDomainModel>,
     val stats: WeatherStatsDomainModel,
     val dailyForecasts: List<DailyForecastDomainModel>,
@@ -9985,6 +9987,47 @@ fun LikeButton(
             modifier = Modifier.size(18.dp)
         )
     }
+}
+```
+
+## home\ui\components\rememberCityTime.kt
+
+```kotlin
+package com.mhq.fynecast.home.ui.components
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.mhq.fynecast.core.ui.format.DateTimeFormats
+import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
+import kotlinx.coroutines.delay
+import java.time.LocalDateTime
+import java.time.ZoneId
+import kotlin.time.Duration.Companion.milliseconds
+
+/** Live clock for the selected city.
+ * Falls back to [fallback] when the timezone is unknown. */
+@Composable
+fun rememberCityTime(timeZoneId: String?, fallback: String): String {
+    val locale = currentLocale()
+    val zone = remember(timeZoneId) {
+        timeZoneId?.takeIf { it.isNotBlank() }
+            ?.let { runCatching { ZoneId.of(it) }.getOrNull() }
+    }
+    var now by remember(zone) { mutableStateOf(zone?.let { LocalDateTime.now(it) }) }
+
+    LaunchedEffect(zone) {
+        if (zone == null) return@LaunchedEffect
+        while (true) {
+            now = LocalDateTime.now(zone)
+            delay((60_000L - System.currentTimeMillis() % 60_000L).milliseconds)
+        }
+    }
+
+    return now?.let { DateTimeFormats.lastUpdated(it, locale) } ?: fallback
 }
 ```
 
@@ -11291,6 +11334,7 @@ import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11300,6 +11344,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlin.time.Duration.Companion.milliseconds
 
 class HomeViewModel(
@@ -11383,16 +11428,18 @@ class HomeViewModel(
         loadJob = viewModelScope.launch {
             _state.update { it.copy(uiState = HomeUiState.Loading) }
             try {
-                val (weather, displayName) = when (target) {
-                    is LoadTarget.Place ->
-                        loadCurrentWeatherUseCase(
-                            "${target.latitude},${target.longitude}",
-                            langCode
-                        ) to target.name
+                val (weather, displayName) = withTimeout(LOAD_TIMEOUT_MILLIS.milliseconds) {
+                    when (target) {
+                        is LoadTarget.Place ->
+                            loadCurrentWeatherUseCase(
+                                "${target.latitude},${target.longitude}",
+                                langCode
+                            ) to target.name
 
-                    is LoadTarget.Startup -> {
-                        val weather = loadCurrentWeatherUseCase(startupQuery(target), langCode)
-                        weather to "${weather.cityName}, ${weather.country}"
+                        is LoadTarget.Startup -> {
+                            val weather = loadCurrentWeatherUseCase(startupQuery(target), langCode)
+                            weather to "${weather.cityName}, ${weather.country}"
+                        }
                     }
                 }
                 _state.update {
@@ -11401,6 +11448,8 @@ class HomeViewModel(
                 loadedLangCode = langCode
                 onWeatherShown(weather)
                 latestLangCode?.takeIf { it != langCode }?.let { onLanguageChanged(it) }
+            } catch (e: TimeoutCancellationException) {
+                _state.update { it.copy(uiState = HomeUiState.Error("timeout", target.retry)) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -11498,6 +11547,7 @@ class HomeViewModel(
 
     companion object {
         private const val TAG = "HomeViewModel"
+        private const val LOAD_TIMEOUT_MILLIS = 30_000L
 
         val factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -11631,6 +11681,7 @@ import com.mhq.fynecast.home.ui.components.WeatherHeroCard
 import com.mhq.fynecast.home.ui.components.WeatherHourlyCarousel
 import com.mhq.fynecast.home.ui.components.WeatherSearchBar
 import com.mhq.fynecast.home.ui.components.WeatherStatsGrid
+import com.mhq.fynecast.home.ui.components.rememberCityTime
 
 @Composable
 fun HomeContent(
@@ -11671,9 +11722,12 @@ fun HomeContent(
             WeatherHeroCard(
                 icon = weatherDomainModel.conditionIcon,
                 city = selectedCityName.substringBefore(","),
-                timestamp = weatherDomainModel.lastUpdated?.let {
-                    DateTimeFormats.lastUpdated(it, currentLocale())
-                }.orEmpty(),
+                timestamp = rememberCityTime(
+                    timeZoneId = weatherDomainModel.timeZoneId,
+                    fallback = weatherDomainModel.lastUpdated?.let {
+                        DateTimeFormats.lastUpdated(it, currentLocale())
+                    }.orEmpty()
+                ),
                 description = weatherDomainModel.conditionText,
                 temperature = if (isMetric)
                     "${weatherDomainModel.currentTempC}°"
@@ -12478,8 +12532,7 @@ class UserPreferencesRepositoryImpl(
             isMetric = preferences[PreferencesKeys.IS_METRIC] ?: true,
             notificationsEnabled = preferences[PreferencesKeys.NOTIFICATIONS_ENABLED] ?: true,
             currentLanguage = preferences[PreferencesKeys.CURRENT_LANGUAGE] ?: "English",
-            isDarkMode = preferences[PreferencesKeys.IS_DARK_MODE] ?: true,
-            lastSearchedCityName = preferences[PreferencesKeys.LAST_CITY_NAME],
+            isDarkMode = preferences[PreferencesKeys.IS_DARK_MODE],            lastSearchedCityName = preferences[PreferencesKeys.LAST_CITY_NAME],
             lastSearchedCityLat = preferences[PreferencesKeys.LAST_CITY_LAT],
             lastSearchedCityLon = preferences[PreferencesKeys.LAST_CITY_LON]
         )
@@ -12512,7 +12565,7 @@ data class UserPreferences(
     val isMetric: Boolean,
     val notificationsEnabled: Boolean,
     val currentLanguage: String,
-    val isDarkMode: Boolean,
+    val isDarkMode: Boolean?,
     val lastSearchedCityName: String? = null,
     val lastSearchedCityLat: Double? = null,
     val lastSearchedCityLon: Double? = null,
@@ -13132,6 +13185,7 @@ private fun SettingsToggleRowPreview() {
 ```kotlin
 package com.mhq.fynecast.settings.ui.screens
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13167,7 +13221,8 @@ fun SettingsContainer(
     val currentLanguage by settingsViewModel.currentLanguage.collectAsStateWithLifecycle()
 
     val isMetric by settingsViewModel.isMetric.collectAsStateWithLifecycle()
-    val isDarkMode by settingsViewModel.isDarkMode.collectAsStateWithLifecycle()
+    val storedDarkMode by settingsViewModel.isDarkMode.collectAsStateWithLifecycle()
+    val isDarkMode = storedDarkMode ?: isSystemInDarkTheme()
     val notificationsEnabled by settingsViewModel.notificationsEnabled.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
@@ -13430,6 +13485,15 @@ class SettingsViewModel(
                 true
             )
 
+    init {
+        viewModelScope.launch {
+            preferencesFlow
+                .map { AppLanguage.fromStoredName(it.currentLanguage).code }
+                .distinctUntilChanged()
+                .collect { _localeEvent.tryEmit(it) }
+        }
+    }
+
     fun toggleUnitSystem(isMetric: Boolean) {
         viewModelScope.launch {
             updatePreference.metricSystem(isMetric)
@@ -13482,12 +13546,12 @@ class SettingsViewModel(
         viewModelScope.launch { updatePreference.language(language) }
     }
 
-    val isDarkMode: StateFlow<Boolean> =
+    val isDarkMode: StateFlow<Boolean?> =
         preferencesFlow.map { it.isDarkMode }
             .stateIn(
                 viewModelScope,
                 SharingStarted.WhileSubscribed(5000),
-                true
+                null
             )
 
     fun toggleDarkMode(enabled: Boolean) {
@@ -13509,14 +13573,15 @@ class SettingsViewModel(
         }
     }
 
-    init {
-        viewModelScope.launch {
-            preferencesFlow
-                .map { AppLanguage.fromStoredName(it.currentLanguage).code }
-                .distinctUntilChanged()
-                .collect { _localeEvent.tryEmit(it) }
-        }
-    }
+    /** True once the first preferences read has finished;
+     * the splash screen waits for it. */
+    val arePreferencesLoaded: StateFlow<Boolean> =
+        preferencesFlow.map { true }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                false
+            )
 
     companion object {
         val factory: ViewModelProvider.Factory = viewModelFactory {
