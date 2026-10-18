@@ -12,15 +12,12 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
@@ -43,7 +40,6 @@ fun FavoritesContainer(
     val undoLabel = stringResource(R.string.undo)
     val lazyFavoriteCities = favoritesViewModel.favoritesPageFlow.collectAsLazyPagingItems()
     val snackbarHostState = remember { SnackbarHostState() }
-    val cityRemovedTemplate = stringResource(R.string.city_removed)
 
     LaunchedEffect(Unit) {
         favoritesViewModel.uiEvent.collect { message ->
@@ -79,19 +75,17 @@ fun FavoritesContainer(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        when {
-            lazyFavoriteCities.loadState.refresh is LoadState.Loading -> {
+        when (lazyFavoriteCities.itemCount) {
+            0 if lazyFavoriteCities.loadState.refresh is LoadState.Loading -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
-
-            lazyFavoriteCities.itemCount == 0 -> {
+            0 -> {
                 FavoritesBlank(
                     contentPadding = contentPadding
                 )
             }
-
             else -> {
                 FavoritesContent(
                     favoriteCities = lazyFavoriteCities,

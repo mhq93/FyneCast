@@ -11,7 +11,6 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -53,18 +52,25 @@ fun FavoritesContent(
                 if (favorite != null) {
                     val currentFavorite by rememberUpdatedState(favorite)
                     val currentOnDelete by rememberUpdatedState(onDeleteFavorite)
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value -> value == SwipeToDismissBoxValue.EndToStart }
-                    )
 
-                    LaunchedEffect(dismissState.currentValue) {
-                        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
-                            currentOnDelete(currentFavorite)
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                /** Runs once, when the user finishes the swipe. */
+                                currentOnDelete(currentFavorite)
+                            }
+                            /**
+                             * Never keep a row in the "swiped away" state.
+                             * The row leaves the list when the delete lands, and a row brought back
+                             * by Undo must start settled so it can be swiped again.
+                             * */
+                            false
                         }
-                    }
+                    )
 
                     SwipeToDismissBox(
                         state = dismissState,
+                        modifier = Modifier.animateItem(),
                         backgroundContent = { SwipeBackground(dismissState) },
                         enableDismissFromStartToEnd = false
                     ) {

@@ -215,9 +215,12 @@ fun FyneCastApp(
                         val mapPickerViewModel: MapPickerViewModel =
                             viewModel(factory = MapPickerViewModel.factory)
 
+                        val currentWeather = (homeUiState as? HomeUiState.Success)?.weather
                         MapPickerScreen(
                             mapPickerViewModel = mapPickerViewModel,
                             langCode = mapLangCode,
+                            initialLatitude = currentWeather?.latitude,
+                            initialLongitude = currentWeather?.longitude,
                             onLocationPicked = { location ->
                                 homeViewModel.onCitySelected(
                                     suggestionName = location.fullName,

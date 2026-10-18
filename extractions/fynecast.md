@@ -7518,9 +7518,12 @@ fun FyneCastApp(
                         val mapPickerViewModel: MapPickerViewModel =
                             viewModel(factory = MapPickerViewModel.factory)
 
+                        val currentWeather = (homeUiState as? HomeUiState.Success)?.weather
                         MapPickerScreen(
                             mapPickerViewModel = mapPickerViewModel,
                             langCode = mapLangCode,
+                            initialLatitude = currentWeather?.latitude,
+                            initialLongitude = currentWeather?.longitude,
                             onLocationPicked = { location ->
                                 homeViewModel.onCitySelected(
                                     suggestionName = location.fullName,
@@ -7658,6 +7661,7 @@ fun Context.withAppLocale(): Context {
 package com.mhq.fynecast.core.ui
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
@@ -7665,6 +7669,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.ViewModelProvider
@@ -7675,6 +7680,7 @@ import com.mhq.fynecast.core.ui.globalcomponents.FyneCastApp
 import com.mhq.fynecast.home.ui.HomeViewModel
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -7718,9 +7724,27 @@ class MainActivity : AppCompatActivity() {
         splashScreen.setKeepOnScreenCondition { !settingsViewModel.arePreferencesLoaded.value }
 
         lifecycleScope.launch {
+            var isStartupEvent = true
             settingsViewModel.localeEvent.collect { langCode ->
-                if (AppCompatDelegate.getApplicationLocales().toLanguageTags() != langCode) {
-                    AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(langCode))
+                val appLocales = AppCompatDelegate.getApplicationLocales()
+                val needsChange = if (isStartupEvent) {
+                    /**
+                     * Fresh install: no app language saved yet.
+                     * If the phone already uses this language, skip the change,
+                     * because applying it recreates the activity and shows up as a black flash.
+                     * */
+                    val effectiveLanguage =
+                        (appLocales[0] ?: resources.configuration.locales[0]).language
+                    effectiveLanguage != Locale.forLanguageTag(langCode).language
+                } else {
+                    // Later events come from the language picker: always apply and save the choice.
+                    appLocales.toLanguageTags() != langCode
+                }
+                isStartupEvent = false
+                if (needsChange) {
+                    AppCompatDelegate.setApplicationLocales(
+                        LocaleListCompat.forLanguageTags(langCode)
+                    )
                 }
             }
         }
@@ -7744,12 +7768,25 @@ class MainActivity : AppCompatActivity() {
                             langCode = activeLangCode
                         )
                     }
-                    locationPermissionLauncher.launch(
-                        arrayOf(
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
+                    val alreadyGranted =
+                        ContextCompat.checkSelfPermission(
+                            this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION
+                        ) == PackageManager.PERMISSION_GRANTED ||
+                                ContextCompat.checkSelfPermission(
+                                    this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION
+                                ) == PackageManager.PERMISSION_GRANTED
+                    if (alreadyGranted) {
+                        // Nothing to ask: skip the system permission screen, it flashes the app.
+                        onLocationPermissionResult?.invoke(true)
+                        settingsViewModel.requestNotificationPermissionOnFirstLaunch()
+                    } else {
+                        locationPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
                         )
-                    )
+                    }
                 }
             )
         }
@@ -8708,15 +8745,12 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
@@ -8739,7 +8773,6 @@ fun FavoritesContainer(
     val undoLabel = stringResource(R.string.undo)
     val lazyFavoriteCities = favoritesViewModel.favoritesPageFlow.collectAsLazyPagingItems()
     val snackbarHostState = remember { SnackbarHostState() }
-    val cityRemovedTemplate = stringResource(R.string.city_removed)
 
     LaunchedEffect(Unit) {
         favoritesViewModel.uiEvent.collect { message ->
@@ -8775,19 +8808,17 @@ fun FavoritesContainer(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        when {
-            lazyFavoriteCities.loadState.refresh is LoadState.Loading -> {
+        when (lazyFavoriteCities.itemCount) {
+            0 if lazyFavoriteCities.loadState.refresh is LoadState.Loading -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
-
-            lazyFavoriteCities.itemCount == 0 -> {
+            0 -> {
                 FavoritesBlank(
                     contentPadding = contentPadding
                 )
             }
-
             else -> {
                 FavoritesContent(
                     favoriteCities = lazyFavoriteCities,
@@ -8825,7 +8856,6 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -8867,18 +8897,25 @@ fun FavoritesContent(
                 if (favorite != null) {
                     val currentFavorite by rememberUpdatedState(favorite)
                     val currentOnDelete by rememberUpdatedState(onDeleteFavorite)
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value -> value == SwipeToDismissBoxValue.EndToStart }
-                    )
 
-                    LaunchedEffect(dismissState.currentValue) {
-                        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
-                            currentOnDelete(currentFavorite)
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                /** Runs once, when the user finishes the swipe. */
+                                currentOnDelete(currentFavorite)
+                            }
+                            /**
+                             * Never keep a row in the "swiped away" state.
+                             * The row leaves the list when the delete lands, and a row brought back
+                             * by Undo must start settled so it can be swiped again.
+                             * */
+                            false
                         }
-                    }
+                    )
 
                     SwipeToDismissBox(
                         state = dismissState,
+                        modifier = Modifier.animateItem(),
                         backgroundContent = { SwipeBackground(dismissState) },
                         enableDismissFromStartToEnd = false
                     ) {
@@ -11331,6 +11368,7 @@ import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
 import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
+import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -11345,6 +11383,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
 
 class HomeViewModel(
@@ -11357,6 +11396,7 @@ class HomeViewModel(
     private val refreshFavoriteSnapshotUseCase: RefreshFavoriteSnapshotUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val updatePreferenceUseCase: UpdatePreferenceUseCase,
+    private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase,
     private val defaultCityFallback: String = "Cairo"
 ) : ViewModel() {
 
@@ -11386,7 +11426,8 @@ class HomeViewModel(
         data class Place(
             val name: String,
             val latitude: Double,
-            val longitude: Double
+            val longitude: Double,
+            val relocalizeName: Boolean = false
         ) : LoadTarget {
             override val retry = HomeRetryAction.ReloadPlace
         }
@@ -11430,15 +11471,23 @@ class HomeViewModel(
             try {
                 val (weather, displayName) = withTimeout(LOAD_TIMEOUT_MILLIS.milliseconds) {
                     when (target) {
-                        is LoadTarget.Place ->
-                            loadCurrentWeatherUseCase(
+                        is LoadTarget.Place -> {
+                            val weather = loadCurrentWeatherUseCase(
                                 "${target.latitude},${target.longitude}",
                                 langCode
-                            ) to target.name
+                            )
+                            val name = if (target.relocalizeName) {
+                                localizedCityName(weather, langCode) ?: target.name
+                            } else {
+                                target.name
+                            }
+                            weather to name
+                        }
 
                         is LoadTarget.Startup -> {
                             val weather = loadCurrentWeatherUseCase(startupQuery(target), langCode)
-                            weather to "${weather.cityName}, ${weather.country}"
+                            weather to (localizedCityName(weather, langCode)
+                                ?: "${weather.cityName}, ${weather.country}")
                         }
                     }
                 }
@@ -11488,7 +11537,8 @@ class HomeViewModel(
 
         loadJob = viewModelScope.launch {
             try {
-                val fresh = loadCurrentWeatherUseCase("${weather.latitude},${weather.longitude}", langCode)
+                val fresh =
+                    loadCurrentWeatherUseCase("${weather.latitude},${weather.longitude}", langCode)
                 _state.update { it.copy(uiState = HomeUiState.Success(fresh)) }
                 loadedLangCode = langCode
                 onWeatherShown(fresh)
@@ -11505,7 +11555,15 @@ class HomeViewModel(
         latestLangCode = langCode
         if (langCode == loadedLangCode) return
         val weather = (_state.value.uiState as? HomeUiState.Success)?.weather ?: return
-        load(LoadTarget.Place(_state.value.selectedCityName, weather.latitude, weather.longitude), langCode)
+        load(
+            LoadTarget.Place(
+                _state.value.selectedCityName,
+                weather.latitude,
+                weather.longitude,
+                relocalizeName = true
+            ),
+            langCode
+        )
     }
 
     private fun resetForNewSession() {
@@ -11531,8 +11589,22 @@ class HomeViewModel(
     }
 
     fun onToggleFavorite() {
-        val weather = (_state.value.uiState as? HomeUiState.Success)?.weather ?: return
-        viewModelScope.launch { toggleFavoriteUseCase(weather.toFavoriteCity()) }
+        val state = _state.value
+        val weather = (state.uiState as? HomeUiState.Success)?.weather ?: return
+        // Save under the name the user picked, not the weather service's station name.
+        val pickedName = state.selectedCityName
+        val favorite = weather.toFavoriteCity().let { city ->
+            if (pickedName.isBlank()) {
+                city
+            } else {
+                city.copy(
+                    cityName = pickedName.substringBefore(",").trim(),
+                    countryName = pickedName.substringAfter(",", "").trim()
+                        .ifBlank { city.countryName }
+                )
+            }
+        }
+        viewModelScope.launch { toggleFavoriteUseCase(favorite) }
     }
 
     private fun onWeatherShown(weather: WeatherDomainModel) {
@@ -11545,9 +11617,16 @@ class HomeViewModel(
         viewModelScope.launch { refreshFavoriteSnapshotUseCase(weather.toFavoriteCity()) }
     }
 
+    /** The city name in the app language, or null if the lookup is slow or fails. */
+    private suspend fun localizedCityName(weather: WeatherDomainModel, langCode: String): String? =
+        withTimeoutOrNull(NAME_LOOKUP_TIMEOUT_MILLIS.milliseconds) {
+            reverseGeocodeLocationUseCase(weather.latitude, weather.longitude, langCode)?.fullName
+        }
+
     companion object {
         private const val TAG = "HomeViewModel"
         private const val LOAD_TIMEOUT_MILLIS = 30_000L
+        private const val NAME_LOOKUP_TIMEOUT_MILLIS = 2_000L
 
         val factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -11561,7 +11640,8 @@ class HomeViewModel(
                     observeSignedInUserIdUseCase = app.container.observeSignedInUserIdUseCase,
                     refreshFavoriteSnapshotUseCase = app.container.refreshFavoriteSnapshotUseCase,
                     toggleFavoriteUseCase = app.container.toggleFavoriteUseCase,
-                    updatePreferenceUseCase = app.container.updatePreferenceUseCase
+                    updatePreferenceUseCase = app.container.updatePreferenceUseCase,
+                    reverseGeocodeLocationUseCase = app.container.reverseGeocodeLocationUseCase
                 )
             }
         }
@@ -12165,8 +12245,15 @@ package com.mhq.fynecast.map.ui
 
 import com.mhq.fynecast.home.domain.models.CitySuggestionModel
 
+/**
+ * Where the user last tapped
+ * Set immediately on tap so the marker survives rotation
+ * and appears before the place name has been resolved.
+ * */
 data class MapPickerUiState(
     val selectedLocation: CitySuggestionModel? = null,
+    val markerLatitude: Double? = null,
+    val markerLongitude: Double? = null,
     val isSearching: Boolean = false,
     val errorMessage: String? = null
 )
@@ -12204,21 +12291,29 @@ class MapPickerViewModel(
     fun onMapClicked(latitude: Double, longitude: Double, langCode: String) {
         geocodeJob?.cancel()
         geocodeJob = viewModelScope.launch {
-            _uiState.update { it.copy(isSearching = true, selectedLocation = null, errorMessage = null) }
+            _uiState.update {
+                it.copy(
+                    isSearching = true,
+                    selectedLocation = null,
+                    errorMessage = null,
+                    markerLatitude = latitude,
+                    markerLongitude = longitude
+                )
+            }
             try {
                 val resolvedLocation = reverseGeocodeLocationUseCase(latitude, longitude, langCode)
                 if (resolvedLocation != null) {
                     _uiState.update { it.copy(selectedLocation = resolvedLocation) }
                 } else {
                     _uiState.update {
-                        it.copy(errorMessage = "No location data found here. Please pick a more specific location.")
+                        it.copy(errorMessage = "No location data found here. Please, pick a more specific location.")
                     }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(errorMessage = "Couldn't resolve this location. Please try again.")
+                    it.copy(errorMessage = "Couldn't resolve this location. Please, try again.")
                 }
             }
             _uiState.update { it.copy(isSearching = false) }
@@ -12249,6 +12344,7 @@ import android.graphics.Paint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
@@ -12258,9 +12354,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -12272,6 +12371,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.theme.AbyssalVoid
 import com.mhq.fynecast.core.ui.theme.ElectricLimeGreen
@@ -12284,52 +12384,41 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
-import org.maplibre.android.plugins.annotation.SymbolManager
-import org.maplibre.android.plugins.annotation.SymbolOptions
+import org.maplibre.android.maps.Style
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.layers.PropertyFactory
+import org.maplibre.android.style.layers.SymbolLayer
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.FeatureCollection
+import org.maplibre.geojson.Point
+import androidx.core.graphics.createBitmap
 
 private const val MARKER_ICON_ID = "map_picker_marker"
-
-/**
- * SymbolManager has no built-in default pin (unlike the deprecated Marker API),
- * so we draw a simple dot bitmap using the app's own theme colors and register
- * it with the style. Swap this out for a real drawable asset (via
- * ContextCompat.getDrawable(context, R.drawable.xxx).toBitmap()) whenever one exists.
- */
-private fun createMarkerBitmap(fillColor: Int, strokeColor: Int): Bitmap {
-    val size = 64
-    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
-    val radius = size / 2f - 4f
-
-    val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = fillColor
-        style = Paint.Style.FILL
-    }
-    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = strokeColor
-        style = Paint.Style.STROKE
-        strokeWidth = 5f
-    }
-
-    canvas.drawCircle(size / 2f, size / 2f, radius, fillPaint)
-    canvas.drawCircle(size / 2f, size / 2f, radius, strokePaint)
-
-    return bitmap
-}
+private const val MARKER_SOURCE_ID = "map_picker_marker_source"
+private const val MARKER_LAYER_ID = "map_picker_marker_layer"
+private const val MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
+private const val MAX_ZOOM = 14.0     // street level; the old 10.0 stopped at a whole-city view
+private const val CITY_ZOOM = 8.0     // opening zoom when we know where to look
+private const val WORLD_ZOOM = 1.5    // opening zoom when we don't know where to look
 
 @Composable
 fun MapPickerScreen(
     mapPickerViewModel: MapPickerViewModel,
     langCode: String,
+    initialLatitude: Double?,
+    initialLongitude: Double?,
     onLocationPicked: (CitySuggestionModel) -> Unit,
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val uiState by mapPickerViewModel.uiState.collectAsState()
+    val uiState by mapPickerViewModel.uiState.collectAsStateWithLifecycle()
+    val latestLangCode by rememberUpdatedState(langCode)
 
     remember { MapLibre.getInstance(context) }
     val mapView = remember { MapView(context) }
+    var markerSource by remember { mutableStateOf<GeoJsonSource?>(null) }
 
     val markerFillColor = ElectricLimeGreen.toArgb()
     val markerStrokeColor = AbyssalVoid.toArgb()
@@ -12355,46 +12444,70 @@ fun MapPickerScreen(
         }
     }
 
+    // The marker follows the ViewModel state, so it survives rotation and shows the moment
+    // a tap happens, even while the place name is still being resolved.
+    LaunchedEffect(markerSource, uiState.markerLatitude, uiState.markerLongitude) {
+        val source = markerSource ?: return@LaunchedEffect
+        val latitude = uiState.markerLatitude
+        val longitude = uiState.markerLongitude
+        if (latitude != null && longitude != null) {
+            source.setGeoJson(Feature.fromGeometry(Point.fromLngLat(longitude, latitude)))
+        } else {
+            source.setGeoJson(FeatureCollection.fromFeatures(emptyList<Feature>()))
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
             factory = {
                 mapView.apply {
                     getMapAsync { map ->
-                        // Wait for style initialization before assigning SymbolManager
-                        map.setStyle("https://tiles.openfreemap.org/styles/liberty") { style ->
+                        map.setMaxZoomPreference(MAX_ZOOM)
+
+                        // After a rotation the old marker is the best place to look; otherwise
+                        // open on the current city, or on a world view if we have neither.
+                        val savedState = mapPickerViewModel.uiState.value
+                        val startLatitude = savedState.markerLatitude ?: initialLatitude
+                        val startLongitude = savedState.markerLongitude ?: initialLongitude
+                        map.cameraPosition = if (startLatitude != null && startLongitude != null) {
+                            CameraPosition.Builder()
+                                .target(LatLng(startLatitude, startLongitude))
+                                .zoom(CITY_ZOOM)
+                                .build()
+                        } else {
+                            CameraPosition.Builder()
+                                .target(LatLng(20.0, 0.0))
+                                .zoom(WORLD_ZOOM)
+                                .build()
+                        }
+
+                        map.addOnMapClickListener { point ->
+                            mapPickerViewModel.onMapClicked(
+                                point.latitude,
+                                point.longitude,
+                                latestLangCode
+                            )
+                            true
+                        }
+
+                        map.setStyle(MAP_STYLE_URL) { style ->
+                            localizeLabels(style, latestLangCode)
                             style.addImage(
                                 MARKER_ICON_ID,
                                 createMarkerBitmap(markerFillColor, markerStrokeColor)
                             )
-
-                            val symbolManager = SymbolManager(mapView, map, style)
-                            symbolManager.iconAllowOverlap = true
-                            symbolManager.textAllowOverlap = true
-
-                            map.setMaxZoomPreference(10.0)
-                            map.cameraPosition = CameraPosition.Builder()
-                                .target(LatLng(30.0444, 31.2357))
-                                .zoom(5.0)
-                                .build()
-
-                            map.addOnMapClickListener { point ->
-                                // Replaced deprecated map.clear()
-                                symbolManager.deleteAll()
-
-                                // Replaced deprecated map.addMarker(MarkerOptions())
-                                symbolManager.create(
-                                    SymbolOptions()
-                                        .withLatLng(point)
-                                        .withIconImage(MARKER_ICON_ID)
+                            // The marker is a plain GeoJSON point drawn by a symbol layer, so
+                            // no annotation plugin is needed.
+                            val source = GeoJsonSource(MARKER_SOURCE_ID)
+                            style.addSource(source)
+                            style.addLayer(
+                                SymbolLayer(MARKER_LAYER_ID, MARKER_SOURCE_ID).withProperties(
+                                    PropertyFactory.iconImage(MARKER_ICON_ID),
+                                    PropertyFactory.iconAllowOverlap(true),
+                                    PropertyFactory.iconIgnorePlacement(true)
                                 )
-
-                                mapPickerViewModel.onMapClicked(
-                                    point.latitude,
-                                    point.longitude,
-                                    langCode
-                                )
-                                true
-                            }
+                            )
+                            markerSource = source
                         }
                     }
                 }
@@ -12424,12 +12537,15 @@ fun MapPickerScreen(
             LoadingCard(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
             )
         } else {
             uiState.errorMessage?.let { message ->
                 ErrorCard(
                     message = message,
-                    modifier = Modifier.align(Alignment.BottomCenter)
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
                 )
             } ?: uiState.selectedLocation?.let { location ->
                 LocationConfirmCard(
@@ -12437,8 +12553,52 @@ fun MapPickerScreen(
                     onLocationPicked = onLocationPicked,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
                 )
             }
+        }
+    }
+}
+
+/**
+ * We draw a simple dot bitmap using the app's own theme colors and register it with the
+ * style. Swap this out for a real drawable asset (via
+ * ContextCompat.getDrawable(context, R.drawable.xxx).toBitmap()) whenever one exists.
+ */
+private fun createMarkerBitmap(fillColor: Int, strokeColor: Int): Bitmap {
+    val size = 64
+    val bitmap = createBitmap(size, size)
+    val canvas = Canvas(bitmap)
+    val radius = size / 2f - 4f
+
+    val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = fillColor
+        style = Paint.Style.FILL
+    }
+    val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = strokeColor
+        style = Paint.Style.STROKE
+        strokeWidth = 5f
+    }
+
+    canvas.drawCircle(size / 2f, size / 2f, radius, fillPaint)
+    canvas.drawCircle(size / 2f, size / 2f, radius, strokePaint)
+    return bitmap
+}
+
+/**
+ * Shows map labels in the app language (e.g. "ar" or "en"). Every symbol layer whose label
+ * uses a name field is switched to "name:<lang>", falling back to the local name when the
+ * place has no translation. Call this before adding our own marker layer.
+ */
+private fun localizeLabels(style: Style, langCode: String) {
+    val localizedName = Expression.coalesce(
+        Expression.get("name:$langCode"),
+        Expression.get("name")
+    )
+    style.layers.filterIsInstance<SymbolLayer>().forEach { layer ->
+        if (layer.textField.toString().contains("name")) {
+            layer.setProperties(PropertyFactory.textField(localizedName))
         }
     }
 }
@@ -13421,9 +13581,11 @@ import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesU
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -13477,15 +13639,30 @@ class SettingsViewModel(
                 null
             )
 
-    val isMetric: StateFlow<Boolean> =
-        preferencesFlow.map { it.isMetric }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                true
-            )
+    private val _isMetric = MutableStateFlow(true)
+    val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
+
+    private val _currentLanguage = MutableStateFlow("English")
+    val currentLanguage: StateFlow<String> = _currentLanguage.asStateFlow()
+
+    private val _isDarkMode = MutableStateFlow<Boolean?>(null)
+    val isDarkMode: StateFlow<Boolean?> = _isDarkMode.asStateFlow()
+
+    private val _arePreferencesLoaded = MutableStateFlow(false)
+
+    /** True once the first preferences read has finished; the splash screen waits for it. */
+    val arePreferencesLoaded: StateFlow<Boolean> = _arePreferencesLoaded.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            preferencesFlow.collect { prefs ->
+                _isMetric.value = prefs.isMetric
+                _currentLanguage.value = prefs.currentLanguage
+                _isDarkMode.value = prefs.isDarkMode
+                // Last, so the splash only lifts once every value above is set.
+                _arePreferencesLoaded.value = true
+            }
+        }
         viewModelScope.launch {
             preferencesFlow
                 .map { AppLanguage.fromStoredName(it.currentLanguage).code }
@@ -13534,25 +13711,9 @@ class SettingsViewModel(
         }
     }
 
-    val currentLanguage: StateFlow<String> =
-        preferencesFlow.map { it.currentLanguage }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                "English"
-            )
-
     fun toggleLanguage(language: String) {
         viewModelScope.launch { updatePreference.language(language) }
     }
-
-    val isDarkMode: StateFlow<Boolean?> =
-        preferencesFlow.map { it.isDarkMode }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
-                null
-            )
 
     fun toggleDarkMode(enabled: Boolean) {
         viewModelScope.launch { updatePreference.darkMode(enabled) }
@@ -13572,16 +13733,6 @@ class SettingsViewModel(
             }
         }
     }
-
-    /** True once the first preferences read has finished;
-     * the splash screen waits for it. */
-    val arePreferencesLoaded: StateFlow<Boolean> =
-        preferencesFlow.map { true }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.Eagerly,
-                false
-            )
 
     companion object {
         val factory: ViewModelProvider.Factory = viewModelFactory {

@@ -27,21 +27,29 @@ class MapPickerViewModel(
     fun onMapClicked(latitude: Double, longitude: Double, langCode: String) {
         geocodeJob?.cancel()
         geocodeJob = viewModelScope.launch {
-            _uiState.update { it.copy(isSearching = true, selectedLocation = null, errorMessage = null) }
+            _uiState.update {
+                it.copy(
+                    isSearching = true,
+                    selectedLocation = null,
+                    errorMessage = null,
+                    markerLatitude = latitude,
+                    markerLongitude = longitude
+                )
+            }
             try {
                 val resolvedLocation = reverseGeocodeLocationUseCase(latitude, longitude, langCode)
                 if (resolvedLocation != null) {
                     _uiState.update { it.copy(selectedLocation = resolvedLocation) }
                 } else {
                     _uiState.update {
-                        it.copy(errorMessage = "No location data found here. Please pick a more specific location.")
+                        it.copy(errorMessage = "No location data found here. Please, pick a more specific location.")
                     }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(errorMessage = "Couldn't resolve this location. Please try again.")
+                    it.copy(errorMessage = "Couldn't resolve this location. Please, try again.")
                 }
             }
             _uiState.update { it.copy(isSearching = false) }

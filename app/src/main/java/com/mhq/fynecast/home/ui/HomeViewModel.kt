@@ -19,6 +19,7 @@ import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
 import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
+import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -33,6 +34,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
 
 class HomeViewModel(
@@ -45,6 +47,7 @@ class HomeViewModel(
     private val refreshFavoriteSnapshotUseCase: RefreshFavoriteSnapshotUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val updatePreferenceUseCase: UpdatePreferenceUseCase,
+    private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase,
     private val defaultCityFallback: String = "Cairo"
 ) : ViewModel() {
 
@@ -118,15 +121,20 @@ class HomeViewModel(
             try {
                 val (weather, displayName) = withTimeout(LOAD_TIMEOUT_MILLIS.milliseconds) {
                     when (target) {
-                        is LoadTarget.Place ->
-                            loadCurrentWeatherUseCase(
+                        is LoadTarget.Place -> {
+                            val weather = loadCurrentWeatherUseCase(
                                 "${target.latitude},${target.longitude}",
                                 langCode
-                            ) to target.name
-
+                            )
+                            weather to target.name
+                        }
                         is LoadTarget.Startup -> {
-                            val weather = loadCurrentWeatherUseCase(startupQuery(target), langCode)
-                            weather to "${weather.cityName}, ${weather.country}"
+                            val spot = startupSpot(target)
+                            val weather = loadCurrentWeatherUseCase(spot.query, langCode)
+                            val name = spot.name
+                                ?: lookupCityName(spot.latitude, spot.longitude, langCode)
+                                ?: "${weather.cityName}, ${weather.country}"
+                            weather to name
                         }
                     }
                 }
@@ -149,14 +157,36 @@ class HomeViewModel(
         }
     }
 
+    private class StartupSpot(
+        val query: String,
+        val name: String?,         // the name the user picked, when we have it
+        val latitude: Double?,     // where we are asking about, when known
+        val longitude: Double?
+    )
+
     /** GPS (when allowed) → last searched city → default city. */
-    private suspend fun startupQuery(target: LoadTarget.Startup): String {
+    private suspend fun startupSpot(target: LoadTarget.Startup): StartupSpot {
         delay(300.milliseconds)
         val coordinates = if (target.useDeviceLocation) currentCoordinatesOrNull() else null
-        if (coordinates != null) return "${coordinates.latitude},${coordinates.longitude}"
-
+        if (coordinates != null) {
+            return StartupSpot(
+                query = "${coordinates.latitude},${coordinates.longitude}",
+                name = null,
+                latitude = coordinates.latitude,
+                longitude = coordinates.longitude
+            )
+        }
         val savedCity = getLastSearchedCityUseCase()
-        return savedCity?.let { "${it.latitude},${it.longitude}" } ?: defaultCityFallback
+        return if (savedCity != null) {
+            StartupSpot(
+                query = "${savedCity.latitude},${savedCity.longitude}",
+                name = savedCity.name,
+                latitude = savedCity.latitude,
+                longitude = savedCity.longitude
+            )
+        } else {
+            StartupSpot(query = defaultCityFallback, name = null, latitude = null, longitude = null)
+        }
     }
 
     private suspend fun currentCoordinatesOrNull(): GeoCoordinates? =
@@ -176,7 +206,8 @@ class HomeViewModel(
 
         loadJob = viewModelScope.launch {
             try {
-                val fresh = loadCurrentWeatherUseCase("${weather.latitude},${weather.longitude}", langCode)
+                val fresh =
+                    loadCurrentWeatherUseCase("${weather.latitude},${weather.longitude}", langCode)
                 _state.update { it.copy(uiState = HomeUiState.Success(fresh)) }
                 loadedLangCode = langCode
                 onWeatherShown(fresh)
@@ -193,7 +224,10 @@ class HomeViewModel(
         latestLangCode = langCode
         if (langCode == loadedLangCode) return
         val weather = (_state.value.uiState as? HomeUiState.Success)?.weather ?: return
-        load(LoadTarget.Place(_state.value.selectedCityName, weather.latitude, weather.longitude), langCode)
+        load(
+            LoadTarget.Place(_state.value.selectedCityName, weather.latitude, weather.longitude),
+            langCode
+        )
     }
 
     private fun resetForNewSession() {
@@ -219,8 +253,22 @@ class HomeViewModel(
     }
 
     fun onToggleFavorite() {
-        val weather = (_state.value.uiState as? HomeUiState.Success)?.weather ?: return
-        viewModelScope.launch { toggleFavoriteUseCase(weather.toFavoriteCity()) }
+        val state = _state.value
+        val weather = (state.uiState as? HomeUiState.Success)?.weather ?: return
+        // Save under the name the user picked, not the weather service's station name.
+        val pickedName = state.selectedCityName
+        val favorite = weather.toFavoriteCity().let { city ->
+            if (pickedName.isBlank()) {
+                city
+            } else {
+                city.copy(
+                    cityName = pickedName.substringBefore(",").trim(),
+                    countryName = pickedName.substringAfter(",", "").trim()
+                        .ifBlank { city.countryName }
+                )
+            }
+        }
+        viewModelScope.launch { toggleFavoriteUseCase(favorite) }
     }
 
     private fun onWeatherShown(weather: WeatherDomainModel) {
@@ -233,9 +281,22 @@ class HomeViewModel(
         viewModelScope.launch { refreshFavoriteSnapshotUseCase(weather.toFavoriteCity()) }
     }
 
+    /** The name for these coordinates, or null if they are unknown, or the lookup is slow or fails. */
+    private suspend fun lookupCityName(
+        latitude: Double?,
+        longitude: Double?,
+        langCode: String
+    ): String? {
+        if (latitude == null || longitude == null) return null
+        return withTimeoutOrNull(NAME_LOOKUP_TIMEOUT_MILLIS.milliseconds) {
+            reverseGeocodeLocationUseCase(latitude, longitude, langCode)?.fullName
+        }
+    }
+
     companion object {
         private const val TAG = "HomeViewModel"
         private const val LOAD_TIMEOUT_MILLIS = 30_000L
+        private const val NAME_LOOKUP_TIMEOUT_MILLIS = 2_000L
 
         val factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -249,7 +310,8 @@ class HomeViewModel(
                     observeSignedInUserIdUseCase = app.container.observeSignedInUserIdUseCase,
                     refreshFavoriteSnapshotUseCase = app.container.refreshFavoriteSnapshotUseCase,
                     toggleFavoriteUseCase = app.container.toggleFavoriteUseCase,
-                    updatePreferenceUseCase = app.container.updatePreferenceUseCase
+                    updatePreferenceUseCase = app.container.updatePreferenceUseCase,
+                    reverseGeocodeLocationUseCase = app.container.reverseGeocodeLocationUseCase
                 )
             }
         }
