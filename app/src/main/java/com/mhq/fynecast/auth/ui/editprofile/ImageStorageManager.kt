@@ -50,7 +50,7 @@ class ImageStorageManager(private val context: Context) {
                         BitmapFactory.decodeStream(stream, null, decodeOptions)
                     } ?: return@withContext null
 
-                val correctedBitmap = faceCorrectImageOrientation(sourceUri, sampledBitmap)
+                val correctedBitmap = correctImageOrientation(sourceUri, sampledBitmap)
 
                 val profilePicturesDir = File(context.filesDir, "profile_pics").apply { mkdirs() }
                 val uniqueFileName = "profile_${UUID.randomUUID()}.webp"
@@ -128,7 +128,7 @@ class ImageStorageManager(private val context: Context) {
         return canonicalTarget.startsWith(canonicalFilesDir)
     }
 
-    private fun faceCorrectImageOrientation(uri: Uri, bitmap: Bitmap): Bitmap {
+    private fun correctImageOrientation(uri: Uri, bitmap: Bitmap): Bitmap {
         return try {
             val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
             val exifInterface = inputStream?.use { ExifInterface(it) } ?: return bitmap

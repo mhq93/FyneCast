@@ -49,7 +49,7 @@ fun WeatherDailyRowItem(
     ) {
         // Left Column: Day Descriptor Bounds
         Column(
-            modifier = Modifier.width(70.dp), //85
+            modifier = Modifier.width(70.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text(
@@ -93,7 +93,7 @@ fun WeatherDailyRowItem(
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.End,
-            modifier = Modifier.width(130.dp) //90
+            modifier = Modifier.width(130.dp)
         ) {
             Text(
                 text = "${lowTemperature.roundToInt()}°",
@@ -101,16 +101,6 @@ fun WeatherDailyRowItem(
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
                 textAlign = TextAlign.End,
                 modifier = Modifier.width(32.dp)
-            )
-
-            // Premium ambient bar slider container element mimicking relative scaling layout structures
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 8.dp)
-                    .weight(1f)
-                    .height(4.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f))
             )
 
             val range = (weekMax - weekMin).coerceAtLeast(1.0)

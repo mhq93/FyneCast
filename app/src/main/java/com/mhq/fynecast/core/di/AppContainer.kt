@@ -96,7 +96,6 @@ interface AppContainer {
     val getCurrentLocationUseCase: GetCurrentLocationUseCase
     val getLocationSuggestionsUseCase: GetLocationSuggestionsUseCase
     val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase
-    // before val getLastSearchedCityUseCase: GetLastSearchedCityUseCase
     val getLastSearchedCityUseCase: GetLastSearchedCityUseCase
     val localizePlaceNameUseCase: LocalizePlaceNameUseCase
     val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase

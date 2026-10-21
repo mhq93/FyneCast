@@ -14,14 +14,14 @@ class UpdateUserProfileUseCase(
     ): Result<Boolean> {
         val currentProfile = profileRepository.getProfile()
         var finalImageUri = currentProfile.profileImageUri
-        var newImageWasCreated = false
+        var createdImageUri: String? = null
 
         if (!localImageUriString.isNullOrBlank()) {
             if (!imageRepository.isAlreadySandboxed(localImageUriString)) {
                 val sandboxedUri = imageRepository.sandboxAndCompressImage(localImageUriString)
                 if (sandboxedUri != null) {
                     finalImageUri = sandboxedUri
-                    newImageWasCreated = true
+                    createdImageUri = sandboxedUri
                 }
             } else {
                 finalImageUri = localImageUriString
@@ -51,9 +51,8 @@ class UpdateUserProfileUseCase(
               * Doing this any earlier risked leaving
               * the profile pointing at an image that was already deleted
               * if the save above failed.*/
-            if (newImageWasCreated) {
-                imageRepository.commitProfileImage(finalImageUri!!)
-            }
+            createdImageUri?.let { imageRepository.commitProfileImage(it) }
+
 
             remoteUpdateVerification
         }.onFailure {
@@ -63,8 +62,8 @@ class UpdateUserProfileUseCase(
               * is what threw, deleting the file now would leave
               * the saved profile pointing at a file that no longer exists
               * — the exact thing this rollback exists to prevent.*/
-            if (newImageWasCreated && !profileSaved) {
-                imageRepository.deleteProfileImage(finalImageUri!!)
+            if (!profileSaved) {
+                createdImageUri?.let { imageRepository.deleteProfileImage(it) }
             }
         }
     }
