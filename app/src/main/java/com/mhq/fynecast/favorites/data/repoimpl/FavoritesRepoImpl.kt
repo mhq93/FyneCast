@@ -56,6 +56,11 @@ class FavoritesRepoImpl(
         )
     }
 
+    override suspend fun getFavoritesList(): List<FavoriteCityDomainModel> {
+        val userId = currentUserProvider.currentUserId() ?: return emptyList()
+        return favoriteDao.getFavoritesOnce(userId).map { it.toDomain() }
+    }
+
     override fun getAllFavorites(): Flow<PagingData<FavoriteCityDomainModel>> =
         currentUserProvider.observeUserId().flatMapLatest { userId ->
             if (userId == null) {

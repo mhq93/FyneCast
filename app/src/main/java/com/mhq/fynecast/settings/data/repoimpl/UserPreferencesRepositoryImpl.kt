@@ -6,11 +6,13 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.domain.models.UserPreferences
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.util.Locale
 
 class UserPreferencesRepositoryImpl(
     private val dataStore: DataStore<Preferences>
@@ -82,10 +84,19 @@ class UserPreferencesRepositoryImpl(
         return UserPreferences(
             isMetric = preferences[PreferencesKeys.IS_METRIC] ?: true,
             notificationsEnabled = preferences[PreferencesKeys.NOTIFICATIONS_ENABLED] ?: true,
-            currentLanguage = preferences[PreferencesKeys.CURRENT_LANGUAGE] ?: "English",
-            isDarkMode = preferences[PreferencesKeys.IS_DARK_MODE],            lastSearchedCityName = preferences[PreferencesKeys.LAST_CITY_NAME],
+            currentLanguage = preferences[PreferencesKeys.CURRENT_LANGUAGE] ?: phoneLanguage(),
+            isDarkMode = preferences[PreferencesKeys.IS_DARK_MODE],
+            lastSearchedCityName = preferences[PreferencesKeys.LAST_CITY_NAME],
             lastSearchedCityLat = preferences[PreferencesKeys.LAST_CITY_LAT],
             lastSearchedCityLon = preferences[PreferencesKeys.LAST_CITY_LON]
         )
     }
+
+    /** First run: follow the phone's language. Anything that isn't Arabic gets English. */
+    private fun phoneLanguage(): String =
+        if (Locale.getDefault().language == "ar") {
+            AppLanguage.Arabic.storedName
+        } else {
+            AppLanguage.English.storedName
+        }
 }

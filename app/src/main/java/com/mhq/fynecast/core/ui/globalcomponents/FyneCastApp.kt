@@ -19,6 +19,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
@@ -47,6 +50,10 @@ import com.mhq.fynecast.map.ui.screens.MapPickerScreen
 import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 import com.mhq.fynecast.settings.ui.screens.SettingsContainer
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
+
+private const val AUTO_REFRESH_INTERVAL_MILLIS = 15 * 60 * 1000L
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
@@ -66,6 +73,16 @@ fun FyneCastApp(
 
     LaunchedEffect(appLangCode) {
         homeViewModel.onLanguageChanged(appLangCode)
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner, appLangCode) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                delay(AUTO_REFRESH_INTERVAL_MILLIS.milliseconds)
+                homeViewModel.refreshCurrentCity(appLangCode)
+            }
+        }
     }
 
     FyneCastTheme(isDarkMode = isDarkMode) {

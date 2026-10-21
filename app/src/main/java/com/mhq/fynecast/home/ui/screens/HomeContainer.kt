@@ -32,7 +32,7 @@ fun HomeContainer(
         }
     }
 
-    // 2. Read the nested uiState directly from the container wrapper
+    /** Read the nested uiState directly from the container wrapper */
     when (val uiState = stateContainer.uiState) {
         is HomeUiState.Loading -> {
             HomeLoading(contentPadding = contentPadding, modifier = modifier)
@@ -45,6 +45,7 @@ fun HomeContainer(
                 selectedCityName = stateContainer.selectedCityName,
                 isMetric = isMetric,
                 isFavorite = stateContainer.isFavorite,
+                isRefreshing = stateContainer.isRefreshing,
                 onQueryChange = { homeViewModel.onSearchQueryChanged(it, langCode) },
                 onSuggestionClick = { suggestion ->
                     homeViewModel.onCitySelected(
@@ -66,8 +67,9 @@ fun HomeContainer(
             HomeError(
                 retryAction = {
                     when (uiState.retry) {
-                        // One load: the permission result starts it. If the permission is already
-                        // decided, the callback fires immediately and the load starts anyway.
+                         // One load: the permission result starts it.
+                         // If the permission is already decided,
+                         // the callback fires immediately and the load starts anyway.
                         HomeRetryAction.RequestLocation -> onRequestPermission(langCode)
                         HomeRetryAction.ReloadPlace -> homeViewModel.onRetryClicked(langCode)
                     }

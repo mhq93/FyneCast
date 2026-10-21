@@ -63,12 +63,14 @@ import com.mhq.fynecast.favorites.data.repoimpl.FavoritesRepoImpl
 import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
 import com.mhq.fynecast.home.data.api.location.LocationApiService
 import com.mhq.fynecast.home.data.api.weather.WeatherApiService
 import com.mhq.fynecast.home.data.infra.AndroidLocationStatusChecker
+import com.mhq.fynecast.home.data.infra.AndroidPlaceNameSource
 import com.mhq.fynecast.home.data.repoimpl.location.DefaultLocationRepoImpl
 import com.mhq.fynecast.home.data.repoimpl.location.PhotonLocationRepoImpl
 import com.mhq.fynecast.home.data.repoimpl.weather.InMemoryCurrentWeatherStore
@@ -83,6 +85,7 @@ import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
 import com.mhq.fynecast.home.domain.usecases.GetWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
+import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentCityNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
@@ -135,7 +138,9 @@ class DefaultAppContainer(
         }
     private val weatherApiRetrofit = Retrofit.Builder()
         .client(networkClient)
-        .addConverterFactory(weatherApiJson.asConverterFactory("application/json".toMediaType()))
+        .addConverterFactory(
+            weatherApiJson.asConverterFactory("application/json".toMediaType())
+        )
         .baseUrl(weatherApiBaseUrl)
         .build()
     private val weatherApiRetrofitService: WeatherApiService by lazy {
@@ -177,7 +182,6 @@ class DefaultAppContainer(
         photonRetrofit.create(LocationApiService::class.java)
     }
 
-
     // Repositories
     override val authRepository: AuthRepository by lazy {
         AuthRepositoryImpl(firebaseAuth, sessionDataStore, socialAuthCredentialProvider)
@@ -188,7 +192,6 @@ class DefaultAppContainer(
     override val imageStorageRepository: ImageStorageRepository by lazy {
         ImageStorageRepositoryImpl(context, imageStorageManager)
     }
-
 
     // Location Tracker
     private val locationProviderStatusChecker: LocationProviderStatusChecker by lazy {
@@ -201,7 +204,13 @@ class DefaultAppContainer(
         )
     }
     override val locationRepository: LocationRepository by lazy {
-        PhotonLocationRepoImpl(photonApiRetrofitService)
+        PhotonLocationRepoImpl(
+            photonApiRetrofitService,
+            AndroidPlaceNameSource(context)
+        )
+    }
+    override val localizePlaceNameUseCase: LocalizePlaceNameUseCase by lazy {
+        LocalizePlaceNameUseCase(locationRepository)
     }
 
     override val getCurrentLocationUseCase: GetCurrentLocationUseCase by lazy {
@@ -337,6 +346,9 @@ class DefaultAppContainer(
     override val refreshFavoriteSnapshotUseCase: RefreshFavoriteSnapshotUseCase by lazy {
         RefreshFavoriteSnapshotUseCase(favoritesRepository)
     }
+    override val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase by lazy {
+        RefreshAllFavoritesUseCase(favoritesRepository, weatherRepository)
+    }
     override val restoreFavoriteUseCase: RestoreFavoriteUseCase by lazy {
         RestoreFavoriteUseCase(favoritesRepository)
     }
@@ -349,7 +361,11 @@ class DefaultAppContainer(
         AlertTrackingControllerImpl(context)
     }
     private val alertsDatabase: AlertsDatabase by lazy {
-        Room.databaseBuilder(context, AlertsDatabase::class.java, "alerts_db").build()
+        Room.databaseBuilder(
+            context,
+            AlertsDatabase::class.java,
+            "alerts_db"
+        ).build()
     }
     private val alertsRepository: AlertsRepository by lazy {
         AlertsRepoImpl(alertDao = alertsDatabase.alertDao())
@@ -419,6 +435,9 @@ class DefaultAppContainer(
         )
     }
     override val consumeNotificationPromptUseCase by lazy {
-        ConsumeNotificationPromptUseCase(notificationPermissionChecker, userPreferencesRepository)
+        ConsumeNotificationPromptUseCase(
+            notificationPermissionChecker,
+            userPreferencesRepository
+        )
     }
 }

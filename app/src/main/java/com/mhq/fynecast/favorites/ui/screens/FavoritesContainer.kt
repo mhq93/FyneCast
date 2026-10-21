@@ -22,6 +22,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.paging.LoadState
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.ui.FavoritesEvent
 import com.mhq.fynecast.favorites.ui.FavoritesViewModel
@@ -40,6 +41,15 @@ fun FavoritesContainer(
     val undoLabel = stringResource(R.string.undo)
     val lazyFavoriteCities = favoritesViewModel.favoritesPageFlow.collectAsLazyPagingItems()
     val snackbarHostState = remember { SnackbarHostState() }
+    val langCode = currentLocale().language
+
+    /**
+     * Brings every favorite's temperature up to date when the tab is shown
+     * (the use case skips the call if it ran in the last 10 minutes).
+     * */
+    LaunchedEffect(Unit) {
+        favoritesViewModel.onScreenShown(langCode)
+    }
 
     LaunchedEffect(Unit) {
         favoritesViewModel.uiEvent.collect { message ->

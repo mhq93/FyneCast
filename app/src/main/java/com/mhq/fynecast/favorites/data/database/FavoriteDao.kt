@@ -38,6 +38,9 @@ abstract class FavoriteDao {
     @Query("SELECT * FROM favorites WHERE userId = :userId ORDER BY cityName ASC, countryName ASC")
     abstract fun getAllFavorites(userId: String): PagingSource<Int, FavoriteEntity>
 
+    @Query("SELECT * FROM favorites WHERE userId = :userId")
+    abstract suspend fun getFavoritesOnce(userId: String): List<FavoriteEntity>
+
     @Transaction
     open suspend fun toggle(entity: FavoriteEntity) {
         if (isFavorite(entity.userId, entity.locationKey))

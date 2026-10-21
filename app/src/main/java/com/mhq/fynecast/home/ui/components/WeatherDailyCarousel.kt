@@ -19,6 +19,7 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
+import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.home.domain.models.DailyForecastDomainModel
 
@@ -46,7 +47,7 @@ fun WeatherDailyCarousel(
                 text = stringResource(R.string.daily_forecast),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
+                    letterSpacing = 0.5.sp.unlessArabic()
                 ),
                 color = MaterialTheme.colorScheme.onBackground,
                 modifier = Modifier.padding(bottom = 4.dp)

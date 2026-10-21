@@ -23,6 +23,7 @@ import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.home.domain.models.HourlyForecastDomainModel
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
+import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import java.time.LocalDateTime
 
 @Composable
@@ -52,7 +53,7 @@ fun WeatherHourlyCarousel(
                     text = stringResource(R.string.hourly_forecast),
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
+                        letterSpacing = 0.5.sp.unlessArabic()
                     ),
                     color = MaterialTheme.colorScheme.onBackground
                 )

@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
+import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
@@ -75,7 +76,7 @@ fun WeatherHeroCard(
                         color = MaterialTheme.colorScheme.onBackground,
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.Black,
-                            letterSpacing = (-0.5).sp
+                            letterSpacing = (-0.5).sp.unlessArabic()
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -85,7 +86,7 @@ fun WeatherHeroCard(
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
+                            letterSpacing = 1.sp.unlessArabic()
                         )
                     )
                 }
@@ -113,14 +114,14 @@ fun WeatherHeroCard(
                         fontSize = 76.sp,
                         fontWeight = FontWeight.W200,
                         lineHeight = 76.sp,
-                        letterSpacing = (-2).sp
+                        letterSpacing = (-2).sp.unlessArabic()
                     )
                     Text(
                         text = description.uppercase(),
                         color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontWeight = FontWeight.ExtraBold,
-                            letterSpacing = 1.2.sp
+                            letterSpacing = 1.2.sp.unlessArabic()
                         )
                     )
                 }
@@ -188,7 +189,7 @@ fun WeatherHeroCard(
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.3.sp
+                            letterSpacing = 0.3.sp.unlessArabic()
                         ),
                         modifier = Modifier.weight(1f)
                     )

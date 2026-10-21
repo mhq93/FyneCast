@@ -29,6 +29,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
+import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
@@ -82,7 +83,7 @@ fun WeatherStatChip(
                     text = chipHeader.uppercase(),
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.8.sp
+                        letterSpacing = 0.8.sp.unlessArabic()
                     ),
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f), //onSurfaceColor
                     maxLines = 1

@@ -5,11 +5,18 @@ import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import kotlinx.coroutines.flow.Flow
 
 interface FavoritesRepository {
+    /** Gets the complete list of favorites in the lazy item. */
     fun getAllFavorites(): Flow<PagingData<FavoriteCityDomainModel>>
+    /** Observes whether the city is a favorite to perform CRUD operations accordingly. */
     fun observeIsFavorite(id: String): Flow<Boolean>
     /** Adds the city if it isn't a favorite and removes it if it is, as one atomic step. */
     suspend fun toggleFavorite(city: FavoriteCityDomainModel)
-    suspend fun saveFavorite(city: FavoriteCityDomainModel)            // used to undo a removal
+    /** used to undo a removal. */
+    suspend fun saveFavorite(city: FavoriteCityDomainModel)
+    /** used to delete a favorite. */
     suspend fun deleteFavorite(id: String)
-    suspend fun refreshSnapshot(city: FavoriteCityDomainModel)         // updates temperature and icon
+    /** updates temperature and icon. */
+    suspend fun refreshSnapshot(city: FavoriteCityDomainModel)
+    /** one-off read, not paged. */
+    suspend fun getFavoritesList(): List<FavoriteCityDomainModel>
 }

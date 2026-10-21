@@ -12,6 +12,7 @@ import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
@@ -24,7 +25,8 @@ import kotlinx.coroutines.withContext
 class FavoritesViewModel(
     private val getFavoritesUseCase: GetFavoritesUseCase,
     private val deleteFavoriteUseCase: DeleteFavoriteUseCase,
-    private val restoreFavoriteUseCase: RestoreFavoriteUseCase
+    private val restoreFavoriteUseCase: RestoreFavoriteUseCase,
+    private val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase
 ) : ViewModel() {
 
     private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
@@ -41,7 +43,6 @@ class FavoritesViewModel(
     fun onDeleteFavorite(city: FavoriteCityDomainModel) {
         viewModelScope.launch {
             try {
-                // One quick DB call; it must finish even if the screen is closed right after.
                 withContext(NonCancellable) { deleteFavoriteUseCase(city.id) }
                 lastRemoved = city
                 _events.send(FavoritesEvent.Removed(city.cityName))
@@ -59,6 +60,19 @@ class FavoritesViewModel(
         viewModelScope.launch { withContext(NonCancellable) { restoreFavoriteUseCase(city) } }
     }
 
+    /** Called when the Favorites tab is shown; the use case skips the call if it ran recently. */
+    fun onScreenShown(langCode: String) {
+        viewModelScope.launch {
+            try {
+                refreshAllFavoritesUseCase(langCode)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Old temperatures stay; nothing else to do.
+            }
+        }
+    }
+
     companion object {
         val factory: ViewModelProvider.Factory = viewModelFactory {
             initializer {
@@ -67,7 +81,8 @@ class FavoritesViewModel(
                 FavoritesViewModel(
                     getFavoritesUseCase = app.container.getFavoritesUseCase,
                     deleteFavoriteUseCase = app.container.deleteFavoriteUseCase,
-                    restoreFavoriteUseCase = app.container.restoreFavoriteUseCase
+                    restoreFavoriteUseCase = app.container.restoreFavoriteUseCase,
+                    refreshAllFavoritesUseCase = app.container.refreshAllFavoritesUseCase
                 )
             }
         }
