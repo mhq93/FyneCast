@@ -8,7 +8,7 @@ import androidx.room.Room
 import com.google.android.gms.location.LocationServices
 import com.google.firebase.auth.FirebaseAuth
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-import com.mhq.fynecast.R
+import com.mhq.fynecast.BuildConfig
 import com.mhq.fynecast.alerts.data.database.AlertsDatabase
 import com.mhq.fynecast.alerts.data.repoimpl.AlertTrackingControllerImpl
 import com.mhq.fynecast.alerts.data.repoimpl.AlertsRepoImpl
@@ -35,7 +35,6 @@ import com.mhq.fynecast.auth.data.repoimpl.auth.SocialAuthCredentialProviderImpl
 import com.mhq.fynecast.auth.data.repoimpl.profile.ImageStorageRepositoryImpl
 import com.mhq.fynecast.auth.data.repoimpl.profile.UserProfileRepositoryImpl
 import com.mhq.fynecast.auth.data.repository.auth.SocialAuthCredentialProvider
-import com.mhq.fynecast.auth.data.usecases.auth.AuthenticateWithSocialProviderUseCase
 import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
 import com.mhq.fynecast.auth.domain.repository.profile.ImageStorageRepository
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
@@ -51,7 +50,7 @@ import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
-import com.mhq.fynecast.auth.ui.editprofile.ImageStorageManager
+import com.mhq.fynecast.auth.data.storage.ImageStorageManager
 import com.mhq.fynecast.core.data.infra.AppInitializerImpl
 import com.mhq.fynecast.core.domain.data.SystemTimeProvider
 import com.mhq.fynecast.core.domain.data.infra.FirebaseCurrentUserProvider
@@ -147,7 +146,10 @@ class DefaultAppContainer(
         weatherApiRetrofit.create(WeatherApiService::class.java)
     }
     private val weatherRepository: WeatherRepository by lazy {
-        WeatherRepoImpl(weatherApiService = weatherApiRetrofitService)
+        WeatherRepoImpl(
+            weatherApiService = weatherApiRetrofitService,
+            apiKey = BuildConfig.WEATHER_API_KEY
+        )
     }
     private val currentWeatherStore: CurrentWeatherStore by lazy {
         InMemoryCurrentWeatherStore()
@@ -247,10 +249,7 @@ class DefaultAppContainer(
         )
     }
     private val socialAuthCredentialProvider: SocialAuthCredentialProvider by lazy {
-        SocialAuthCredentialProviderImpl(
-            serverClientId = context.getString(R.string.default_web_client_id),
-            appContext = context
-        )
+        SocialAuthCredentialProviderImpl(appContext = context)
     }
     override val completeAuthSessionUseCase: CompleteAuthSessionUseCase by lazy {
         CompleteAuthSessionUseCase(
@@ -262,12 +261,6 @@ class DefaultAppContainer(
         AuthenticateWithSocialTokenUseCase(
             authRepository = authRepository,
             completeAuthSessionUseCase = completeAuthSessionUseCase
-        )
-    }
-    override val authenticateWithSocialProviderUseCase: AuthenticateWithSocialProviderUseCase by lazy {
-        AuthenticateWithSocialProviderUseCase(
-            socialAuthCredentialProvider = socialAuthCredentialProvider,
-            authenticateWithSocialTokenUseCase = authenticateWithSocialTokenUseCase
         )
     }
     override val sendPasswordResetUseCase by lazy {

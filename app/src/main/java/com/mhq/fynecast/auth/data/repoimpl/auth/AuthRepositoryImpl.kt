@@ -91,12 +91,31 @@ class AuthRepositoryImpl(
             prefs[SessionKeys.USER_ID] = user.id
             prefs[SessionKeys.USERNAME] = user.name
             prefs[SessionKeys.EMAIL] = user.email
+
+            /** Bring back this account's own picture (if it saved one); never another account's.*/
+            val savedImage = prefs[SessionKeys.profileImageFor(user.id)]
+            if (savedImage != null) {
+                prefs[SessionKeys.PROFILE_IMAGE_URI] = savedImage
+            } else {
+                prefs.remove(SessionKeys.PROFILE_IMAGE_URI)
+            }
         }
     }
 
     override suspend fun clearSession() {
         firebaseAuth.signOut()
-        sessionDataStore.edit { prefs -> prefs.clear() }
+        sessionDataStore.edit { prefs ->
+            /** Park the picture under the account's id before wiping the active session.*/
+            val uid = prefs[SessionKeys.USER_ID]
+            val image = prefs[SessionKeys.PROFILE_IMAGE_URI]
+            if (!uid.isNullOrBlank() && image != null) {
+                prefs[SessionKeys.profileImageFor(uid)] = image
+            }
+            prefs.remove(SessionKeys.USER_ID)
+            prefs.remove(SessionKeys.USERNAME)
+            prefs.remove(SessionKeys.EMAIL)
+            prefs.remove(SessionKeys.PROFILE_IMAGE_URI)
+        }
         socialAuthCredentialProvider.clearCredentials()
     }
 }

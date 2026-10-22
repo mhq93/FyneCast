@@ -1,4 +1,4 @@
-package com.mhq.fynecast.auth.ui.editprofile
+package com.mhq.fynecast.auth.data.storage
 
 import android.content.Context
 import android.graphics.Bitmap

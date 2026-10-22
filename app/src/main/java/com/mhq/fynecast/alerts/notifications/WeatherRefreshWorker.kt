@@ -11,7 +11,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.mhq.fynecast.alerts.domain.models.TrackedLocation
-import com.mhq.fynecast.alerts.notifications.ui.AlertsNotificationManager
+import com.mhq.fynecast.alerts.notifications.data.infra.AlertsNotificationManager
 import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.settings.domain.models.AppLanguage
 import kotlinx.coroutines.CancellationException

@@ -14,6 +14,7 @@ class UpdateUserProfileUseCase(
     ): Result<Boolean> {
         val currentProfile = profileRepository.getProfile()
         var finalImageUri = currentProfile.profileImageUri
+        val previousImageUri = currentProfile.profileImageUri
         var createdImageUri: String? = null
 
         if (!localImageUriString.isNullOrBlank()) {
@@ -46,12 +47,18 @@ class UpdateUserProfileUseCase(
             profileSaved = true
             profileRepository.refreshActiveUserSession()
 
-             /**The profile now durably references the new image,
-              * so it's safe to purge the old one (ones).
-              * Doing this any earlier risked leaving
-              * the profile pointing at an image that was already deleted
-              * if the save above failed.*/
-            createdImageUri?.let { imageRepository.commitProfileImage(it) }
+            /** The profile now durably references the new image, so only this account's
+             * replaced picture is deleted. The whole folder is never purged, because other
+             * accounts' pictures live there too. Doing this any earlier risked leaving
+             * the profile pointing at a deleted file if the save above failed. */
+            createdImageUri?.let { newUri ->
+                if (previousImageUri != null &&
+                    previousImageUri != newUri &&
+                    imageRepository.isAlreadySandboxed(previousImageUri)
+                ) {
+                    imageRepository.deleteProfileImage(previousImageUri)
+                }
+            }
 
 
             remoteUpdateVerification

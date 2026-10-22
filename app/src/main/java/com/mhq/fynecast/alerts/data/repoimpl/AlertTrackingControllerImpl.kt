@@ -10,7 +10,7 @@ import com.mhq.fynecast.alerts.domain.models.TrackedLocation
 import com.mhq.fynecast.alerts.domain.repository.AlertTrackingController
 import com.mhq.fynecast.alerts.notifications.WeatherAlertTrackingWorker
 import com.mhq.fynecast.alerts.notifications.WeatherRefreshWorker
-import com.mhq.fynecast.alerts.notifications.ui.AlertsNotificationManager
+import com.mhq.fynecast.alerts.notifications.data.infra.AlertsNotificationManager
 import java.util.concurrent.TimeUnit
 
 /**

@@ -15,7 +15,6 @@ import com.mhq.fynecast.alerts.notifications.domain.usecases.ConsumeNotification
 import com.mhq.fynecast.alerts.notifications.domain.usecases.HandleNotificationPermissionResultUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.SyncNotificationPermissionUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
-import com.mhq.fynecast.auth.data.usecases.auth.AuthenticateWithSocialProviderUseCase
 import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
 import com.mhq.fynecast.auth.domain.repository.profile.ImageStorageRepository
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
@@ -78,7 +77,6 @@ interface AppContainer {
     val registerWithEmailUseCase: RegisterWithEmailUseCase
     val loginWithEmailUseCase: LoginWithEmailUseCase
     val authenticateWithSocialTokenUseCase: AuthenticateWithSocialTokenUseCase
-    val authenticateWithSocialProviderUseCase: AuthenticateWithSocialProviderUseCase
     val completeAuthSessionUseCase: CompleteAuthSessionUseCase
     val sendPasswordResetUseCase: SendPasswordResetUseCase
     val updateUserProfileUseCase: UpdateUserProfileUseCase

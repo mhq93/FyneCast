@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
+import com.mhq.fynecast.auth.ui.social.SocialTokenFetcher
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -77,11 +78,19 @@ fun SignupContainer(
             arePasswordsVisible = arePasswordsVisible,
             onTogglePasswordVisibility = signupViewModel::togglePasswordsVisibility,
             onGoogleAuthenticate = {
-                scope.launch { signupViewModel.onGoogleAuthenticate(context) }
+                scope.launch {
+                    signupViewModel.onGoogleAuthenticate {
+                        SocialTokenFetcher.getGoogleIdToken(context)
+                    }
+                }
             },
             onFacebookAuthenticate = {
                 (context as? ComponentActivity)?.let { activity ->
-                    scope.launch { signupViewModel.onFacebookAuthenticate(activity) }
+                    scope.launch {
+                        signupViewModel.onFacebookAuthenticate {
+                            SocialTokenFetcher.getFacebookAccessToken(activity)
+                        }
+                    }
                 }
             },
             onLoginClick = onLoginNavigate,

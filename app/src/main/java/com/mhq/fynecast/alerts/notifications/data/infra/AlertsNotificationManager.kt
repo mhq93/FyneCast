@@ -1,4 +1,4 @@
-package com.mhq.fynecast.alerts.notifications.ui
+package com.mhq.fynecast.alerts.notifications.data.infra
 
 import android.app.NotificationManager
 import android.app.PendingIntent

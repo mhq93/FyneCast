@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
+import com.mhq.fynecast.auth.ui.social.SocialTokenFetcher
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -67,11 +68,19 @@ fun LoginContainer(
             onLoginClick = { loginViewModel.validateThenLogin() },
             onForgotPasswordClick = onForgotPasswordClick,
             onGoogleAuthenticate = {
-                scope.launch { loginViewModel.onGoogleAuthenticate(context) }
+                scope.launch {
+                    loginViewModel.onGoogleAuthenticate {
+                        SocialTokenFetcher.getGoogleIdToken(context)
+                    }
+                }
             },
             onFacebookAuthenticate = {
                 (context as? ComponentActivity)?.let { activity ->
-                    scope.launch { loginViewModel.onFacebookAuthenticate(activity) }
+                    scope.launch {
+                        loginViewModel.onFacebookAuthenticate {
+                            SocialTokenFetcher.getFacebookAccessToken(activity)
+                        }
+                    }
                 }
             },
             modifier = modifier

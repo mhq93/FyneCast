@@ -1,16 +1,13 @@
 package com.mhq.fynecast.auth.ui.signup.ui
 
-import android.content.Context
-import androidx.activity.ComponentActivity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.mhq.fynecast.auth.data.usecases.auth.AuthenticateWithSocialProviderUseCase
-import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.models.ValidationResult
+import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.RegisterWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
 import com.mhq.fynecast.core.di.FyneCastApplication
@@ -24,12 +21,13 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.milliseconds
 
 class SignupViewModel(
     private val validateSignupFormUseCase: ValidateSignupFormUseCase,
     private val registerWithEmailUseCase: RegisterWithEmailUseCase,
-    private val authenticateWithSocialProviderUseCase: AuthenticateWithSocialProviderUseCase
+    private val authenticateWithSocialTokenUseCase: AuthenticateWithSocialTokenUseCase
 ) : ViewModel() {
 
     private val _signupUiState = MutableStateFlow<SignupUiState>(SignupUiState.Idle)
@@ -135,25 +133,29 @@ class SignupViewModel(
         }
     }
 
-    suspend fun onGoogleAuthenticate(context: Context) =
-        runSocialSignIn("Google sign-in failed") {
-            authenticateWithSocialProviderUseCase.withGoogle(context)
-        }
+    suspend fun onGoogleAuthenticate(fetchToken: suspend () -> String) =
+        runSocialSignIn("Google sign-in failed", isGoogle = true, fetchToken)
 
-    suspend fun onFacebookAuthenticate(activity: ComponentActivity) =
-        runSocialSignIn("Facebook sign-in failed") {
-            authenticateWithSocialProviderUseCase.withFacebook(activity)
-        }
+    suspend fun onFacebookAuthenticate(fetchToken: suspend () -> String) =
+        runSocialSignIn("Facebook sign-in failed", isGoogle = false, fetchToken)
 
     private suspend fun runSocialSignIn(
         failureMessage: String,
-        signIn: suspend () -> Result<UserDomainModel>
+        isGoogle: Boolean,
+        fetchToken: suspend () -> String
     ) {
         val state = _signupUiState.value
         if (state is SignupUiState.Loading || state is SignupUiState.Success) return
         _signupUiState.value = SignupUiState.Loading
         try {
-            signIn()
+            val result = try {
+                authenticateWithSocialTokenUseCase(fetchToken(), isGoogle = isGoogle)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+            result
                 .onSuccess {
                     _signupUiState.value = SignupUiState.Success
                     _navigationEvent.send(Unit)
@@ -178,8 +180,7 @@ class SignupViewModel(
                 SignupViewModel(
                     validateSignupFormUseCase = app.container.validateSignupFormUseCase,
                     registerWithEmailUseCase = app.container.registerWithEmailUseCase,
-                    authenticateWithSocialProviderUseCase = app.container.authenticateWithSocialProviderUseCase
-                )
+                    authenticateWithSocialTokenUseCase = app.container.authenticateWithSocialTokenUseCase                )
             }
         }
     }

@@ -3,7 +3,7 @@ package com.mhq.fynecast.auth.data.repoimpl.profile
 import android.content.Context
 import androidx.core.net.toUri
 import com.mhq.fynecast.auth.domain.repository.profile.ImageStorageRepository
-import com.mhq.fynecast.auth.ui.editprofile.ImageStorageManager
+import com.mhq.fynecast.auth.data.storage.ImageStorageManager
 import java.io.File
 
 class ImageStorageRepositoryImpl(

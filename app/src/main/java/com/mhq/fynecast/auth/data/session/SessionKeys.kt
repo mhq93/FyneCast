@@ -7,4 +7,6 @@ internal object SessionKeys {
     val USERNAME = stringPreferencesKey("username")
     val EMAIL = stringPreferencesKey("email")
     val PROFILE_IMAGE_URI = stringPreferencesKey("profile_image_uri")
+    /** Per-account copy of the profile picture; survives logout so it returns on the next login. */
+    fun profileImageFor(userId: String) = stringPreferencesKey("profile_image_uri_$userId")
 }

@@ -4,7 +4,7 @@ import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.mhq.fynecast.alerts.domain.usecases.GetTrackedAlertStatusUseCase
-import com.mhq.fynecast.alerts.notifications.ui.AlertsNotificationManager
+import com.mhq.fynecast.alerts.notifications.data.infra.AlertsNotificationManager
 import com.mhq.fynecast.core.di.FyneCastApplication
 import kotlinx.coroutines.CancellationException
 
