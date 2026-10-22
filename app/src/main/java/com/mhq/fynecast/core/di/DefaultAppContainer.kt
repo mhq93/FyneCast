@@ -185,13 +185,13 @@ class DefaultAppContainer(
     }
 
     // Repositories
-    override val authRepository: AuthRepository by lazy {
+    private val authRepository: AuthRepository by lazy {
         AuthRepositoryImpl(firebaseAuth, sessionDataStore, socialAuthCredentialProvider)
     }
-    override val userProfileRepository: UserProfileRepository by lazy {
+    private val userProfileRepository: UserProfileRepository by lazy {
         UserProfileRepositoryImpl(firebaseAuth, sessionDataStore, applicationScope)
     }
-    override val imageStorageRepository: ImageStorageRepository by lazy {
+    private val imageStorageRepository: ImageStorageRepository by lazy {
         ImageStorageRepositoryImpl(context, imageStorageManager)
     }
 
@@ -199,13 +199,13 @@ class DefaultAppContainer(
     private val locationProviderStatusChecker: LocationProviderStatusChecker by lazy {
         AndroidLocationStatusChecker(appContext = context)
     }
-    override val deviceLocationRepository: DeviceLocationRepository by lazy {
+    private val deviceLocationRepository: DeviceLocationRepository by lazy {
         DefaultLocationRepoImpl(
             fusedLocationClient = LocationServices.getFusedLocationProviderClient(context),
             statusChecker = locationProviderStatusChecker
         )
     }
-    override val locationRepository: LocationRepository by lazy {
+    private val locationRepository: LocationRepository by lazy {
         PhotonLocationRepoImpl(
             photonApiRetrofitService,
             AndroidPlaceNameSource(context)
@@ -264,7 +264,7 @@ class DefaultAppContainer(
         )
     }
     override val sendPasswordResetUseCase by lazy {
-        SendPasswordResetUseCase(authRepository, validateLoginFormUseCase)
+        SendPasswordResetUseCase(authRepository)
     }
 
 
@@ -302,7 +302,7 @@ class DefaultAppContainer(
     }
 
     // Preferences Use Cases
-    override val userPreferencesRepository: UserPreferencesRepository by lazy {
+    private val userPreferencesRepository: UserPreferencesRepository by lazy {
         UserPreferencesRepositoryImpl(prefsDataStore)
     }
     override val observeUserPreferencesUseCase by lazy {
@@ -314,7 +314,7 @@ class DefaultAppContainer(
 
 
     // Favorites Use Cases
-    override val favoritesRepository: FavoritesRepository by lazy {
+    private val favoritesRepository: FavoritesRepository by lazy {
         FavoritesRepoImpl(favoritesDatabase.favoriteDao(), currentUserProvider)
     }
     private val favoritesDatabase: FavoritesDatabase by lazy {

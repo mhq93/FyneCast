@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -29,6 +30,7 @@ fun ForgotPasswordContainer(
     val email by forgotPasswordViewModel.email.collectAsStateWithLifecycle()
     val isEmailValid by forgotPasswordViewModel.isEmailValid.collectAsStateWithLifecycle()
 
+    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
@@ -36,10 +38,10 @@ fun ForgotPasswordContainer(
     }
 
     LaunchedEffect(Unit) {
-        forgotPasswordViewModel.uiEvent.collectLatest { message ->
+        forgotPasswordViewModel.uiEvent.collectLatest { errorMessage ->
             snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar(
-                message = message,
+                message = errorMessage.asString(context),
                 duration = SnackbarDuration.Short
             )
         }

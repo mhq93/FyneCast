@@ -6,9 +6,12 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.domain.usecases.auth.SendPasswordResetUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
+import com.mhq.fynecast.auth.ui.toUiText
 import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.core.ui.text.UiText
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +30,7 @@ class ForgotPasswordViewModel(
 
     private val _forgotPasswordUiState =
         MutableStateFlow<ForgotPasswordUiState>(ForgotPasswordUiState.Idle)
-    private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
+    private val _uiEventChannel = Channel<UiText>(Channel.BUFFERED)
     val uiEvent = _uiEventChannel.receiveAsFlow()
     private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
     val navigationEvent = _navigationEvent.receiveAsFlow()
@@ -54,12 +57,12 @@ class ForgotPasswordViewModel(
             sendPasswordResetUseCase(_email.value)
                 .onSuccess {
                     _forgotPasswordUiState.value = ForgotPasswordUiState.Success
-                    _uiEventChannel.send("Reset link successfully sent to ${_email.value}")
+                    _uiEventChannel.send(UiText.res(R.string.msg_reset_link_sent, _email.value))
                     delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
                     _navigationEvent.send(Unit)
                 }
                 .onFailure { error ->
-                    val msg = error.localizedMessage ?: "Failed to send reset link. Try again."
+                    val msg = error.toUiText(R.string.error_reset_link_failed)
                     _forgotPasswordUiState.value = ForgotPasswordUiState.Error(msg)
                     _uiEventChannel.send(msg)
                 }

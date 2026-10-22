@@ -188,16 +188,17 @@ class HomeViewModel(
             } catch (e: TimeoutCancellationException) {
                 _state.update {
                     it.copy(
-                        uiState = HomeUiState.Error("timeout", target.retry),
+                        uiState = HomeUiState.Error(target.retry),
                         isRefreshing = false
                     )
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                Log.w("HomeViewModel", "Load failed", e)
                 _state.update {
                     it.copy(
-                        uiState = HomeUiState.Error(e.message ?: "Unknown Error", target.retry),
+                        uiState = HomeUiState.Error(target.retry),
                         isRefreshing = false
                     )
                 }

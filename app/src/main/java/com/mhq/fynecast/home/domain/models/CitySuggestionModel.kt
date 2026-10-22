@@ -1,8 +1,5 @@
 package com.mhq.fynecast.home.domain.models
 
-import kotlinx.serialization.Serializable
-
-@Serializable
 data class CitySuggestionModel(
     val fullName: String,
     val latitude: Double,

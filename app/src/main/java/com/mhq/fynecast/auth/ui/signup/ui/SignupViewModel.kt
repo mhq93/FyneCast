@@ -6,11 +6,14 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.RegisterWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
+import com.mhq.fynecast.auth.ui.toUiText
 import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.core.ui.text.UiText
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,7 +34,7 @@ class SignupViewModel(
 ) : ViewModel() {
 
     private val _signupUiState = MutableStateFlow<SignupUiState>(SignupUiState.Idle)
-    private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
+    private val _uiEventChannel = Channel<UiText>(Channel.BUFFERED)
     val uiEvent = _uiEventChannel.receiveAsFlow()
     private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
     val navigationEvent = _navigationEvent.receiveAsFlow()
@@ -90,8 +93,11 @@ class SignupViewModel(
         _arePasswordsVisible.value = !_arePasswordsVisible.value
     }
 
-    val doPasswordsMatch = combine(_userPassword, _confirmPassword) { password, confirmedPassword ->
-        validateSignupFormUseCase.validatePasswordMatch(password, confirmedPassword)
+    val doPasswordsMatch = combine(_userPassword, _confirmPassword) {
+        password, confirmedPassword ->  validateSignupFormUseCase.validatePasswordMatch(
+        password,
+        confirmedPassword
+        )
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
@@ -108,7 +114,7 @@ class SignupViewModel(
             confirmPassword = _confirmPassword.value
         )
         if (validation is ValidationResult.Failure) {
-            viewModelScope.launch { _uiEventChannel.send(validation.errorMessage) }
+            viewModelScope.launch { _uiEventChannel.send(validation.error.toUiText()) }
             return
         }
         viewModelScope.launch {
@@ -120,13 +126,12 @@ class SignupViewModel(
             )
                 .onSuccess {
                     _signupUiState.value = SignupUiState.Success
-                    _uiEventChannel.send("Account created successfully.")
+                    _uiEventChannel.send(UiText.res(R.string.msg_account_created))
                     delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
                     _navigationEvent.send(Unit)
                 }
                 .onFailure { error ->
-                    val msg =
-                        error.localizedMessage ?: "An unexpected authentication error occurred."
+                    val msg = error.toUiText(R.string.error_signup_failed)
                     _signupUiState.value = SignupUiState.Error(msg)
                     _uiEventChannel.send(msg)
                 }
@@ -134,13 +139,21 @@ class SignupViewModel(
     }
 
     suspend fun onGoogleAuthenticate(fetchToken: suspend () -> String) =
-        runSocialSignIn("Google sign-in failed", isGoogle = true, fetchToken)
+        runSocialSignIn(
+            UiText.res(R.string.error_google_sign_in_failed),
+            isGoogle = true,
+            fetchToken
+        )
 
     suspend fun onFacebookAuthenticate(fetchToken: suspend () -> String) =
-        runSocialSignIn("Facebook sign-in failed", isGoogle = false, fetchToken)
+        runSocialSignIn(
+            UiText.res(R.string.error_facebook_sign_in_failed),
+            isGoogle = false,
+            fetchToken
+        )
 
     private suspend fun runSocialSignIn(
-        failureMessage: String,
+        failureMessage: UiText,
         isGoogle: Boolean,
         fetchToken: suspend () -> String
     ) {
@@ -180,7 +193,8 @@ class SignupViewModel(
                 SignupViewModel(
                     validateSignupFormUseCase = app.container.validateSignupFormUseCase,
                     registerWithEmailUseCase = app.container.registerWithEmailUseCase,
-                    authenticateWithSocialTokenUseCase = app.container.authenticateWithSocialTokenUseCase                )
+                    authenticateWithSocialTokenUseCase = app.container.authenticateWithSocialTokenUseCase
+                )
             }
         }
     }

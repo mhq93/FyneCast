@@ -153,4 +153,27 @@
     <!-- Session Exiting Action -->
     <string name="logout">تسجيل الخروج</string>
     <string name="logout_failed">تعذّر تسجيل الخروج. حاول مرة أخرى.</string>
+    <!-- Errors -->
+    <string name="error_email_empty">لا يمكن ترك البريد الإلكتروني فارغًا.</string>
+    <string name="error_email_invalid">يرجى إدخال بريد إلكتروني صالح.</string>
+    <string name="error_password_empty">لا يمكن ترك كلمة المرور فارغة.</string>
+    <string name="error_password_weak">يجب ألا تقل كلمة المرور عن 6 أحرف وأن تحتوي على حرف كبير وحرف صغير ورقم ورمز خاص.</string>
+    <string name="error_confirm_password_empty">يرجى تأكيد كلمة المرور.</string>
+    <string name="error_passwords_mismatch">كلمتا المرور غير متطابقتين.</string>
+    <string name="error_name_empty">لا يمكن ترك الاسم فارغًا.</string>
+    <string name="error_name_invalid_signup">يجب أن يتكون الاسم من 3 إلى 15 حرفًا من الأحرف الإنجليزية أو الأرقام أو الشرطة السفلية.</string>
+    <string name="error_name_invalid_profile">يجب أن يتكون الاسم من 3 إلى 30 حرفًا من الأحرف الإنجليزية أو الأرقام أو المسافات أو - أو _.</string>
+    <string name="error_google_sign_in_failed">فشل تسجيل الدخول عبر Google.</string>
+    <string name="error_facebook_sign_in_failed">فشل تسجيل الدخول عبر Facebook.</string>
+    <string name="error_login_failed">تعذّر تسجيل الدخول. تحقق من البريد الإلكتروني وكلمة المرور.</string>
+    <string name="error_signup_failed">حدث خطأ غير متوقع في المصادقة.</string>
+    <string name="error_profile_update_failed">تعذّر تحديث إعدادات الملف الشخصي.</string>
+    <string name="error_reset_link_failed">تعذّر إرسال رابط إعادة التعيين. حاول مرة أخرى.</string>
+    <string name="error_map_no_location">لا توجد بيانات موقع هنا. يرجى اختيار موقع أكثر تحديدًا.</string>
+    <string name="error_map_resolve_failed">تعذّر تحديد هذا الموقع. يرجى المحاولة مرة أخرى.</string>
+    <string name="msg_account_created">تم إنشاء الحساب بنجاح.</string>
+    <string name="msg_profile_processing">جارٍ معالجة الصورة وحفظ التغييرات…</string>
+    <string name="msg_profile_saved">تم حفظ تغييرات الملف الشخصي بنجاح!</string>
+    <string name="msg_profile_saved_verify_email">تم الحفظ. تحقق من صندوق بريدك الجديد لتأكيد التغيير.</string>
+    <string name="msg_reset_link_sent">تم إرسال رابط إعادة التعيين إلى %1$s</string>
 </resources>

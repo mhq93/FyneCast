@@ -6,11 +6,14 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
+import com.mhq.fynecast.auth.ui.toUiText
 import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.core.ui.text.UiText
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,9 +32,10 @@ class EditProfileViewModel(
     private val updateUserProfileUseCase: UpdateUserProfileUseCase
 ) : ViewModel() {
 
-    private val _editProfileUiState = MutableStateFlow<EditProfileUiState>(EditProfileUiState.Idle)
+    private val _editProfileUiState =
+        MutableStateFlow<EditProfileUiState>(EditProfileUiState.Idle)
 
-    private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
+    private val _uiEventChannel = Channel<UiText>(Channel.BUFFERED)
     val uiEvent = _uiEventChannel.receiveAsFlow()
 
     private val _navigationEventChannel = Channel<Unit>(Channel.BUFFERED)
@@ -93,7 +97,7 @@ class EditProfileViewModel(
                 _editProfileUiState.value = EditProfileUiState.Loading
 
                 viewModelScope.launch {
-                    _uiEventChannel.send("Processing image and saving changes...")
+                    _uiEventChannel.send(UiText.res(R.string.msg_profile_processing))
 
                     updateUserProfileUseCase(
                         newName = _username.value,
@@ -103,24 +107,24 @@ class EditProfileViewModel(
                         .onSuccess { verificationSent ->
                             _editProfileUiState.value = EditProfileUiState.Success
                             _uiEventChannel.send(
-                                if (verificationSent)
-                                    "Saved. Check your new email inbox to verify the change."
-                                else
-                                    "Profile changes saved successfully!"
+                                UiText.res(
+                                    if (verificationSent) R.string.msg_profile_saved_verify_email
+                                    else R.string.msg_profile_saved
+                                )
                             )
                             delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
                             _navigationEventChannel.send(Unit)
                         }
                         .onFailure { e ->
-                            val fallbackMessage = e.localizedMessage ?: "Failed to update profile settings."
-                            _editProfileUiState.value = EditProfileUiState.Error(fallbackMessage)
-                            _uiEventChannel.send(fallbackMessage)
+                            val message = e.toUiText(R.string.error_profile_update_failed)
+                            _editProfileUiState.value = EditProfileUiState.Error(message)
+                            _uiEventChannel.send(message)
                         }
                 }
             }
 
             is ValidationResult.Failure -> {
-                viewModelScope.launch { _uiEventChannel.send(validation.errorMessage) }
+                viewModelScope.launch { _uiEventChannel.send(validation.error.toUiText()) }
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.mhq.fynecast.auth.domain.usecases.auth
 
+import com.mhq.fynecast.auth.domain.models.ValidationError
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.validation.EmailFormatValidator
 
@@ -29,17 +30,17 @@ class ValidateSignupFormUseCase {
         confirmPassword: String
     ): ValidationResult {
         return when {
-            username.isBlank() -> ValidationResult.Failure("Name field cannot be empty.")
-            !username.matches(usernameRegex) -> ValidationResult.Failure("Name must be 3-15 non-special characters.")
+            username.isBlank() -> ValidationResult.Failure(ValidationError.NameEmpty)
+            !username.matches(usernameRegex) -> ValidationResult.Failure(ValidationError.NameInvalidForSignup)
 
-            email.isBlank() -> ValidationResult.Failure("Email field cannot be empty.")
-            !EmailFormatValidator.isValid(email) -> ValidationResult.Failure("Please, enter a valid email address.")
+            email.isBlank() -> ValidationResult.Failure(ValidationError.EmailEmpty)
+            !EmailFormatValidator.isValid(email) -> ValidationResult.Failure(ValidationError.EmailInvalid)
 
-            password.isBlank() -> ValidationResult.Failure("Password field cannot be empty.")
-            !password.matches(passwordRegex) -> ValidationResult.Failure("Password must be +6 chars with upper, lower, numeric and special character.")
+            password.isBlank() -> ValidationResult.Failure(ValidationError.PasswordEmpty)
+            !password.matches(passwordRegex) -> ValidationResult.Failure(ValidationError.PasswordWeak)
 
-            confirmPassword.isBlank() -> ValidationResult.Failure("Please, confirm your password.")
-            password != confirmPassword -> ValidationResult.Failure("Passwords do not match.")
+            confirmPassword.isBlank() -> ValidationResult.Failure(ValidationError.ConfirmPasswordEmpty)
+            password != confirmPassword -> ValidationResult.Failure(ValidationError.PasswordsMismatch)
 
             else -> ValidationResult.Success
         }

@@ -53,7 +53,7 @@ fun SignupContainer(
         signupViewModel.uiEvent.collectLatest { errorMessage ->
             snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar(
-                message = errorMessage,
+                message = errorMessage.asString(context),
                 duration = SnackbarDuration.Short
             )
         }

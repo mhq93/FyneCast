@@ -6,11 +6,14 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.LoginWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
+import com.mhq.fynecast.auth.ui.toUiText
 import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.core.ui.text.UiText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,14 +25,13 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class LoginViewModel(
-    private val validateLoginFormUseCase: ValidateLoginFormUseCase,
     private val loginWithEmailUseCase: LoginWithEmailUseCase,
+    private val validateLoginFormUseCase: ValidateLoginFormUseCase,
     private val authenticateWithSocialTokenUseCase: AuthenticateWithSocialTokenUseCase
 ) : ViewModel() {
 
     private val _loginUiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
-    val loginUiState = _loginUiState.asStateFlow()
-    private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
+    private val _uiEventChannel = Channel<UiText>(Channel.BUFFERED)
     val uiEvent = _uiEventChannel.receiveAsFlow()
     private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
     val navigationEvent = _navigationEvent.receiveAsFlow()
@@ -73,19 +75,27 @@ class LoginViewModel(
                 }
             }
             is ValidationResult.Failure -> {
-                viewModelScope.launch { _uiEventChannel.send(validation.errorMessage) }
+                viewModelScope.launch { _uiEventChannel.send(validation.error.toUiText()) }
             }
         }
     }
 
     suspend fun onGoogleAuthenticate(fetchToken: suspend () -> String) =
-        runSocialSignIn("Google sign-in failed", isGoogle = true, fetchToken)
+        runSocialSignIn(
+            UiText.res(R.string.error_google_sign_in_failed),
+            isGoogle = true,
+            fetchToken
+        )
 
     suspend fun onFacebookAuthenticate(fetchToken: suspend () -> String) =
-        runSocialSignIn("Facebook sign-in failed", isGoogle = false, fetchToken)
+        runSocialSignIn(
+            UiText.res(R.string.error_facebook_sign_in_failed),
+            isGoogle = false,
+            fetchToken
+        )
 
     private suspend fun runSocialSignIn(
-        failureMessage: String,
+        failureMessage: UiText,
         isGoogle: Boolean,
         fetchToken: suspend () -> String
     ) {
@@ -115,7 +125,7 @@ class LoginViewModel(
     }
 
     private suspend fun handleLoginFailure(error: Throwable) {
-        val message = error.localizedMessage ?: "Invalid email or password configuration."
+        val message = error.toUiText(R.string.error_login_failed)
         _loginUiState.value = LoginUiState.Error(message)
         _uiEventChannel.send(message)
     }
@@ -126,8 +136,8 @@ class LoginViewModel(
                 val app = (this[APPLICATION_KEY] as FyneCastApplication)
 
                 LoginViewModel(
-                    validateLoginFormUseCase = app.container.validateLoginFormUseCase,
                     loginWithEmailUseCase = app.container.loginWithEmailUseCase,
+                    validateLoginFormUseCase = app.container.validateLoginFormUseCase,
                     authenticateWithSocialTokenUseCase = app.container.authenticateWithSocialTokenUseCase                )
             }
         }

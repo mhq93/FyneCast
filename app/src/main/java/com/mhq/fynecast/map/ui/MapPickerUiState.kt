@@ -1,5 +1,6 @@
 package com.mhq.fynecast.map.ui
 
+import com.mhq.fynecast.core.ui.text.UiText
 import com.mhq.fynecast.home.domain.models.CitySuggestionModel
 
 /**
@@ -12,5 +13,5 @@ data class MapPickerUiState(
     val markerLatitude: Double? = null,
     val markerLongitude: Double? = null,
     val isSearching: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: UiText? = null
 )

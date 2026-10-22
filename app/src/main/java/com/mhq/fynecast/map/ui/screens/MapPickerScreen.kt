@@ -202,9 +202,9 @@ fun MapPickerScreen(
                     .navigationBarsPadding()
             )
         } else {
-            uiState.errorMessage?.let { message ->
+            uiState.errorMessage?.let { errorMessage ->
                 ErrorCard(
-                    message = message,
+                    message = errorMessage.asString(context),
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()

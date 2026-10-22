@@ -5,7 +5,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mhq.fynecast.R
 import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.core.ui.text.UiText
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -42,14 +44,14 @@ class MapPickerViewModel(
                     _uiState.update { it.copy(selectedLocation = resolvedLocation) }
                 } else {
                     _uiState.update {
-                        it.copy(errorMessage = "No location data found here. Please, pick a more specific location.")
+                        it.copy(errorMessage = UiText.res(R.string.error_map_no_location))
                     }
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(errorMessage = "Couldn't resolve this location. Please, try again.")
+                    it.copy(errorMessage = UiText.res(R.string.error_map_resolve_failed))
                 }
             }
             _uiState.update { it.copy(isSearching = false) }

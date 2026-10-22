@@ -1,5 +1,6 @@
 package com.mhq.fynecast.auth.domain.usecases.profile
 
+import com.mhq.fynecast.auth.domain.models.ValidationError
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.validation.EmailFormatValidator
 
@@ -16,10 +17,10 @@ class ValidateEditProfileUseCase {
 
     operator fun invoke(username: String, email: String): ValidationResult {
         return when {
-            username.isBlank() -> ValidationResult.Failure("Name field cannot be left empty.")
-            !username.matches(usernameRegex) -> ValidationResult.Failure("Username must be 3-30 characters (spaces/letters/numbers allowed).")
-            email.isBlank() -> ValidationResult.Failure("Email field cannot be left empty.")
-            !EmailFormatValidator.isValid(email) -> ValidationResult.Failure("Please enter a valid email address.")
+            username.isBlank() -> ValidationResult.Failure(ValidationError.NameEmpty)
+            !username.matches(usernameRegex) -> ValidationResult.Failure(ValidationError.NameInvalidForProfile)
+            email.isBlank() -> ValidationResult.Failure(ValidationError.EmailEmpty)
+            !EmailFormatValidator.isValid(email) -> ValidationResult.Failure(ValidationError.EmailInvalid)
             else -> ValidationResult.Success
         }
     }
