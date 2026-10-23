@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.core.domain.location.SelectCityUseCase
+import com.mhq.fynecast.core.domain.location.SelectedCity
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
@@ -24,7 +26,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class FavoritesViewModel(
-    getFavoritesUseCase: GetFavoritesUseCase,
+    private val selectCityUseCase: SelectCityUseCase,
+    private val getFavoritesUseCase: GetFavoritesUseCase,
     private val deleteFavoriteUseCase: DeleteFavoriteUseCase,
     private val restoreFavoriteUseCase: RestoreFavoriteUseCase,
     private val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase
@@ -42,6 +45,18 @@ class FavoritesViewModel(
     val events: Flow<FavoritesEvent> = _events.receiveAsFlow()
 
     private var lastRemoved: FavoriteCityDomainModel? = null
+
+    fun onCitySelected(city: FavoriteCityDomainModel) {
+        viewModelScope.launch {
+            selectCityUseCase(
+                SelectedCity(
+                    name = "${city.cityName}, ${city.countryName}",
+                    latitude = city.latitude,
+                    longitude = city.longitude
+                )
+            )
+        }
+    }
 
     fun onDeleteFavorite(city: FavoriteCityDomainModel) {
         viewModelScope.launch {

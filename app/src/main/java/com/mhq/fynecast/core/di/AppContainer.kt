@@ -28,6 +28,8 @@ import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
 import com.mhq.fynecast.core.domain.infra.AppInitializer
+import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
+import com.mhq.fynecast.core.domain.location.SelectCityUseCase
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
@@ -43,6 +45,7 @@ import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
+import com.mhq.fynecast.home.domain.usecases.ResolveStartupLocationUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.SaveLastSearchedCityUseCase
@@ -83,6 +86,9 @@ interface AppContainer {
     val getLocationSuggestionsUseCase: GetLocationSuggestionsUseCase
     val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase
     val getLastSearchedCityUseCase: GetLastSearchedCityUseCase
+    val resolveStartupLocationUseCase: ResolveStartupLocationUseCase
+    val selectCityUseCase: SelectCityUseCase
+    val observeSelectedCityUseCase: ObserveSelectedCityUseCase
     val localizePlaceNameUseCase: LocalizePlaceNameUseCase
     val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase
 

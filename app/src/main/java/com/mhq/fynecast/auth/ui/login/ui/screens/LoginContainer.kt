@@ -10,13 +10,15 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
 import com.mhq.fynecast.auth.ui.social.SocialTokenFetcher
@@ -33,10 +35,10 @@ fun LoginContainer(
     onForgotPasswordClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val email by loginViewModel.email.collectAsStateWithLifecycle()
-    val isEmailValid by loginViewModel.isEmailValid.collectAsStateWithLifecycle()
-    val password by loginViewModel.password.collectAsStateWithLifecycle()
-    val isPasswordVisible by loginViewModel.passwordVisible.collectAsStateWithLifecycle()
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
+    val isEmailValid = loginViewModel.isEmailValid(email)
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -60,14 +62,13 @@ fun LoginContainer(
         LoginContent(
             email = email,
             isEmailValid = isEmailValid,
-            onEmailChanged = loginViewModel::onEmailChanged,
+            onEmailChanged = { email = it.trim() },
             password = password,
-            onPasswordChanged = loginViewModel::onPasswordChanged,
+            onPasswordChanged = { password = it },
             isPasswordVisible = isPasswordVisible,
-            onTogglePasswordVisibility = loginViewModel::togglePasswordVisibility,
+            onTogglePasswordVisibility = { isPasswordVisible = !isPasswordVisible },
             onSignUpClick = onSignUpNavigate,
-            onLoginClick = { loginViewModel.validateThenLogin() },
-            onForgotPasswordClick = onForgotPasswordClick,
+            onLoginClick = { loginViewModel.onLoginAction(email, password) },            onForgotPasswordClick = onForgotPasswordClick,
             onGoogleAuthenticate = {
                 scope.launch {
                     loginViewModel.onGoogleAuthenticate {

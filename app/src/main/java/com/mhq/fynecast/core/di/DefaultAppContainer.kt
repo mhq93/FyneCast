@@ -53,6 +53,7 @@ import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
 import com.mhq.fynecast.core.data.infra.AppInitializerImpl
 import com.mhq.fynecast.core.data.infra.FirebaseCurrentUserProvider
+import com.mhq.fynecast.core.data.location.SelectedCityRepositoryImpl
 import com.mhq.fynecast.core.data.time.SystemTimeProvider
 import com.mhq.fynecast.core.domain.infra.AppInitializer
 import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
@@ -78,6 +79,9 @@ import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
 import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
 import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
 import com.mhq.fynecast.core.domain.location.LocationRepository
+import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
+import com.mhq.fynecast.core.domain.location.SelectCityUseCase
+import com.mhq.fynecast.core.domain.location.SelectedCityRepository
 import com.mhq.fynecast.core.domain.weather.WeatherRepository
 import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
@@ -88,6 +92,7 @@ import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
+import com.mhq.fynecast.home.domain.usecases.ResolveStartupLocationUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.data.repoimpl.UserPreferencesRepositoryImpl
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
@@ -227,6 +232,18 @@ class DefaultAppContainer(
     }
     override val getLastSearchedCityUseCase: GetLastSearchedCityUseCase by lazy {
         GetLastSearchedCityUseCase(userPreferencesRepository)
+    }
+    private val selectedCityRepository: SelectedCityRepository by lazy {
+        SelectedCityRepositoryImpl()
+    }
+    override val selectCityUseCase: SelectCityUseCase by lazy {
+        SelectCityUseCase(selectedCityRepository)
+    }
+    override val observeSelectedCityUseCase: ObserveSelectedCityUseCase by lazy {
+        ObserveSelectedCityUseCase(selectedCityRepository)
+    }
+    override val resolveStartupLocationUseCase: ResolveStartupLocationUseCase by lazy {
+        ResolveStartupLocationUseCase(getCurrentLocationUseCase, getLastSearchedCityUseCase)
     }
 
 

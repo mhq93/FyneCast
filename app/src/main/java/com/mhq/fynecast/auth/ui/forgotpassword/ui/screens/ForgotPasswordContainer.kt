@@ -9,12 +9,14 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.forgotpassword.ui.ForgotPasswordViewModel
 import com.mhq.fynecast.core.di.AppViewModelFactory
@@ -28,8 +30,8 @@ fun ForgotPasswordContainer(
     onBackToLoginClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val email by forgotPasswordViewModel.email.collectAsStateWithLifecycle()
-    val isEmailValid by forgotPasswordViewModel.isEmailValid.collectAsStateWithLifecycle()
+    var email by rememberSaveable { mutableStateOf("") }
+    val isEmailValid = forgotPasswordViewModel.isEmailValid(email)
 
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -52,10 +54,9 @@ fun ForgotPasswordContainer(
         ForgotPasswordContent(
             email = email,
             isEmailValid = isEmailValid,
-            onEmailChanged = forgotPasswordViewModel::onEmailChanged,
+            onEmailChanged = { email = it.trim() },
             onBackToLoginClick = onBackToLoginClick,
-            onSendLink = { forgotPasswordViewModel.handlePasswordReset() },
-            modifier = modifier
+            onSendLink = { forgotPasswordViewModel.onPasswordResetAction(email) },            modifier = modifier
         )
 
         SnackbarHost(

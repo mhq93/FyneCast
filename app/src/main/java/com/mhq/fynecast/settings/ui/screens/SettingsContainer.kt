@@ -57,18 +57,18 @@ fun SettingsContainer(
     Box(modifier = modifier.fillMaxSize()) {
         SettingsContent(
             isMetric = isMetric,
-            onMetricToggle = settingsViewModel::toggleUnitSystem,
+            onMetricToggle = settingsViewModel::onUnitSystemChanged,
             isDarkMode = isDarkMode,
-            onDarkModeToggle = settingsViewModel::toggleDarkMode,
+            onDarkModeToggle = settingsViewModel::onThemeChanged,
             notificationsEnabled = notificationsEnabled,
             onNotificationsToggle = settingsViewModel::toggleNotifications,
             profileName = profileName,
             profileEmail = profileEmail,
             profileImageUri = profileImageUri,
             currentLanguage = currentLanguage,
-            onLanguageChange = settingsViewModel::toggleLanguage,
+            onLanguageChange = settingsViewModel::onLanguageChanged,
             onEditProfileClick = onEditProfileClick,
-            onLogoutClick = { settingsViewModel.logOutUserSession() },
+            onLogoutClick = { settingsViewModel.onLogoutAction() },
             contentPadding = contentPadding,
             modifier = modifier
         )

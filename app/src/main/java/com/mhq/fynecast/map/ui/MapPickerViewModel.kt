@@ -1,12 +1,10 @@
 package com.mhq.fynecast.map.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.core.domain.location.SelectCityUseCase
+import com.mhq.fynecast.core.domain.location.SelectedCity
 import com.mhq.fynecast.core.ui.text.UiText
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import kotlinx.coroutines.CancellationException
@@ -18,6 +16,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class MapPickerViewModel(
+    private val selectCityUseCase: SelectCityUseCase,
     private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase
 ) : ViewModel() {
 
@@ -56,5 +55,9 @@ class MapPickerViewModel(
             }
             _uiState.update { it.copy(isSearching = false) }
         }
+    }
+
+    fun onLocationConfirmed(name: String, latitude: Double, longitude: Double) {
+        viewModelScope.launch { selectCityUseCase(SelectedCity(name, latitude, longitude)) }
     }
 }

@@ -136,7 +136,7 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         val currentLangTag = AppCompatDelegate.getApplicationLocales().toLanguageTags().ifEmpty { "en" }
-        homeViewModel.refreshCurrentCity(langCode = currentLangTag)
-        settingsViewModel.syncNotificationPermissionState()
+        homeViewModel.onRefreshRequested(langCode = currentLangTag)
+        settingsViewModel.onAppResumed()
     }
 }

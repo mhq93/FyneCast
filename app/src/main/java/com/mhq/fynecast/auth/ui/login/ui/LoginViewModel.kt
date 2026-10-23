@@ -1,27 +1,18 @@
 package com.mhq.fynecast.auth.ui.login.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.LoginWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
 import com.mhq.fynecast.auth.ui.toUiText
-import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.core.ui.text.UiText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class LoginViewModel(
@@ -36,37 +27,17 @@ class LoginViewModel(
     private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
     val navigationEvent = _navigationEvent.receiveAsFlow()
 
-    private val _email = MutableStateFlow("")
-    val email = _email.asStateFlow()
-    fun onEmailChanged(newEmail: String) {
-        _email.value = newEmail.trim()
-    }
-    val isEmailValid = _email
-        .map { validateLoginFormUseCase.validateEmailFormat(it) }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            true
-        )
+    /** Pure check used by the UI to show the field error while typing. */
+    fun isEmailValid(email: String): Boolean =
+        validateLoginFormUseCase.validateEmailFormat(email)
 
-    private val _password = MutableStateFlow("")
-    val password = _password.asStateFlow()
-    fun onPasswordChanged(newPassword: String) {
-        _password.value = newPassword
-    }
-    private val _passwordVisible = MutableStateFlow(false)
-    val passwordVisible = _passwordVisible.asStateFlow()
-    fun togglePasswordVisibility() {
-        _passwordVisible.value = !_passwordVisible.value
-    }
-
-    fun validateThenLogin() {
+    fun onLoginAction(email: String, password: String) {
         if (_loginUiState.value is LoginUiState.Loading) return
-        when (val validation = validateLoginFormUseCase(_email.value, _password.value)) {
+        when (val validation = validateLoginFormUseCase(email, password)) {
             is ValidationResult.Success -> {
                 viewModelScope.launch {
                     _loginUiState.value = LoginUiState.Loading
-                    loginWithEmailUseCase(_email.value, _password.value)
+                    loginWithEmailUseCase(email, password)
                         .onSuccess {
                             _loginUiState.value = LoginUiState.Success
                             _navigationEvent.send(Unit)

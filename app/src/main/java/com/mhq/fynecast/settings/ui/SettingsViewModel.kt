@@ -1,18 +1,13 @@
 package com.mhq.fynecast.settings.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.alerts.notifications.domain.usecases.ConsumeNotificationPromptUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.HandleNotificationPermissionResultUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.SyncNotificationPermissionUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
-import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.SetDarkModeUseCase
@@ -112,7 +107,7 @@ class SettingsViewModel(
         }
     }
 
-    fun toggleUnitSystem(isMetric: Boolean) {
+    fun onUnitSystemChanged(isMetric: Boolean) {
         viewModelScope.launch {
             setUnitSystem(isMetric)
         }
@@ -146,21 +141,21 @@ class SettingsViewModel(
         }
     }
 
-    fun syncNotificationPermissionState() {
+    fun onAppResumed() {
         viewModelScope.launch {
             syncNotificationPermission()
         }
     }
 
-    fun toggleLanguage(language: AppLanguage)  {
+    fun onLanguageChanged(language: AppLanguage)  {
         viewModelScope.launch { setLanguage(language) }
     }
 
-    fun toggleDarkMode(enabled: Boolean) {
+    fun onThemeChanged(enabled: Boolean) {
         viewModelScope.launch { setDarkMode(enabled) }
     }
 
-    fun logOutUserSession() {
+    fun onLogoutAction() {
         if (isLoggingOut) return
         isLoggingOut = true
         viewModelScope.launch {

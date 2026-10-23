@@ -10,8 +10,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -30,13 +33,27 @@ fun EditProfileContainer(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
-    val profileImageUri by editProfileViewModel.profileImageUri.collectAsStateWithLifecycle()
-    val username by editProfileViewModel.username.collectAsStateWithLifecycle()
-    val isUsernameValid by editProfileViewModel.isUsernameValid.collectAsStateWithLifecycle()
-    val userEmail by editProfileViewModel.userEmail.collectAsStateWithLifecycle()
-    val isEmailValid by editProfileViewModel.isEmailValid.collectAsStateWithLifecycle()
+    val initialProfile by editProfileViewModel.initialProfile.collectAsStateWithLifecycle()
+
+    var username by rememberSaveable { mutableStateOf("") }
+    var userEmail by rememberSaveable { mutableStateOf("") }
+    var profileImageUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var isSeeded by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
+
+    LaunchedEffect(initialProfile) {
+        val profile = initialProfile ?: return@LaunchedEffect
+        if (!isSeeded) {
+            username = profile.name
+            userEmail = profile.email
+            profileImageUri = profile.profileImageUri
+            isSeeded = true
+        }
+    }
+
+    val isUsernameValid = editProfileViewModel.isUsernameValid(username)
+    val isEmailValid = editProfileViewModel.isEmailValid(userEmail)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -64,16 +81,18 @@ fun EditProfileContainer(
             userEmail = userEmail,
             isUsernameValid = isUsernameValid,
             isEmailValid = isEmailValid,
-            onUsernameChanged = editProfileViewModel::onUsernameChanged,
-            onUserEmailChanged = editProfileViewModel::onUserEmailChanged,
+            onUsernameChanged = { username = it },
+            onUserEmailChanged = { userEmail = it.trim() },
             onBackClick = onBackClick,
             onSaveClick = {
-                editProfileViewModel.handleSavingProfileChanges()
+                editProfileViewModel.onSaveProfileAction(username, userEmail, profileImageUri)
             },
             contentPadding = contentPadding,
             modifier = modifier,
             profileImageUri = profileImageUri,
-            onProfileImagePicked = editProfileViewModel::onProfileImagePicked
+            onProfileImagePicked = {
+                profileImageUri = it
+            }
         )
         SnackbarHost(
             hostState = snackbarHostState,
@@ -81,8 +100,8 @@ fun EditProfileContainer(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 96.dp)
                 .padding(horizontal = 24.dp)
-        ) {
-            data -> AuthWarningSnackbar(data)
+        ) { data ->
+            AuthWarningSnackbar(data)
         }
     }
 }

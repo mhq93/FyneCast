@@ -10,13 +10,15 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
 import com.mhq.fynecast.auth.ui.social.SocialTokenFetcher
@@ -32,15 +34,16 @@ fun SignupContainer(
     onLoginNavigate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val userName by signupViewModel.username.collectAsStateWithLifecycle()
-    val isUsernameValid by signupViewModel.isUsernameValid.collectAsStateWithLifecycle()
-    val userEmail by signupViewModel.userEmail.collectAsStateWithLifecycle()
-    val isEmailValid by signupViewModel.isEmailValid.collectAsStateWithLifecycle()
-    val userPassword by signupViewModel.userPassword.collectAsStateWithLifecycle()
-    val isPasswordValid by signupViewModel.isPasswordValid.collectAsStateWithLifecycle()
-    val confirmPassword by signupViewModel.confirmPassword.collectAsStateWithLifecycle()
-    val doPasswordsMatch by signupViewModel.doPasswordsMatch.collectAsStateWithLifecycle()
-    val arePasswordsVisible by signupViewModel.arePasswordsVisible.collectAsStateWithLifecycle()
+    var userName by rememberSaveable { mutableStateOf("") }
+    var userEmail by rememberSaveable { mutableStateOf("") }
+    var userPassword by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var arePasswordsVisible by rememberSaveable { mutableStateOf(false) }
+
+    val isUsernameValid = signupViewModel.isUsernameValid(userName)
+    val isEmailValid = signupViewModel.isEmailValid(userEmail)
+    val isPasswordValid = signupViewModel.isPasswordValid(userPassword)
+    val doPasswordsMatch = signupViewModel.doPasswordsMatch(userPassword, confirmPassword)
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -66,19 +69,18 @@ fun SignupContainer(
         SignupContent(
             username = userName,
             isUsernameValid = isUsernameValid,
-            onUsernameChanged = signupViewModel::onUsernameChanged,
+            onUsernameChanged = { userName = it },
             email = userEmail,
             isEmailValid = isEmailValid,
-            onEmailChanged = signupViewModel::onUserEmailChanged,
+            onEmailChanged = { userEmail = it.trim() },
             password = userPassword,
             isPasswordValid = isPasswordValid,
-            onPasswordChanged = signupViewModel::onUserPasswordChanged,
+            onPasswordChanged = { userPassword = it },
             confirmPassword = confirmPassword,
-            onConfirmPasswordChanged = signupViewModel::onConfirmPasswordChanged,
+            onConfirmPasswordChanged = { confirmPassword = it },
             doPasswordsMatch = doPasswordsMatch,
             arePasswordsVisible = arePasswordsVisible,
-            onTogglePasswordVisibility = signupViewModel::togglePasswordsVisibility,
-            onGoogleAuthenticate = {
+            onTogglePasswordVisibility = { arePasswordsVisible = !arePasswordsVisible },            onGoogleAuthenticate = {
                 scope.launch {
                     signupViewModel.onGoogleAuthenticate {
                         SocialTokenFetcher.getGoogleIdToken(context)
@@ -95,7 +97,9 @@ fun SignupContainer(
                 }
             },
             onLoginClick = onLoginNavigate,
-            onSignupClick = { signupViewModel.validateThenRegister() },
+            onSignupClick = {
+                signupViewModel.onSignupAction(userName, userEmail, userPassword, confirmPassword)
+            },
             modifier = modifier
         )
 

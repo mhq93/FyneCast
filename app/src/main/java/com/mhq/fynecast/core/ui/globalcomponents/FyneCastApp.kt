@@ -80,7 +80,7 @@ fun FyneCastApp(
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (true) {
                 delay(AUTO_REFRESH_INTERVAL_MILLIS.milliseconds)
-                homeViewModel.refreshCurrentCity(appLangCode)
+                homeViewModel.onRefreshRequested(appLangCode)
             }
         }
     }
@@ -160,7 +160,7 @@ fun FyneCastApp(
                     composable(BottomNavigationItem.EditProfile.route) {
                         val editProfileViewModel: EditProfileViewModel =
                             viewModel(factory = AppViewModelFactory)
-                                EditProfileContainer(
+                        EditProfileContainer(
                             onBackClick = { navController.popBackStack() },
                             contentPadding = bottomContentPadding,
                             editProfileViewModel = editProfileViewModel
@@ -186,13 +186,9 @@ fun FyneCastApp(
 
                         FavoritesContainer(
                             favoritesViewModel = favoritesViewModel,
+                            // Favorites destination
                             onCityRowSelected = { favoriteCity ->
-                                homeViewModel.onCitySelected(
-                                    suggestionName = "${favoriteCity.cityName}, ${favoriteCity.countryName}",
-                                    lat = favoriteCity.latitude,
-                                    lon = favoriteCity.longitude,
-                                    langCode = appLangCode
-                                )
+                                favoritesViewModel.onCitySelected(favoriteCity)
                                 navController.navigate(BottomNavigationItem.Home.route) {
                                     popUpTo(BottomNavigationItem.Home.route) { saveState = true }
                                     launchSingleTop = true
@@ -238,12 +234,12 @@ fun FyneCastApp(
                             langCode = mapLangCode,
                             initialLatitude = currentWeather?.latitude,
                             initialLongitude = currentWeather?.longitude,
+                            // map_picker destination
                             onLocationPicked = { location ->
-                                homeViewModel.onCitySelected(
-                                    suggestionName = location.fullName,
-                                    lat = location.latitude,
-                                    lon = location.longitude,
-                                    langCode = mapLangCode
+                                mapPickerViewModel.onLocationConfirmed(
+                                    name = location.fullName,
+                                    latitude = location.latitude,
+                                    longitude = location.longitude
                                 )
                                 if (navController.currentBackStackEntry?.destination?.route == "map_picker") {
                                     navController.popBackStack()

@@ -81,7 +81,8 @@ val AppViewModelFactory: ViewModelProvider.Factory = viewModelFactory {
             getFavoritesUseCase = container.getFavoritesUseCase,
             deleteFavoriteUseCase = container.deleteFavoriteUseCase,
             restoreFavoriteUseCase = container.restoreFavoriteUseCase,
-            refreshAllFavoritesUseCase = container.refreshAllFavoritesUseCase
+            refreshAllFavoritesUseCase = container.refreshAllFavoritesUseCase,
+            selectCityUseCase = container.selectCityUseCase
         )
     }
 
@@ -89,11 +90,11 @@ val AppViewModelFactory: ViewModelProvider.Factory = viewModelFactory {
         val container = container()
         HomeViewModel(
             loadCurrentWeatherUseCase = container.loadCurrentWeatherUseCase,
-            getCurrentLocationUseCase = container.getCurrentLocationUseCase,
             getLocationSuggestionsUseCase = container.getLocationSuggestionsUseCase,
-            getLastSearchedCityUseCase = container.getLastSearchedCityUseCase,
             observeFavoriteStatusUseCase = container.observeFavoriteStatusUseCase,
             observeSignedInUserIdUseCase = container.observeSignedInUserIdUseCase,
+            observeSelectedCityUseCase = container.observeSelectedCityUseCase,
+            resolveStartupLocationUseCase = container.resolveStartupLocationUseCase,
             refreshFavoriteSnapshotUseCase = container.refreshFavoriteSnapshotUseCase,
             toggleFavoriteUseCase = container.toggleFavoriteUseCase,
             saveLastSearchedCityUseCase = container.saveLastSearchedCityUseCase,
@@ -103,8 +104,10 @@ val AppViewModelFactory: ViewModelProvider.Factory = viewModelFactory {
     }
 
     initializer {
+        val container = container()
         MapPickerViewModel(
-            reverseGeocodeLocationUseCase = container().reverseGeocodeLocationUseCase
+            reverseGeocodeLocationUseCase = container().reverseGeocodeLocationUseCase,
+            selectCityUseCase = container.selectCityUseCase
         )
     }
 

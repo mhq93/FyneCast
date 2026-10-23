@@ -1,26 +1,22 @@
 package com.mhq.fynecast.auth.ui.editprofile.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.R
+import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
 import com.mhq.fynecast.auth.ui.toUiText
-import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.core.ui.text.UiText
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -41,57 +37,24 @@ class EditProfileViewModel(
     private val _navigationEventChannel = Channel<Unit>(Channel.BUFFERED)
     val navigationEvent = _navigationEventChannel.receiveAsFlow()
 
-    private val _profileImageUri = MutableStateFlow<String?>(null)
-    val profileImageUri = _profileImageUri.asStateFlow()
-    fun onProfileImagePicked(uriString: String) {
-        _profileImageUri.value = uriString
-    }
+    /**
+     * The stored profile, emitted once it is loaded (null until then).
+     * The UI copies it into its own fields one time; later refreshes of the profile
+     * never overwrite what the user is typing.
+     */
+    val initialProfile: StateFlow<UserDomainModel?> = flow {
+        emit(observeUserProfileUseCase().first { it.id.isNotEmpty() })
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    private val _username = MutableStateFlow("")
-    val username = _username.asStateFlow()
-    fun onUsernameChanged(newUsername: String) {
-        _username.value = newUsername
-    }
-    val isUsernameValid = _username
-        .map { validateEditProfileUseCase.validateUsernameFormat(it) }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            true
-        )
+    /** Pure checks used by the UI to show field errors while typing. */
+    fun isUsernameValid(username: String): Boolean =
+        validateEditProfileUseCase.validateUsernameFormat(username)
 
-    private val _userEmail = MutableStateFlow("")
-    val userEmail = _userEmail.asStateFlow()
-    fun onUserEmailChanged(newEmail: String) {
-        _userEmail.value = newEmail.trim()
-    }
-    val isEmailValid = _userEmail
-        .map { validateEditProfileUseCase.validateEmailFormat(it) }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            true
-        )
+    fun isEmailValid(email: String): Boolean =
+        validateEditProfileUseCase.validateEmailFormat(email)
 
-    init {
-        viewModelScope.launch {
-            /** Seed the form once.
-            The flow starts with a placeholder (empty id) and re-emits on every refresh,
-            so collecting it would overwrite what the user is typing. */
-            val profile = observeUserProfileUseCase().first { it.id.isNotEmpty() }
-            if (_username.value.isEmpty()) _username.value = profile.name
-            if (_userEmail.value.isEmpty()) _userEmail.value = profile.email
-            if (_profileImageUri.value == null) _profileImageUri.value = profile.profileImageUri
-        }
-    }
-
-    fun handleSavingProfileChanges() {
-        when (
-            val validation = validateEditProfileUseCase(
-                _username.value,
-                _userEmail.value
-            )
-        ) {
+    fun onSaveProfileAction(username: String, email: String, profileImageUri: String?) {
+        when (val validation = validateEditProfileUseCase(username, email)) {
             is ValidationResult.Success -> {
                 if (_editProfileUiState.value is EditProfileUiState.Loading) return
                 _editProfileUiState.value = EditProfileUiState.Loading
@@ -100,9 +63,9 @@ class EditProfileViewModel(
                     _uiEventChannel.send(UiText.res(R.string.msg_profile_processing))
 
                     updateUserProfileUseCase(
-                        newName = _username.value,
-                        newEmail = _userEmail.value,
-                        localImageUriString = _profileImageUri.value
+                        newName = username,
+                        newEmail = email,
+                        localImageUriString = profileImageUri
                     )
                         .onSuccess { verificationSent ->
                             _editProfileUiState.value = EditProfileUiState.Success
