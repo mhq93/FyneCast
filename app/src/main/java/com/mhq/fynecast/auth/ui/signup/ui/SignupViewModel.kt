@@ -185,17 +185,5 @@ class SignupViewModel(
 
     companion object {
         private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
-
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-
-                SignupViewModel(
-                    validateSignupFormUseCase = app.container.validateSignupFormUseCase,
-                    registerWithEmailUseCase = app.container.registerWithEmailUseCase,
-                    authenticateWithSocialTokenUseCase = app.container.authenticateWithSocialTokenUseCase
-                )
-            }
-        }
     }
 }

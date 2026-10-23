@@ -1,8 +1,8 @@
 package com.mhq.fynecast.alerts.domain.repository
 
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 import com.mhq.fynecast.alerts.domain.models.TrackedAlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import kotlinx.coroutines.flow.Flow
 
 /**

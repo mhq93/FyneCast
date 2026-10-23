@@ -12,6 +12,7 @@ import com.mhq.fynecast.auth.data.repository.auth.SocialAuthCredentialProvider
 import com.mhq.fynecast.auth.data.session.SessionKeys
 import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
+import com.mhq.fynecast.core.domain.util.suspendRunCatching
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 
@@ -25,7 +26,7 @@ class AuthRepositoryImpl(
         name: String,
         email: String,
         password: String
-    ): Result<UserDomainModel> = runCatching {
+    ): Result<UserDomainModel> = suspendRunCatching {
         val authResult = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
         val user = authResult.user ?: throw Exception("Auth registration failed.")
 
@@ -33,11 +34,11 @@ class AuthRepositoryImpl(
          * so a failure here shouldn't fail the whole registration.
          * Retry once so a transient failure doesn't leave the name unpersisted server-side,
          * and surface it if it still doesn't stick so it isn't silently lost. */
-        val profileSynced = runCatching {
+        val profileSynced = suspendRunCatching {
             user.updateProfile(userProfileChangeRequest { displayName = name }).await()
         }.isSuccess
         if (!profileSynced) {
-            val retrySynced = runCatching {
+            val retrySynced = suspendRunCatching {
                 user.updateProfile(userProfileChangeRequest { displayName = name }).await()
             }.isSuccess
             if (!retrySynced) {
@@ -52,37 +53,39 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun loginWithEmail(email: String, password: String): Result<UserDomainModel> =
-        runCatching {
+        suspendRunCatching {
             val authResult = firebaseAuth.signInWithEmailAndPassword(email, password).await()
             val user = authResult.user ?: throw Exception("Auth login failed.")
 
             /** The local cache lookup is a best-effort fallback only;
              * a DataStore read failure here must not fail an otherwise-successful login. */
-            val snapshot = runCatching { sessionDataStore.data.first() }.getOrNull()
+            val snapshot = suspendRunCatching { sessionDataStore.data.first() }.getOrNull()
             val cachedUsername = snapshot?.get(SessionKeys.USERNAME)
                 ?.takeIf { snapshot[SessionKeys.USER_ID] == user.uid }
             val resolvedName = user.displayName ?: cachedUsername ?: "Username"
             UserDomainModel(id = user.uid, name = resolvedName, email = user.email ?: email)
         }
 
-    override suspend fun loginWithGoogle(idToken: String): Result<UserDomainModel> = runCatching {
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
-        val authResult = firebaseAuth.signInWithCredential(credential).await()
-        val user = authResult.user ?: throw Exception("Google token confirmation failed.")
-        UserDomainModel(user.uid, user.displayName ?: "", user.email ?: "")
-    }
+    override suspend fun loginWithGoogle(idToken: String): Result<UserDomainModel> =
+        suspendRunCatching {
+            val credential = GoogleAuthProvider.getCredential(idToken, null)
+            val authResult = firebaseAuth.signInWithCredential(credential).await()
+            val user = authResult.user ?: throw Exception("Google token confirmation failed.")
+            UserDomainModel(user.uid, user.displayName ?: "", user.email ?: "")
+        }
 
     override suspend fun loginWithFacebook(accessToken: String): Result<UserDomainModel> =
-        runCatching {
+        suspendRunCatching {
             val credential = FacebookAuthProvider.getCredential(accessToken)
             val authResult = firebaseAuth.signInWithCredential(credential).await()
             val user = authResult.user ?: throw Exception("Facebook session parsing failed.")
             UserDomainModel(user.uid, user.displayName ?: "", user.email ?: "")
         }
 
-    override suspend fun sendPasswordResetEmail(email: String): Result<Unit> = runCatching {
-        firebaseAuth.sendPasswordResetEmail(email).await()
-    }
+    override suspend fun sendPasswordResetEmail(email: String): Result<Unit> =
+        suspendRunCatching {
+            firebaseAuth.sendPasswordResetEmail(email).await()
+        }
 
     override fun isUserLoggedIn(): Boolean = firebaseAuth.currentUser != null
 

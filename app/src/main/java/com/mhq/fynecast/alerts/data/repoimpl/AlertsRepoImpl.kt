@@ -3,8 +3,8 @@ package com.mhq.fynecast.alerts.data.repoimpl
 import com.mhq.fynecast.alerts.data.database.AlertDao
 import com.mhq.fynecast.alerts.data.mapper.toDomain
 import com.mhq.fynecast.alerts.data.mapper.toEntity
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
 
 /**

@@ -44,6 +44,7 @@ import com.mhq.fynecast.alerts.ui.AlertsEvent
 import com.mhq.fynecast.alerts.ui.AlertsUiState
 import com.mhq.fynecast.alerts.ui.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.components.NotificationsDialog
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import kotlinx.coroutines.launch
 
 /**
@@ -52,8 +53,7 @@ import kotlinx.coroutines.launch
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 fun AlertsContainer(
-    alertsViewModel: AlertsViewModel = viewModel(factory = AlertsViewModel.factory),
-    contentPadding: PaddingValues = PaddingValues(0.dp),
+    alertsViewModel: AlertsViewModel = viewModel(factory = AppViewModelFactory),    contentPadding: PaddingValues = PaddingValues(0.dp),
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current

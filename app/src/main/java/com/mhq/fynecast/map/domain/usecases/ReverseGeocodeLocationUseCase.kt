@@ -1,7 +1,7 @@
 package com.mhq.fynecast.map.domain.usecases
 
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
-import com.mhq.fynecast.home.domain.repository.LocationRepository
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.LocationRepository
 
 class ReverseGeocodeLocationUseCase(
     private val locationRepository: LocationRepository

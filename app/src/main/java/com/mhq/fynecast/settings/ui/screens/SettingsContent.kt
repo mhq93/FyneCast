@@ -10,18 +10,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
+import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.ui.components.SettingsLogoutButton
 import com.mhq.fynecast.settings.ui.components.SettingsPanel
 import com.mhq.fynecast.settings.ui.components.SettingsProfileHeader
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsContent(
     notificationsEnabled: Boolean,
@@ -30,11 +29,11 @@ fun SettingsContent(
     profileName: String,
     profileEmail: String,
     profileImageUri: String?,
-    currentLanguage: String,
+    currentLanguage: AppLanguage,
     onNotificationsToggle: (Boolean) -> Unit,
     onDarkModeToggle: (Boolean) -> Unit,
     onMetricToggle: (Boolean) -> Unit,
-    onLanguageChange: (String) -> Unit,
+    onLanguageChange: (AppLanguage) -> Unit,
     onEditProfileClick: () -> Unit,
     onLogoutClick: () -> Unit,
     contentPadding: PaddingValues,
@@ -106,7 +105,7 @@ fun SettingsScreenPreview() {
             onEditProfileClick = {},
             onLogoutClick = {},
             contentPadding = PaddingValues(0.dp),
-            currentLanguage = "",
+            currentLanguage = AppLanguage.English,
             onLanguageChange = {},
             profileImageUri = null
         )

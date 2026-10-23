@@ -1,4 +1,4 @@
-package com.mhq.fynecast.home.domain.models
+package com.mhq.fynecast.core.domain.weather
 
 import java.time.LocalDate
 

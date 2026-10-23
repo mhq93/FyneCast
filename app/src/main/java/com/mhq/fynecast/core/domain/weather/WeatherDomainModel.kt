@@ -1,6 +1,5 @@
-package com.mhq.fynecast.home.domain.models
+package com.mhq.fynecast.core.domain.weather
 
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
 import java.time.LocalDateTime
 
 data class WeatherDomainModel(

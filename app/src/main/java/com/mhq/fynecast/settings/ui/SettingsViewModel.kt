@@ -83,8 +83,8 @@ class SettingsViewModel(
     private val _isMetric = MutableStateFlow(true)
     val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
 
-    private val _currentLanguage = MutableStateFlow("English")
-    val currentLanguage: StateFlow<String> = _currentLanguage.asStateFlow()
+    private val _currentLanguage = MutableStateFlow(AppLanguage.English)
+    val currentLanguage: StateFlow<AppLanguage> = _currentLanguage.asStateFlow()
 
     private val _isDarkMode = MutableStateFlow<Boolean?>(null)
     val isDarkMode: StateFlow<Boolean?> = _isDarkMode.asStateFlow()
@@ -106,7 +106,7 @@ class SettingsViewModel(
         }
         viewModelScope.launch {
             preferencesFlow
-                .map { AppLanguage.fromStoredName(it.currentLanguage).code }
+                .map { it.currentLanguage.code }
                 .distinctUntilChanged()
                 .collect { _localeEvent.tryEmit(it) }
         }
@@ -152,7 +152,7 @@ class SettingsViewModel(
         }
     }
 
-    fun toggleLanguage(language: String) {
+    fun toggleLanguage(language: AppLanguage)  {
         viewModelScope.launch { setLanguage(language) }
     }
 
@@ -171,27 +171,6 @@ class SettingsViewModel(
                 )
             } finally {
                 isLoggingOut = false
-            }
-        }
-    }
-
-    companion object {
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-                val container = app.container
-                SettingsViewModel(
-                    observeUserProfileUseCase = container.observeUserProfileUseCase,
-                    observeUserPreferencesUseCase = container.observeUserPreferencesUseCase,
-                    setUnitSystem = container.setUnitSystemUseCase,
-                    setLanguage = container.setLanguageUseCase,
-                    setDarkMode = container.setDarkModeUseCase,
-                    toggleNotifications = container.toggleNotificationsUseCase,
-                    handleNotificationPermissionResult = container.handleNotificationPermissionResultUseCase,
-                    syncNotificationPermission = container.syncNotificationPermissionUseCase,
-                    consumeNotificationPrompt = container.consumeNotificationPromptUseCase,
-                    logoutUserUseCase = container.logoutUserUseCase
-                )
             }
         }
     }

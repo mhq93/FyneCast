@@ -1,4 +1,4 @@
-package com.mhq.fynecast.alerts.domain.models
+package com.mhq.fynecast.core.domain.weather
 
 /**
  * Pure domain representation of a weather alert.

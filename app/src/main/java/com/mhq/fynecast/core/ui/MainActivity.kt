@@ -15,6 +15,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.mhq.fynecast.alerts.ui.AlertsViewModel
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.FyneCastApp
 import com.mhq.fynecast.home.ui.HomeViewModel
@@ -25,19 +26,19 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     private val homeViewModel: HomeViewModel by lazy {
-        ViewModelProvider(this, HomeViewModel.factory)[HomeViewModel::class.java]
+        ViewModelProvider(this, AppViewModelFactory)[HomeViewModel::class.java]
     }
 
     private val alertsViewModel: AlertsViewModel by lazy {
-        ViewModelProvider(this, AlertsViewModel.factory)[AlertsViewModel::class.java]
+        ViewModelProvider(this, AppViewModelFactory)[AlertsViewModel::class.java]
     }
 
     private val settingsViewModel: SettingsViewModel by lazy {
-        ViewModelProvider(this, SettingsViewModel.factory)[SettingsViewModel::class.java]
+        ViewModelProvider(this, AppViewModelFactory)[SettingsViewModel::class.java]
     }
 
     private val sessionViewModel: SessionViewModel by lazy {
-        ViewModelProvider(this, SessionViewModel.factory)[SessionViewModel::class.java]
+        ViewModelProvider(this, AppViewModelFactory)[SessionViewModel::class.java]
     }
 
     private var onLocationPermissionResult: ((Boolean) -> Unit)? = null

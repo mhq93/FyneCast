@@ -1,6 +1,6 @@
 package com.mhq.fynecast.home.data.mapper
 
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 import com.mhq.fynecast.home.data.api.weather.dto.AlertDto
 import java.time.OffsetDateTime
 

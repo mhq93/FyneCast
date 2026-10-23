@@ -15,15 +15,4 @@ class SessionViewModel(
             BottomNavigationItem.Home.route
         else
             BottomNavigationItem.Signup.route
-
-    companion object {
-        val factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-                SessionViewModel(
-                    checkUserLoggedIn = app.container.checkUserLoggedInUseCase
-                )
-            }
-        }
-    }
 }

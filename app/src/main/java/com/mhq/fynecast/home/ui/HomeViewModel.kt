@@ -11,8 +11,8 @@ import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
 import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
 import com.mhq.fynecast.home.domain.mapper.toFavoriteCity
-import com.mhq.fynecast.home.domain.models.GeoCoordinates
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
+import com.mhq.fynecast.core.domain.location.GeoCoordinates
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
 import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
@@ -349,9 +349,13 @@ class HomeViewModel(
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             delay(500.milliseconds)
-            val suggestions = runCatching {
+            val suggestions = try {
                 getLocationSuggestionsUseCase(newQuery, langCode)
-            }.getOrNull() ?: emptyList()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                emptyList()
+            }
             _state.update { it.copy(citySuggestions = suggestions) }
         }
     }
@@ -409,24 +413,5 @@ class HomeViewModel(
         private const val TAG = "HomeViewModel"
         private const val LOAD_TIMEOUT_MILLIS = 30_000L
         private const val NAME_LOOKUP_TIMEOUT_MILLIS = 4_000L
-
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = this[APPLICATION_KEY] as FyneCastApplication
-                HomeViewModel(
-                    loadCurrentWeatherUseCase = app.container.loadCurrentWeatherUseCase,
-                    getCurrentLocationUseCase = app.container.getCurrentLocationUseCase,
-                    getLocationSuggestionsUseCase = app.container.getLocationSuggestionsUseCase,
-                    getLastSearchedCityUseCase = app.container.getLastSearchedCityUseCase,
-                    observeFavoriteStatusUseCase = app.container.observeFavoriteStatusUseCase,
-                    observeSignedInUserIdUseCase = app.container.observeSignedInUserIdUseCase,
-                    refreshFavoriteSnapshotUseCase = app.container.refreshFavoriteSnapshotUseCase,
-                    toggleFavoriteUseCase = app.container.toggleFavoriteUseCase,
-                    saveLastSearchedCityUseCase = app.container.saveLastSearchedCityUseCase,
-                    reverseGeocodeLocationUseCase = app.container.reverseGeocodeLocationUseCase,
-                    localizePlaceNameUseCase = app.container.localizePlaceNameUseCase
-                )
-            }
-        }
     }
 }

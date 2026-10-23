@@ -44,8 +44,8 @@ class UserPreferencesRepositoryImpl(
         dataStore.edit { prefs -> prefs[PreferencesKeys.NOTIFICATIONS_ENABLED] = enabled }
     }
 
-    override suspend fun updateLanguage(language: String) {
-        dataStore.edit { prefs -> prefs[PreferencesKeys.CURRENT_LANGUAGE] = language }
+    override suspend fun updateLanguage(language: AppLanguage) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.CURRENT_LANGUAGE] = language.storedName }
     }
 
     override suspend fun updateDarkMode(enabled: Boolean) {
@@ -84,7 +84,9 @@ class UserPreferencesRepositoryImpl(
         return UserPreferences(
             isMetric = preferences[PreferencesKeys.IS_METRIC] ?: true,
             notificationsEnabled = preferences[PreferencesKeys.NOTIFICATIONS_ENABLED] ?: true,
-            currentLanguage = preferences[PreferencesKeys.CURRENT_LANGUAGE] ?: phoneLanguage(),
+            currentLanguage = preferences[PreferencesKeys.CURRENT_LANGUAGE]
+                ?.let { AppLanguage.fromStoredName(it) }
+                ?: phoneLanguage(),
             isDarkMode = preferences[PreferencesKeys.IS_DARK_MODE],
             lastSearchedCityName = preferences[PreferencesKeys.LAST_CITY_NAME],
             lastSearchedCityLat = preferences[PreferencesKeys.LAST_CITY_LAT],
@@ -93,10 +95,6 @@ class UserPreferencesRepositoryImpl(
     }
 
     /** First run: follow the phone's language. Anything that isn't Arabic gets English. */
-    private fun phoneLanguage(): String =
-        if (Locale.getDefault().language == "ar") {
-            AppLanguage.Arabic.storedName
-        } else {
-            AppLanguage.English.storedName
-        }
+    private fun phoneLanguage(): AppLanguage =
+        if (Locale.getDefault().language == "ar") AppLanguage.Arabic else AppLanguage.English
 }

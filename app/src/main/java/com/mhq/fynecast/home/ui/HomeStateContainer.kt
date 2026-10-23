@@ -1,6 +1,6 @@
 package com.mhq.fynecast.home.ui
 
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 
 data class HomeStateContainer(
     val uiState: HomeUiState = HomeUiState.Loading,

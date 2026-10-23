@@ -1,9 +1,9 @@
 package com.mhq.fynecast.alerts.data.mapper
 
 import com.mhq.fynecast.alerts.data.database.TrackedAlertEntity
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 import com.mhq.fynecast.alerts.domain.models.TrackedAlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 
 /**
  * Converts an [AlertDomainModel] and its associated [TrackedLocation] into a Room database persistence entity.

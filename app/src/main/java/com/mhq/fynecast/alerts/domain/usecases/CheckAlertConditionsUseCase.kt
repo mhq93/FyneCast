@@ -1,10 +1,10 @@
 package com.mhq.fynecast.alerts.domain.usecases
 
 import com.mhq.fynecast.alerts.domain.models.TrackedAlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
 import com.mhq.fynecast.core.domain.time.TimeProvider
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
 import kotlin.math.abs
 
 /**

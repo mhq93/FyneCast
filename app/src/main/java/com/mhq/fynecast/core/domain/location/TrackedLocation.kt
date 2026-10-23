@@ -1,4 +1,4 @@
-package com.mhq.fynecast.alerts.domain.models
+package com.mhq.fynecast.core.domain.location
 
 /**
  * Represents a geographical location being monitored for weather alerts.

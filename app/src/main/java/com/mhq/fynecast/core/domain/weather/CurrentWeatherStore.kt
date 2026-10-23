@@ -1,6 +1,5 @@
-package com.mhq.fynecast.home.domain.repository
+package com.mhq.fynecast.core.domain.weather
 
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
 import kotlinx.coroutines.flow.StateFlow
 
 interface CurrentWeatherStore {

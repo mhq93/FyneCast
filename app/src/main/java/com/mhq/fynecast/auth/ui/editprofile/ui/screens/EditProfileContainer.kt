@@ -19,12 +19,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.launch
 
 @Composable
 fun EditProfileContainer(
-    editProfileViewModel: EditProfileViewModel = viewModel(factory = EditProfileViewModel.factory),
+    editProfileViewModel: EditProfileViewModel = viewModel(factory = AppViewModelFactory),
     onBackClick: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,

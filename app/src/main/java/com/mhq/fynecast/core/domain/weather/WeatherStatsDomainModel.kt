@@ -1,4 +1,4 @@
-package com.mhq.fynecast.home.domain.models
+package com.mhq.fynecast.core.domain.weather
 
 data class WeatherStatsDomainModel(
     val humidity: Int,

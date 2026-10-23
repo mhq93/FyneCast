@@ -1,8 +1,8 @@
 package com.mhq.fynecast.home.data.repoimpl.location
 
 import com.mhq.fynecast.home.data.api.location.LocationApiService
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
-import com.mhq.fynecast.home.domain.repository.LocationRepository
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.LocationRepository
 import kotlinx.coroutines.CancellationException
 
 class PhotonLocationRepoImpl(

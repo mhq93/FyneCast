@@ -19,11 +19,11 @@ fun SettingsPanel(
     notificationsEnabled: Boolean,
     isDarkMode: Boolean,
     isMetric: Boolean,
-    currentLanguage: String,
+    currentLanguage: AppLanguage,
     onNotificationsToggle: (Boolean) -> Unit,
     onDarkModeToggle: (Boolean) -> Unit,
     onMetricToggle: (Boolean) -> Unit,
-    onLanguageChange: (String) -> Unit,
+    onLanguageChange: (AppLanguage) -> Unit,
     modifier: Modifier = Modifier
 ) {
     GlassyCard(
@@ -56,11 +56,11 @@ fun SettingsPanel(
             SettingsPanelDivider()
             SettingsToggleRow(
                 label = stringResource(R.string.language),
-                isFirstOptionSelected = currentLanguage == AppLanguage.English.storedName,
+                isFirstOptionSelected = currentLanguage == AppLanguage.English,
                 firstOptionLabel = stringResource(R.string.english),
                 secondOptionLabel = "العربية",
-                onFirstOptionSelected = { onLanguageChange(AppLanguage.English.storedName) },
-                onSecondOptionSelected = { onLanguageChange(AppLanguage.Arabic.storedName) }
+                onFirstOptionSelected = { onLanguageChange(AppLanguage.English) },
+                onSecondOptionSelected = { onLanguageChange(AppLanguage.Arabic) }
             )
             SettingsPanelDivider()
             SettingsToggleRow(
@@ -96,7 +96,7 @@ private fun SettingsPanelPreview() {
             notificationsEnabled = true,
             isDarkMode = true,
             isMetric = true,
-            currentLanguage = "",
+            currentLanguage = AppLanguage.English,
             onNotificationsToggle = {},
             onDarkModeToggle = {},
             onMetricToggle = {},

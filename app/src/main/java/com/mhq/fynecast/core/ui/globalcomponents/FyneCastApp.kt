@@ -36,6 +36,7 @@ import com.mhq.fynecast.auth.ui.forgotpassword.ui.screens.ForgotPasswordContaine
 import com.mhq.fynecast.auth.ui.login.ui.screens.LoginContainer
 import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
 import com.mhq.fynecast.auth.ui.signup.ui.screens.SignupContainer
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.navigation.BottomNavigationBar
 import com.mhq.fynecast.core.navigation.BottomNavigationItem
 import com.mhq.fynecast.core.navigation.SessionViewModel
@@ -47,7 +48,6 @@ import com.mhq.fynecast.home.ui.HomeViewModel
 import com.mhq.fynecast.home.ui.screens.HomeContainer
 import com.mhq.fynecast.map.ui.MapPickerViewModel
 import com.mhq.fynecast.map.ui.screens.MapPickerScreen
-import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 import com.mhq.fynecast.settings.ui.screens.SettingsContainer
 import kotlinx.coroutines.delay
@@ -69,7 +69,7 @@ fun FyneCastApp(
     val isDarkMode = storedDarkMode ?: isSystemInDarkTheme()
     val isMetric by settingsViewModel.isMetric.collectAsStateWithLifecycle()
     val currentLanguage by settingsViewModel.currentLanguage.collectAsStateWithLifecycle()
-    val appLangCode = AppLanguage.fromStoredName(currentLanguage).code
+    val appLangCode = currentLanguage.code
 
     LaunchedEffect(appLangCode) {
         homeViewModel.onLanguageChanged(appLangCode)
@@ -123,7 +123,7 @@ fun FyneCastApp(
                 ) {
                     composable(BottomNavigationItem.Signup.route) {
                         val signupViewModel: SignupViewModel =
-                            viewModel(factory = SignupViewModel.factory)
+                            viewModel(factory = AppViewModelFactory)
                         SignupContainer(
                             onLoginNavigate = { navController.goToAuthScreen(BottomNavigationItem.Login.route) },
                             onSignupClick = { navController.enterApp() },
@@ -159,8 +159,8 @@ fun FyneCastApp(
 
                     composable(BottomNavigationItem.EditProfile.route) {
                         val editProfileViewModel: EditProfileViewModel =
-                            viewModel(factory = EditProfileViewModel.factory)
-                        EditProfileContainer(
+                            viewModel(factory = AppViewModelFactory)
+                                EditProfileContainer(
                             onBackClick = { navController.popBackStack() },
                             contentPadding = bottomContentPadding,
                             editProfileViewModel = editProfileViewModel
@@ -182,7 +182,7 @@ fun FyneCastApp(
 
                     composable(BottomNavigationItem.Favorites.route) {
                         val favoritesViewModel: FavoritesViewModel =
-                            viewModel(factory = FavoritesViewModel.factory)
+                            viewModel(factory = AppViewModelFactory)
 
                         FavoritesContainer(
                             favoritesViewModel = favoritesViewModel,
@@ -228,9 +228,9 @@ fun FyneCastApp(
                     }
 
                     composable("map_picker") {
-                        val mapLangCode = AppLanguage.fromStoredName(currentLanguage).code
+                        val mapLangCode = currentLanguage.code
                         val mapPickerViewModel: MapPickerViewModel =
-                            viewModel(factory = MapPickerViewModel.factory)
+                            viewModel(factory = AppViewModelFactory)
 
                         val currentWeather = (homeUiState as? HomeUiState.Success)?.weather
                         MapPickerScreen(

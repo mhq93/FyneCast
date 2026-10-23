@@ -74,18 +74,17 @@ import com.mhq.fynecast.home.data.repoimpl.location.DefaultLocationRepoImpl
 import com.mhq.fynecast.home.data.repoimpl.location.PhotonLocationRepoImpl
 import com.mhq.fynecast.home.data.repoimpl.weather.InMemoryCurrentWeatherStore
 import com.mhq.fynecast.home.data.repoimpl.weather.WeatherRepoImpl
-import com.mhq.fynecast.home.domain.repository.CurrentWeatherStore
+import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
 import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
 import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
-import com.mhq.fynecast.home.domain.repository.LocationRepository
-import com.mhq.fynecast.home.domain.repository.WeatherRepository
+import com.mhq.fynecast.core.domain.location.LocationRepository
+import com.mhq.fynecast.core.domain.weather.WeatherRepository
 import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
 import com.mhq.fynecast.home.domain.usecases.GetWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
-import com.mhq.fynecast.home.domain.usecases.ObserveCurrentCityNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
@@ -164,9 +163,6 @@ class DefaultAppContainer(
     }
     override val loadCurrentWeatherUseCase: LoadCurrentWeatherUseCase by lazy {
         LoadCurrentWeatherUseCase(weatherRepository, currentWeatherStore)
-    }
-    override val observeCurrentCityNameUseCase by lazy {
-        ObserveCurrentCityNameUseCase(currentWeatherStore)
     }
     override val observeCurrentLocationUseCase by lazy {
         ObserveCurrentLocationUseCase(

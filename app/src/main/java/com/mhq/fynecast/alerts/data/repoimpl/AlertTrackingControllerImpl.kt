@@ -6,7 +6,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.mhq.fynecast.alerts.domain.models.TrackedAlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.repository.AlertTrackingController
 import com.mhq.fynecast.alerts.notifications.WeatherAlertTrackingWorker
 import com.mhq.fynecast.alerts.notifications.WeatherRefreshWorker

@@ -1,6 +1,6 @@
 package com.mhq.fynecast.alerts.ui
 
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 
 /**
  * Represents the UI state of the alerts screen.

@@ -20,13 +20,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
 import com.mhq.fynecast.auth.ui.social.SocialTokenFetcher
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @Composable
 fun LoginContainer(
-    loginViewModel: LoginViewModel = viewModel(factory = LoginViewModel.factory),
+    loginViewModel: LoginViewModel = viewModel(factory = AppViewModelFactory),
     onLoginClick: () -> Unit,
     onSignUpNavigate: () -> Unit,
     onForgotPasswordClick: () -> Unit,

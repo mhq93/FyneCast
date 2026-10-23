@@ -75,19 +75,4 @@ class FavoritesViewModel(
             }
         }
     }
-
-    companion object {
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-
-                FavoritesViewModel(
-                    getFavoritesUseCase = app.container.getFavoritesUseCase,
-                    deleteFavoriteUseCase = app.container.deleteFavoriteUseCase,
-                    restoreFavoriteUseCase = app.container.restoreFavoriteUseCase,
-                    refreshAllFavoritesUseCase = app.container.refreshAllFavoritesUseCase
-                )
-            }
-        }
-    }
 }

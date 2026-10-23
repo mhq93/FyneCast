@@ -57,15 +57,4 @@ class MapPickerViewModel(
             _uiState.update { it.copy(isSearching = false) }
         }
     }
-
-    companion object {
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as FyneCastApplication
-                MapPickerViewModel(
-                    reverseGeocodeLocationUseCase = app.container.reverseGeocodeLocationUseCase
-                )
-            }
-        }
-    }
 }

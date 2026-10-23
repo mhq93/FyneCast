@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.ui.FavoritesEvent
@@ -31,7 +32,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun FavoritesContainer(
-    favoritesViewModel: FavoritesViewModel = viewModel(factory = FavoritesViewModel.factory),
+    favoritesViewModel: FavoritesViewModel = viewModel(factory = AppViewModelFactory),
     onCityRowSelected: (FavoriteCityDomainModel) -> Unit,
     isMetric: Boolean,
     contentPadding: PaddingValues = PaddingValues(0.dp),

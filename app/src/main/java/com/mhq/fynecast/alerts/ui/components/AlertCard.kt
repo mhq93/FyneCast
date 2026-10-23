@@ -44,7 +44,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 import com.mhq.fynecast.core.ui.theme.AppleRed
 import com.mhq.fynecast.core.ui.theme.EditorialRoyalBlue
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme

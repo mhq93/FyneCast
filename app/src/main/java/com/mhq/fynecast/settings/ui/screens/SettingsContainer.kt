@@ -17,11 +17,12 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 
 @Composable
 fun SettingsContainer(
-    settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory),
+    settingsViewModel: SettingsViewModel = viewModel(factory = AppViewModelFactory),
     onEditProfileClick: () -> Unit,
     onLogoutClick: () -> Unit,
     contentPadding: PaddingValues,

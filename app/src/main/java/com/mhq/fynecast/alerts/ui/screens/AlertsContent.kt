@@ -15,7 +15,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 import com.mhq.fynecast.alerts.ui.components.AlertCard
 
 private val ExpandedAlertIdsSaver = listSaver<SnapshotStateList<String>, String>(

@@ -1,7 +1,7 @@
 package com.mhq.fynecast.map.ui
 
 import com.mhq.fynecast.core.ui.text.UiText
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 
 /**
  * Where the user last tapped

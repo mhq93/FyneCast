@@ -1,8 +1,8 @@
 package com.mhq.fynecast.home.domain.usecases
 
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
-import com.mhq.fynecast.home.domain.repository.CurrentWeatherStore
-import com.mhq.fynecast.home.domain.repository.WeatherRepository
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
+import com.mhq.fynecast.core.domain.weather.WeatherRepository
 
 class LoadCurrentWeatherUseCase(
     private val weatherRepository: WeatherRepository,

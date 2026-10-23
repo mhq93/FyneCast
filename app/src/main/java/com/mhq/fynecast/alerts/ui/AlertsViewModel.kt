@@ -6,8 +6,8 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.usecases.GetAlertsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.GetTrackedAlertIdsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.ToggleAlertsUseCase
@@ -23,11 +23,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * ViewModel managing state, user actions, permission flows, and event channels for the alerts feature.
@@ -49,7 +49,7 @@ class AlertsViewModel(
                 emit(AlertsUiState.Success(alerts))
             } else {
                 emit(AlertsUiState.Loading)
-                delay(LOAD_TIMEOUT_MILLIS)
+                delay(LOAD_TIMEOUT_MILLIS.milliseconds)
                 emit(AlertsUiState.Unavailable)
             }
         }
@@ -155,20 +155,5 @@ class AlertsViewModel(
 
     companion object {
         private const val LOAD_TIMEOUT_MILLIS = 20_000L
-
-        /** Factory providing dependency injection wiring from the application container. */
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-                AlertsViewModel(
-                    getAlertsUseCase = app.container.getAlertsUseCase,
-                    getTrackedAlertIdsUseCase = app.container.getTrackedAlertIdsUseCase,
-                    observeCurrentLocationUseCase = app.container.observeCurrentLocationUseCase,
-                    toggleAlertsUseCase = app.container.toggleAlertsUseCase,
-                    toggleNotificationsUseCase = app.container.toggleNotificationsUseCase,
-                    handleNotificationPermissionResultUseCase = app.container.handleNotificationPermissionResultUseCase,
-                )
-            }
-        }
     }
 }

@@ -1,6 +1,6 @@
 package com.mhq.fynecast.home.domain.usecases
 
-import com.mhq.fynecast.home.domain.models.GeoCoordinates
+import com.mhq.fynecast.core.domain.location.GeoCoordinates
 import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
 
 class GetCurrentLocationUseCase(

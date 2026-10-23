@@ -71,16 +71,5 @@ class ForgotPasswordViewModel(
 
     companion object {
         private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
-
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-
-                ForgotPasswordViewModel(
-                    validateLoginFormUseCase = app.container.validateLoginFormUseCase,
-                    sendPasswordResetUseCase = app.container.sendPasswordResetUseCase
-                )
-            }
-        }
     }
 }

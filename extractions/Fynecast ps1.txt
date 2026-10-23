@@ -1,0 +1,32 @@
+.\extract_composables.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/alerts -OutputFile extractions/composables_alerts.md
+.\extract_composables.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/auth -OutputFile extractions/composables_auth.md
+.\extract_composables.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/core -OutputFile extractions/composables_core.md
+.\extract_composables.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/favorites -OutputFile extractions/composables_favorites.md
+.\extract_composables.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/home -OutputFile extractions/composables_home.md
+.\extract_composables.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/map -OutputFile extractions/composables_map.md
+.\extract_composables.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/settings -OutputFile extractions/composables_settings.md
+.\extract_composables.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/util -OutputFile extractions/composables_util.md
+
+
+.\dump_kotlin_files.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast -OutputFile extractions/fynecast.md
+.\dump_kotlin_files.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/alerts -OutputFile extractions/alerts_files.md
+.\dump_kotlin_files.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/auth -OutputFile extractions/auth_files.md
+.\dump_kotlin_files.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/core -OutputFile extractions/core_files.md
+.\dump_kotlin_files.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/favorites -OutputFile extractions/favorites_files.md
+.\dump_kotlin_files.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/home -OutputFile extractions/home_files.md
+.\dump_kotlin_files.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/map -OutputFile extractions/map_files.md
+.\dump_kotlin_files.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/settings -OutputFile extractions/settings_files.md
+.\dump_kotlin_files.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast/util -OutputFile extractions/util_files.md
+.\dump_kotlin_files.ps1 -SourceRoot app/src/main/java/com/mhq/fynecast -OutputFile extractions/fynecast_files.md
+
+================================================================================
+python extract_composables.py app/src/main/java/com/mhq/fynecast/alarms extractions/composables_alarms.md
+python extract_composables.py app/src/main/java/com/mhq/fynecast/home extractions/composables_home.md
+python extract_composables.py app/src/main/java/com/mhq/fynecast/language extractions/composables_language.md
+python extract_composables.py app/src/main/java/com/mhq/fynecast/locationpicker extractions/composables_locationpicker.md
+python extract_composables.py app/src/main/java/com/mhq/fynecast/onboarding extractions/composables_onboarding.md
+python extract_composables.py app/src/main/java/com/mhq/fynecast/prayertracker extractions/composables_prayertracker.md
+python extract_composables.py app/src/main/java/com/mhq/fynecast/qibla extractions/composables_qibla.md
+python extract_composables.py app/src/main/java/com/mhq/fynecast/settings extractions/composables_settings.md
+python extract_composables.py app/src/main/java/com/mhq/fynecast/shared extractions/composables_shared.md
+================================================================================

@@ -131,17 +131,5 @@ class EditProfileViewModel(
 
     companion object {
         private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
-
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-
-                EditProfileViewModel(
-                    observeUserProfileUseCase = app.container.observeUserProfileUseCase,
-                    validateEditProfileUseCase = app.container.validateEditProfileUseCase,
-                    updateUserProfileUseCase = app.container.updateUserProfileUseCase
-                )
-            }
-        }
     }
 }

@@ -21,7 +21,7 @@ import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.home.domain.models.DailyForecastDomainModel
+import com.mhq.fynecast.core.domain.weather.DailyForecastDomainModel
 
 @Composable
 fun WeatherDailyCarousel(

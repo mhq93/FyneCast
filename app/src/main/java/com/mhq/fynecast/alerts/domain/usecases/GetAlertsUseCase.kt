@@ -1,7 +1,7 @@
 package com.mhq.fynecast.alerts.domain.usecases
 
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
-import com.mhq.fynecast.home.domain.repository.CurrentWeatherStore
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 

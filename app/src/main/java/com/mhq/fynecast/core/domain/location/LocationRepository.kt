@@ -1,6 +1,4 @@
-package com.mhq.fynecast.home.domain.repository
-
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
+package com.mhq.fynecast.core.domain.location
 
 interface LocationRepository {
     suspend fun getCitySuggestions(query: String, lang: String): List<CitySuggestionModel>

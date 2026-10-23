@@ -37,7 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.theme.AbyssalVoid
 import com.mhq.fynecast.core.ui.theme.ElectricLimeGreen
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 import com.mhq.fynecast.map.ui.MapPickerViewModel
 import com.mhq.fynecast.map.ui.components.ErrorCard
 import com.mhq.fynecast.map.ui.components.LoadingCard

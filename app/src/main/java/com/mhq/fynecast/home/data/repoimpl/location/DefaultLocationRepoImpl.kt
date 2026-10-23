@@ -6,7 +6,7 @@ import android.os.SystemClock
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
-import com.mhq.fynecast.home.domain.models.GeoCoordinates
+import com.mhq.fynecast.core.domain.location.GeoCoordinates
 import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
 import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
 import kotlinx.coroutines.CancellationException

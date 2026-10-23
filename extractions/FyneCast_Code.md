@@ -91,9 +91,9 @@ data class TrackedAlertEntity(
 package com.mhq.fynecast.alerts.data.mapper
 
 import com.mhq.fynecast.alerts.data.database.TrackedAlertEntity
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 import com.mhq.fynecast.alerts.domain.models.TrackedAlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 
 /**
  * Converts an [AlertDomainModel] and its associated [TrackedLocation] into a Room database persistence entity.
@@ -138,8 +138,8 @@ package com.mhq.fynecast.alerts.data.repoimpl
 import com.mhq.fynecast.alerts.data.database.AlertDao
 import com.mhq.fynecast.alerts.data.mapper.toDomain
 import com.mhq.fynecast.alerts.data.mapper.toEntity
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
 
 /**
@@ -174,7 +174,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
 import com.mhq.fynecast.alerts.domain.models.TrackedAlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.repository.AlertTrackingController
 import com.mhq.fynecast.alerts.notifications.WeatherAlertTrackingWorker
 import com.mhq.fynecast.alerts.notifications.WeatherRefreshWorker
@@ -232,30 +232,12 @@ class AlertTrackingControllerImpl(
 }
 ```
 
-## alerts\domain\models\AlertDomainModel.kt
-
-```kotlin
-package com.mhq.fynecast.alerts.domain.models
-
-/**
- * Pure domain representation of a weather alert.
- */
-data class AlertDomainModel(
-    val id: String,
-    val headline: String,
-    val severity: String,
-    val event: String,
-    val effectiveMillis: Long,
-    val expiresMillis: Long?,
-    val description: String,
-    val instruction: String
-)
-```
-
 ## alerts\domain\models\TrackedAlertDomainModel.kt
 
 ```kotlin
 package com.mhq.fynecast.alerts.domain.models
+
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 
 /**
  * Domain model representing a weather alert that is currently being tracked for a specific location.
@@ -270,7 +252,7 @@ data class TrackedAlertDomainModel(
     val effectiveTimeMillis: Long,
     val expiresTimeMillis: Long
 ) {
-    /** Derives a [TrackedLocation] instance from the alert's location properties. */
+    /** Derives a [com.mhq.fynecast.core.domain.location.TrackedLocation] instance from the alert's location properties. */
     val location: TrackedLocation
         get() = TrackedLocation(
             cityName,
@@ -280,33 +262,14 @@ data class TrackedAlertDomainModel(
 }
 ```
 
-## alerts\domain\models\TrackedLocation.kt
-
-```kotlin
-package com.mhq.fynecast.alerts.domain.models
-
-/**
- * Represents a geographical location being monitored for weather alerts.
- */
-data class TrackedLocation(
-    val trackedLocationName: String,
-    val trackedLocationLatitude: Double,
-    val trackedLocationLongitude: Double
-) {
-    /** The same string every time resolves to the same API location every time. */
-    val trackedLocationQuery: String
-        get() = "$trackedLocationLatitude,$trackedLocationLongitude"
-}
-```
-
 ## alerts\domain\repository\AlertsRepository.kt
 
 ```kotlin
 package com.mhq.fynecast.alerts.domain.repository
 
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 import com.mhq.fynecast.alerts.domain.models.TrackedAlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -336,7 +299,7 @@ interface AlertsRepository {
 package com.mhq.fynecast.alerts.domain.repository
 
 import com.mhq.fynecast.alerts.domain.models.TrackedAlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 
 /**
  * Controller interface responsible for scheduling background workers and managing alert notifications.
@@ -393,10 +356,10 @@ class CancelAllAlertTrackingUseCase(
 package com.mhq.fynecast.alerts.domain.usecases
 
 import com.mhq.fynecast.alerts.domain.models.TrackedAlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
 import com.mhq.fynecast.core.domain.time.TimeProvider
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
 import kotlin.math.abs
 
 /**
@@ -451,8 +414,8 @@ class CheckAlertConditionsUseCase(
 ```kotlin
 package com.mhq.fynecast.alerts.domain.usecases
 
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
-import com.mhq.fynecast.home.domain.repository.CurrentWeatherStore
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -577,8 +540,8 @@ class RestoreAlertTrackingUseCase(
 ```kotlin
 package com.mhq.fynecast.alerts.domain.usecases
 
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
 import kotlinx.coroutines.flow.first
 
@@ -620,8 +583,8 @@ class ToggleAlertsUseCase(
 ```kotlin
 package com.mhq.fynecast.alerts.domain.usecases
 
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.repository.AlertTrackingController
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
 import com.mhq.fynecast.alerts.notifications.domain.infra.NotificationPermissionChecker
@@ -1005,16 +968,16 @@ class ConsumeNotificationPromptUseCase(
 ```kotlin
 package com.mhq.fynecast.alerts.notifications.domain.usecases
 
-import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetNotificationsEnabledUseCase
 
 /**
  * Use case that saves the user's response to the notification permission request.
  */
 class HandleNotificationPermissionResultUseCase(
-    private val updatePreferenceUseCase: UpdatePreferenceUseCase
+    private val setNotificationsEnabledUseCase: SetNotificationsEnabledUseCase
 ) {
     suspend operator fun invoke(granted: Boolean) {
-        updatePreferenceUseCase.notifications(granted)
+        setNotificationsEnabledUseCase(granted)
     }
 }
 ```
@@ -1027,7 +990,7 @@ package com.mhq.fynecast.alerts.notifications.domain.usecases
 import com.mhq.fynecast.alerts.domain.usecases.CancelAllAlertTrackingUseCase
 import com.mhq.fynecast.alerts.notifications.domain.infra.NotificationPermissionChecker
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
-import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetNotificationsEnabledUseCase
 import kotlinx.coroutines.flow.first
 
 /**
@@ -1036,7 +999,7 @@ import kotlinx.coroutines.flow.first
 class SyncNotificationPermissionUseCase(
     private val notificationPermissionChecker: NotificationPermissionChecker,
     private val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase,
-    private val updatePreferenceUseCase: UpdatePreferenceUseCase,
+    private val setNotificationsEnabledUseCase: SetNotificationsEnabledUseCase,
     private val cancelAllAlertTrackingUseCase: CancelAllAlertTrackingUseCase
 ) {
     suspend operator fun invoke() {
@@ -1044,7 +1007,7 @@ class SyncNotificationPermissionUseCase(
         if (current.notificationsEnabled && !notificationPermissionChecker.isGranted()) {
             // Permission was revoked in system settings: nothing can be shown, so stop tracking.
             cancelAllAlertTrackingUseCase()
-            updatePreferenceUseCase.notifications(false)
+            setNotificationsEnabledUseCase(false)
         }
     }
 }
@@ -1057,13 +1020,13 @@ package com.mhq.fynecast.alerts.notifications.domain.usecases
 
 import com.mhq.fynecast.alerts.domain.usecases.CancelAllAlertTrackingUseCase
 import com.mhq.fynecast.alerts.notifications.domain.infra.NotificationPermissionChecker
-import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetNotificationsEnabledUseCase
 
 /**
  * Use case for enabling or disabling notifications, handling permissions and tracker cleanup.
  */
 class ToggleNotificationsUseCase(
-    private val updatePreferenceUseCase: UpdatePreferenceUseCase,
+    private val setNotificationsEnabledUseCase: SetNotificationsEnabledUseCase,
     private val notificationPermissionChecker: NotificationPermissionChecker,
     private val cancelAllAlertTrackingUseCase: CancelAllAlertTrackingUseCase
 ) {
@@ -1078,12 +1041,12 @@ class ToggleNotificationsUseCase(
             // Tear tracking down first. If this fails, the preference stays "enabled",
             // so the UI never claims notifications are off while workers still run.
             cancelAllAlertTrackingUseCase()
-            updatePreferenceUseCase.notifications(false)
+            setNotificationsEnabledUseCase(false)
             return Result.Disabled
         }
 
         return if (notificationPermissionChecker.isGranted()) {
-            updatePreferenceUseCase.notifications(true)
+            setNotificationsEnabledUseCase(true)
             Result.Enabled
         } else {
             Result.PermissionRequired
@@ -1159,10 +1122,9 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
 import com.mhq.fynecast.alerts.notifications.data.infra.AlertsNotificationManager
 import com.mhq.fynecast.core.di.FyneCastApplication
-import com.mhq.fynecast.settings.domain.models.AppLanguage
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
@@ -1260,7 +1222,7 @@ class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
 
         return try {
             val prefs = container.observeUserPreferencesUseCase().first()
-            val lang = AppLanguage.fromStoredName(prefs.currentLanguage).code
+            val lang = prefs.currentLanguage.code
             val snapshot = container.getWeatherUseCase(location.trackedLocationQuery, lang)
             val cleared = container.checkAlertConditionsUseCase(location, snapshot)
 
@@ -1320,7 +1282,7 @@ sealed interface AlertsEvent {
 ```kotlin
 package com.mhq.fynecast.alerts.ui
 
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 
 /**
  * Represents the UI state of the alerts screen.
@@ -1343,8 +1305,8 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.usecases.GetAlertsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.GetTrackedAlertIdsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.ToggleAlertsUseCase
@@ -1360,7 +1322,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
@@ -1560,7 +1521,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 import com.mhq.fynecast.core.ui.theme.AppleRed
 import com.mhq.fynecast.core.ui.theme.EditorialRoyalBlue
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
@@ -2161,7 +2122,7 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 import com.mhq.fynecast.alerts.ui.components.AlertCard
 
 private val ExpandedAlertIdsSaver = listSaver<SnapshotStateList<String>, String>(
@@ -2289,6 +2250,7 @@ import com.mhq.fynecast.auth.data.repository.auth.SocialAuthCredentialProvider
 import com.mhq.fynecast.auth.data.session.SessionKeys
 import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
+import com.mhq.fynecast.core.domain.util.suspendRunCatching
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
 
@@ -2302,7 +2264,7 @@ class AuthRepositoryImpl(
         name: String,
         email: String,
         password: String
-    ): Result<UserDomainModel> = runCatching {
+    ): Result<UserDomainModel> = suspendRunCatching {
         val authResult = firebaseAuth.createUserWithEmailAndPassword(email, password).await()
         val user = authResult.user ?: throw Exception("Auth registration failed.")
 
@@ -2310,11 +2272,11 @@ class AuthRepositoryImpl(
          * so a failure here shouldn't fail the whole registration.
          * Retry once so a transient failure doesn't leave the name unpersisted server-side,
          * and surface it if it still doesn't stick so it isn't silently lost. */
-        val profileSynced = runCatching {
+        val profileSynced = suspendRunCatching {
             user.updateProfile(userProfileChangeRequest { displayName = name }).await()
         }.isSuccess
         if (!profileSynced) {
-            val retrySynced = runCatching {
+            val retrySynced = suspendRunCatching {
                 user.updateProfile(userProfileChangeRequest { displayName = name }).await()
             }.isSuccess
             if (!retrySynced) {
@@ -2329,37 +2291,39 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun loginWithEmail(email: String, password: String): Result<UserDomainModel> =
-        runCatching {
+        suspendRunCatching {
             val authResult = firebaseAuth.signInWithEmailAndPassword(email, password).await()
             val user = authResult.user ?: throw Exception("Auth login failed.")
 
             /** The local cache lookup is a best-effort fallback only;
              * a DataStore read failure here must not fail an otherwise-successful login. */
-            val snapshot = runCatching { sessionDataStore.data.first() }.getOrNull()
+            val snapshot = suspendRunCatching { sessionDataStore.data.first() }.getOrNull()
             val cachedUsername = snapshot?.get(SessionKeys.USERNAME)
                 ?.takeIf { snapshot[SessionKeys.USER_ID] == user.uid }
             val resolvedName = user.displayName ?: cachedUsername ?: "Username"
             UserDomainModel(id = user.uid, name = resolvedName, email = user.email ?: email)
         }
 
-    override suspend fun loginWithGoogle(idToken: String): Result<UserDomainModel> = runCatching {
-        val credential = GoogleAuthProvider.getCredential(idToken, null)
-        val authResult = firebaseAuth.signInWithCredential(credential).await()
-        val user = authResult.user ?: throw Exception("Google token confirmation failed.")
-        UserDomainModel(user.uid, user.displayName ?: "", user.email ?: "")
-    }
+    override suspend fun loginWithGoogle(idToken: String): Result<UserDomainModel> =
+        suspendRunCatching {
+            val credential = GoogleAuthProvider.getCredential(idToken, null)
+            val authResult = firebaseAuth.signInWithCredential(credential).await()
+            val user = authResult.user ?: throw Exception("Google token confirmation failed.")
+            UserDomainModel(user.uid, user.displayName ?: "", user.email ?: "")
+        }
 
     override suspend fun loginWithFacebook(accessToken: String): Result<UserDomainModel> =
-        runCatching {
+        suspendRunCatching {
             val credential = FacebookAuthProvider.getCredential(accessToken)
             val authResult = firebaseAuth.signInWithCredential(credential).await()
             val user = authResult.user ?: throw Exception("Facebook session parsing failed.")
             UserDomainModel(user.uid, user.displayName ?: "", user.email ?: "")
         }
 
-    override suspend fun sendPasswordResetEmail(email: String): Result<Unit> = runCatching {
-        firebaseAuth.sendPasswordResetEmail(email).await()
-    }
+    override suspend fun sendPasswordResetEmail(email: String): Result<Unit> =
+        suspendRunCatching {
+            firebaseAuth.sendPasswordResetEmail(email).await()
+        }
 
     override fun isUserLoggedIn(): Boolean = firebaseAuth.currentUser != null
 
@@ -2461,10 +2425,6 @@ class ImageStorageRepositoryImpl(
         return imageStorageManager.processAndSaveProfileImage(uriString)
     }
 
-    override fun commitProfileImage(uriString: String) {
-        imageStorageManager.commitProfileImage(uriString)
-    }
-
     override fun deleteProfileImage(uriString: String) {
         imageStorageManager.deleteProfileImage(uriString)
     }
@@ -2485,6 +2445,7 @@ import com.google.firebase.auth.userProfileChangeRequest
 import com.mhq.fynecast.auth.data.session.SessionKeys
 import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
+import com.mhq.fynecast.core.domain.util.suspendRunCatching
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -2550,7 +2511,7 @@ class UserProfileRepositoryImpl(
     }
 
     override suspend fun updateRemoteProfile(name: String, email: String): Result<Boolean> =
-        runCatching {
+        suspendRunCatching  {
             withContext(Dispatchers.IO) {
                 val user = firebaseAuth.currentUser
                     ?: throw Exception("No authenticated user active session found")
@@ -2691,18 +2652,6 @@ class ImageStorageManager(private val context: Context) {
         }
 
     /**
-     * Deletes every sandboxed profile image except the one referenced by
-     * [keepUriString]. Call this only after the profile record has been
-     * durably saved with the new image's URI — deleting the old image any
-     * earlier risks leaving the profile pointing at a file that no longer
-     * exists if the save fails.
-     */
-    fun commitProfileImage(keepUriString: String) {
-        val keepFileName = keepUriString.toUri().path?.let { File(it).name }
-        clearOldProfileImages(excludeFileName = keepFileName)
-    }
-
-    /**
      * Deletes a single sandboxed profile image by its file:// URI. Used to
      * roll back a newly-created image when the profile update that was
      * supposed to reference it fails, so it isn't left orphaned.
@@ -2710,26 +2659,6 @@ class ImageStorageManager(private val context: Context) {
     fun deleteProfileImage(uriString: String) {
         runCatching {
             uriString.toUri().path?.let { File(it).delete() }
-        }
-    }
-
-    /**
-     * Purges previously generated files inside the profile_pics sandbox container directory,
-     * keeping [excludeFileName] (the file that was just written) if provided.
-     */
-    private fun clearOldProfileImages(excludeFileName: String? = null) {
-        try {
-            val profilePicturesDir = File(context.filesDir, "profile_pics")
-            if (profilePicturesDir.exists() && profilePicturesDir.isDirectory) {
-                val files = profilePicturesDir.listFiles()
-                files?.forEach { file ->
-                    if (file.isFile && file.name != excludeFileName) {
-                        file.delete()
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 
@@ -2871,7 +2800,6 @@ package com.mhq.fynecast.auth.domain.repository.profile
 interface ImageStorageRepository {
     fun isAlreadySandboxed(uriString: String?): Boolean
     suspend fun sandboxAndCompressImage(uriString: String): String?
-    fun commitProfileImage(uriString: String)
     fun deleteProfileImage(uriString: String)
 }
 ```
@@ -3171,7 +3099,7 @@ class UpdateUserProfileUseCase(
         }.onFailure {
              /**Only roll back if the profile never ended up pointing at this file.
               * If saveProfile already succeeded
-              * and a later step (refreshActiveUserSession, commitProfileImage)
+              * and a later step (refreshActiveUserSession)
               * is what threw, deleting the file now would leave
               * the saved profile pointing at a file that no longer exists
               * — the exact thing this rollback exists to prevent.*/
@@ -3237,20 +3165,20 @@ package com.mhq.fynecast.auth.domain.usecases.session
 import com.mhq.fynecast.alerts.domain.usecases.CancelAllAlertTrackingUseCase
 import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
-import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.ClearLastSearchedCityUseCase
 
 class LogoutUserUseCase(
     private val authRepository: AuthRepository,
     private val userProfileRepository: UserProfileRepository,
     private val cancelAllAlertTrackingUseCase: CancelAllAlertTrackingUseCase,
-    private val updatePreferenceUseCase: UpdatePreferenceUseCase
+    private val clearLastSearchedCityUseCase: ClearLastSearchedCityUseCase
 ) {
     suspend operator fun invoke(): Result<Unit> = runCatching {
         authRepository.clearSession()
         userProfileRepository.refreshActiveUserSession()
 
         runCatching { cancelAllAlertTrackingUseCase() }
-        runCatching { updatePreferenceUseCase.clearLastSearchedCity() }
+        runCatching { clearLastSearchedCityUseCase() }
     }
 }
 ```
@@ -5642,11 +5570,6 @@ class AppInitializerImpl(
     private val application: Application
 ) : AppInitializer {
 
-    override fun initializeSdkComponents() {
-        // Handle standard global startup engines here if needed
-        // e.g., FirebaseApp.initializeApp(application)
-    }
-
     override fun initializeDebugFeatures() {
         FacebookSdk.setIsDebugEnabled(true)
         printFacebookKeyHash()
@@ -5708,6 +5631,46 @@ class AppInitializerImpl(
 }
 ```
 
+## core\data\infra\FirebaseCurrentUserProvider.kt
+
+```kotlin
+package com.mhq.fynecast.core.data.infra
+
+import com.google.firebase.auth.FirebaseAuth
+import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+
+class FirebaseCurrentUserProvider(
+    private val firebaseAuth: FirebaseAuth
+) : CurrentUserProvider {
+
+    override fun observeUserId(): Flow<String?> = callbackFlow {
+        val firebaseAuthAuthStateListener =
+            FirebaseAuth.AuthStateListener { trySend(it.currentUser?.uid) }
+
+        firebaseAuth.addAuthStateListener(firebaseAuthAuthStateListener)
+        awaitClose { firebaseAuth.removeAuthStateListener(firebaseAuthAuthStateListener) }
+    }.distinctUntilChanged()
+
+    override fun currentUserId(): String? = firebaseAuth.currentUser?.uid
+}
+```
+
+## core\data\time\SystemTimeProvider.kt
+
+```kotlin
+package com.mhq.fynecast.core.data.time
+
+import com.mhq.fynecast.core.domain.time.TimeProvider
+
+class SystemTimeProvider : TimeProvider {
+    override fun nowMillis() = System.currentTimeMillis()
+}
+```
+
 ## core\di\AppContainer.kt
 
 ```kotlin
@@ -5753,13 +5716,15 @@ import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
 import com.mhq.fynecast.home.domain.usecases.GetWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
-import com.mhq.fynecast.home.domain.usecases.ObserveCurrentCityNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
-import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SaveLastSearchedCityUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetDarkModeUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetLanguageUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetUnitSystemUseCase
 
 interface AppContainer {
 
@@ -5767,7 +5732,6 @@ interface AppContainer {
 
     val getWeatherUseCase: GetWeatherUseCase
     val loadCurrentWeatherUseCase: LoadCurrentWeatherUseCase
-    val observeCurrentCityNameUseCase: ObserveCurrentCityNameUseCase
     val observeCurrentLocationUseCase: ObserveCurrentLocationUseCase
 
     // --- Authentication & Profile Use Cases ---
@@ -5783,9 +5747,12 @@ interface AppContainer {
     val observeUserProfileUseCase: ObserveUserProfileUseCase
     val observeSignedInUserIdUseCase: ObserveSignedInUserIdUseCase
     val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase
-    val updatePreferenceUseCase: UpdatePreferenceUseCase
     val logoutUserUseCase: LogoutUserUseCase
     val checkUserLoggedInUseCase: CheckUserLoggedInUseCase
+    val setUnitSystemUseCase: SetUnitSystemUseCase
+    val setLanguageUseCase: SetLanguageUseCase
+    val setDarkModeUseCase: SetDarkModeUseCase
+    val saveLastSearchedCityUseCase: SaveLastSearchedCityUseCase
 
     // Location Use Cases
     val getCurrentLocationUseCase: GetCurrentLocationUseCase
@@ -5864,6 +5831,7 @@ import com.mhq.fynecast.auth.data.repoimpl.auth.SocialAuthCredentialProviderImpl
 import com.mhq.fynecast.auth.data.repoimpl.profile.ImageStorageRepositoryImpl
 import com.mhq.fynecast.auth.data.repoimpl.profile.UserProfileRepositoryImpl
 import com.mhq.fynecast.auth.data.repository.auth.SocialAuthCredentialProvider
+import com.mhq.fynecast.auth.data.storage.ImageStorageManager
 import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
 import com.mhq.fynecast.auth.domain.repository.profile.ImageStorageRepository
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
@@ -5879,10 +5847,9 @@ import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
-import com.mhq.fynecast.auth.data.storage.ImageStorageManager
 import com.mhq.fynecast.core.data.infra.AppInitializerImpl
-import com.mhq.fynecast.core.domain.data.SystemTimeProvider
-import com.mhq.fynecast.core.domain.data.infra.FirebaseCurrentUserProvider
+import com.mhq.fynecast.core.data.infra.FirebaseCurrentUserProvider
+import com.mhq.fynecast.core.data.time.SystemTimeProvider
 import com.mhq.fynecast.core.domain.infra.AppInitializer
 import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
 import com.mhq.fynecast.core.domain.time.TimeProvider
@@ -5903,26 +5870,30 @@ import com.mhq.fynecast.home.data.repoimpl.location.DefaultLocationRepoImpl
 import com.mhq.fynecast.home.data.repoimpl.location.PhotonLocationRepoImpl
 import com.mhq.fynecast.home.data.repoimpl.weather.InMemoryCurrentWeatherStore
 import com.mhq.fynecast.home.data.repoimpl.weather.WeatherRepoImpl
-import com.mhq.fynecast.home.domain.repository.CurrentWeatherStore
+import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
 import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
 import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
-import com.mhq.fynecast.home.domain.repository.LocationRepository
-import com.mhq.fynecast.home.domain.repository.WeatherRepository
+import com.mhq.fynecast.core.domain.location.LocationRepository
+import com.mhq.fynecast.core.domain.weather.WeatherRepository
 import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
 import com.mhq.fynecast.home.domain.usecases.GetWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
-import com.mhq.fynecast.home.domain.usecases.ObserveCurrentCityNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.data.repoimpl.UserPreferencesRepositoryImpl
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
+import com.mhq.fynecast.settings.domain.usecases.profile.ClearLastSearchedCityUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
-import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SaveLastSearchedCityUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetDarkModeUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetLanguageUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetNotificationsEnabledUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetUnitSystemUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -5988,9 +5959,6 @@ class DefaultAppContainer(
     }
     override val loadCurrentWeatherUseCase: LoadCurrentWeatherUseCase by lazy {
         LoadCurrentWeatherUseCase(weatherRepository, currentWeatherStore)
-    }
-    override val observeCurrentCityNameUseCase by lazy {
-        ObserveCurrentCityNameUseCase(currentWeatherStore)
     }
     override val observeCurrentLocationUseCase by lazy {
         ObserveCurrentLocationUseCase(
@@ -6126,7 +6094,7 @@ class DefaultAppContainer(
             authRepository,
             userProfileRepository,
             cancelAllAlertTrackingUseCase,
-            updatePreferenceUseCase
+            clearLastSearchedCityUseCase
         )
     }
 
@@ -6137,8 +6105,17 @@ class DefaultAppContainer(
     override val observeUserPreferencesUseCase by lazy {
         ObserveUserPreferencesUseCase(userPreferencesRepository)
     }
-    override val updatePreferenceUseCase by lazy {
-        UpdatePreferenceUseCase(userPreferencesRepository)
+    override val setUnitSystemUseCase by lazy { SetUnitSystemUseCase(userPreferencesRepository) }
+    override val setLanguageUseCase by lazy { SetLanguageUseCase(userPreferencesRepository) }
+    override val setDarkModeUseCase by lazy { SetDarkModeUseCase(userPreferencesRepository) }
+    override val saveLastSearchedCityUseCase by lazy {
+        SaveLastSearchedCityUseCase(userPreferencesRepository)
+    }
+    private val setNotificationsEnabledUseCase by lazy {
+        SetNotificationsEnabledUseCase(userPreferencesRepository)
+    }
+    private val clearLastSearchedCityUseCase by lazy {
+        ClearLastSearchedCityUseCase(userPreferencesRepository)
     }
 
 
@@ -6240,18 +6217,18 @@ class DefaultAppContainer(
     }
     override val toggleNotificationsUseCase by lazy {
         ToggleNotificationsUseCase(
-            updatePreferenceUseCase = updatePreferenceUseCase,
+            setNotificationsEnabledUseCase = setNotificationsEnabledUseCase,
             notificationPermissionChecker = notificationPermissionChecker,
             cancelAllAlertTrackingUseCase = cancelAllAlertTrackingUseCase
         )
     }
     override val handleNotificationPermissionResultUseCase by lazy {
-        HandleNotificationPermissionResultUseCase(updatePreferenceUseCase)
+        HandleNotificationPermissionResultUseCase(setNotificationsEnabledUseCase)
     }
     override val syncNotificationPermissionUseCase by lazy {
         SyncNotificationPermissionUseCase(
             observeUserPreferencesUseCase = observeUserPreferencesUseCase,
-            updatePreferenceUseCase = updatePreferenceUseCase,
+            setNotificationsEnabledUseCase = setNotificationsEnabledUseCase,
             notificationPermissionChecker = notificationPermissionChecker,
             cancelAllAlertTrackingUseCase = cancelAllAlertTrackingUseCase
         )
@@ -6349,53 +6326,12 @@ class FyneCastApplication : Application() {
 }
 ```
 
-## core\domain\data\infra\FirebaseCurrentUserProvider.kt
-
-```kotlin
-package com.mhq.fynecast.core.domain.data.infra
-
-import com.google.firebase.auth.FirebaseAuth
-import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
-
-class FirebaseCurrentUserProvider(
-    private val firebaseAuth: FirebaseAuth
-) : CurrentUserProvider {
-
-    override fun observeUserId(): Flow<String?> = callbackFlow {
-        val firebaseAuthAuthStateListener =
-            FirebaseAuth.AuthStateListener { trySend(it.currentUser?.uid) }
-
-        firebaseAuth.addAuthStateListener(firebaseAuthAuthStateListener)
-        awaitClose { firebaseAuth.removeAuthStateListener(firebaseAuthAuthStateListener) }
-    }.distinctUntilChanged()
-
-    override fun currentUserId(): String? = firebaseAuth.currentUser?.uid
-}
-```
-
-## core\domain\data\SystemTimeProvider.kt
-
-```kotlin
-package com.mhq.fynecast.core.domain.data
-
-import com.mhq.fynecast.core.domain.time.TimeProvider
-
-class SystemTimeProvider : TimeProvider {
-    override fun nowMillis() = System.currentTimeMillis()
-}
-```
-
 ## core\domain\infra\AppInitializer.kt
 
 ```kotlin
 package com.mhq.fynecast.core.domain.infra
 
 interface AppInitializer {
-    fun initializeSdkComponents()
     fun initializeDebugFeatures()
 }
 ```
@@ -6415,12 +6351,205 @@ interface CurrentUserProvider {
 }
 ```
 
+## core\domain\location\CitySuggestionModel.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.location
+
+data class CitySuggestionModel(
+    val fullName: String,
+    val latitude: Double,
+    val longitude: Double
+)
+```
+
+## core\domain\location\GeoCoordinates.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.location
+
+data class GeoCoordinates(
+    val latitude: Double,
+    val longitude: Double
+)
+```
+
+## core\domain\location\LocationRepository.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.location
+
+interface LocationRepository {
+    suspend fun getCitySuggestions(query: String, lang: String): List<CitySuggestionModel>
+    suspend fun getCityNameOffMap(lat: Double, lon: Double, lang: String): CitySuggestionModel?
+    /** [name] rewritten in [lang] for the place near these coordinates, or null if not found. */
+    suspend fun getLocalizedPlaceName(name: String, lat: Double, lon: Double, lang: String): String?
+}
+```
+
+## core\domain\location\TrackedLocation.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.location
+
+/**
+ * Represents a geographical location being monitored for weather alerts.
+ */
+data class TrackedLocation(
+    val trackedLocationName: String,
+    val trackedLocationLatitude: Double,
+    val trackedLocationLongitude: Double
+) {
+    /** The same string every time resolves to the same API location every time. */
+    val trackedLocationQuery: String
+        get() = "$trackedLocationLatitude,$trackedLocationLongitude"
+}
+```
+
 ## core\domain\time\TimeProvider.kt
 
 ```kotlin
 package com.mhq.fynecast.core.domain.time
 
 interface TimeProvider { fun nowMillis(): Long }
+```
+
+## core\domain\util\SuspendRunCatching.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.util
+
+import kotlin.coroutines.cancellation.CancellationException
+
+/**
+ * Same as runCatching, but rethrows cancellation. Plain runCatching would turn a cancelled
+ * coroutine into a failed Result, so the screen would show an error for something the
+ * user simply left.
+ */
+inline fun <T> suspendRunCatching(block: () -> T): Result<T> =
+    try {
+        Result.success(block())
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        Result.failure(e)
+    }
+```
+
+## core\domain\weather\AlertDomainModel.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.weather
+
+/**
+ * Pure domain representation of a weather alert.
+ */
+data class AlertDomainModel(
+    val id: String,
+    val headline: String,
+    val severity: String,
+    val event: String,
+    val effectiveMillis: Long,
+    val expiresMillis: Long?,
+    val description: String,
+    val instruction: String
+)
+```
+
+## core\domain\weather\CurrentWeatherStore.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.weather
+
+import kotlinx.coroutines.flow.StateFlow
+
+interface CurrentWeatherStore {
+    val current: StateFlow<WeatherDomainModel?>
+    fun publish(weather: WeatherDomainModel)
+}
+```
+
+## core\domain\weather\DailyForecastDomainModel.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.weather
+
+import java.time.LocalDate
+
+data class DailyForecastDomainModel(
+    val date: LocalDate,
+    val iconUrl: String,
+    val description: String,
+    val maxTempC: Double,
+    val maxTempF: Double,
+    val minTempC: Double,
+    val minTempF: Double
+)
+```
+
+## core\domain\weather\HourlyForecastDomainModel.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.weather
+
+import java.time.LocalDateTime
+
+data class HourlyForecastDomainModel(
+    val time: LocalDateTime,
+    val iconUrl: String,
+    val tempC: Double,
+    val tempF: Double
+)
+```
+
+## core\domain\weather\WeatherDomainModel.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.weather
+
+import java.time.LocalDateTime
+
+data class WeatherDomainModel(
+    val cityName: String,
+    val country: String,
+    val latitude: Double,
+    val longitude: Double,
+    val currentTempC: Double,
+    val currentTempF: Double,
+    val conditionText: String,
+    val conditionIcon: String,
+    val lastUpdated: LocalDateTime?,
+    val timeZoneId: String?,
+    val alerts: List<AlertDomainModel>,
+    val stats: WeatherStatsDomainModel,
+    val dailyForecasts: List<DailyForecastDomainModel>,
+    val hourlyForecasts: List<HourlyForecastDomainModel>
+)
+```
+
+## core\domain\weather\WeatherRepository.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.weather
+
+interface WeatherRepository {
+    suspend fun fetchWeather(query: String, lang: String): WeatherDomainModel
+}
+```
+
+## core\domain\weather\WeatherStatsDomainModel.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.weather
+
+data class WeatherStatsDomainModel(
+    val humidity: Int,
+    val windKph: Double,
+    val windMph: Double,
+    val pressureMb: Double,
+    val pressureIn: Double,
+    val uvIndex: Double
+)
 ```
 
 ## core\navigation\BottomNavigationBar.kt
@@ -7398,7 +7527,6 @@ import com.mhq.fynecast.home.ui.HomeViewModel
 import com.mhq.fynecast.home.ui.screens.HomeContainer
 import com.mhq.fynecast.map.ui.MapPickerViewModel
 import com.mhq.fynecast.map.ui.screens.MapPickerScreen
-import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 import com.mhq.fynecast.settings.ui.screens.SettingsContainer
 import kotlinx.coroutines.delay
@@ -7420,7 +7548,7 @@ fun FyneCastApp(
     val isDarkMode = storedDarkMode ?: isSystemInDarkTheme()
     val isMetric by settingsViewModel.isMetric.collectAsStateWithLifecycle()
     val currentLanguage by settingsViewModel.currentLanguage.collectAsStateWithLifecycle()
-    val appLangCode = AppLanguage.fromStoredName(currentLanguage).code
+    val appLangCode = currentLanguage.code
 
     LaunchedEffect(appLangCode) {
         homeViewModel.onLanguageChanged(appLangCode)
@@ -7579,7 +7707,7 @@ fun FyneCastApp(
                     }
 
                     composable("map_picker") {
-                        val mapLangCode = AppLanguage.fromStoredName(currentLanguage).code
+                        val mapLangCode = currentLanguage.code
                         val mapPickerViewModel: MapPickerViewModel =
                             viewModel(factory = MapPickerViewModel.factory)
 
@@ -8078,7 +8206,6 @@ val Typography = Typography(
 ```kotlin
 package com.mhq.fynecast.favorites.data.database
 
-import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -8114,7 +8241,7 @@ abstract class FavoriteDao {
     )
 
     @Query("SELECT * FROM favorites WHERE userId = :userId ORDER BY cityName ASC, countryName ASC")
-    abstract fun getAllFavorites(userId: String): PagingSource<Int, FavoriteEntity>
+    abstract fun getAllFavorites(userId: String): Flow<List<FavoriteEntity>>
 
     @Query("SELECT * FROM favorites WHERE userId = :userId")
     abstract suspend fun getFavoritesOnce(userId: String): List<FavoriteEntity>
@@ -8202,10 +8329,6 @@ fun FavoriteCityDomainModel.toEntity(userId: String) = FavoriteEntity(
 ```kotlin
 package com.mhq.fynecast.favorites.data.repoimpl
 
-import androidx.paging.Pager
-import androidx.paging.PagingConfig
-import androidx.paging.PagingData
-import androidx.paging.map
 import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
 import com.mhq.fynecast.favorites.data.database.FavoriteDao
 import com.mhq.fynecast.favorites.data.mapper.toDomain
@@ -8263,15 +8386,13 @@ class FavoritesRepoImpl(
         return favoriteDao.getFavoritesOnce(userId).map { it.toDomain() }
     }
 
-    override fun getAllFavorites(): Flow<PagingData<FavoriteCityDomainModel>> =
+    override fun getAllFavorites(): Flow<List<FavoriteCityDomainModel>> =
         currentUserProvider.observeUserId().flatMapLatest { userId ->
             if (userId == null) {
-                flowOf(PagingData.empty())
+                flowOf(emptyList())
             } else {
-                Pager(
-                    config = PagingConfig(pageSize = 20, enablePlaceholders = false),
-                    pagingSourceFactory = { favoriteDao.getAllFavorites(userId) }
-                ).flow.map { pagingData -> pagingData.map { it.toDomain() } }
+                favoriteDao.getAllFavorites(userId)
+                    .map { entities -> entities.map { it.toDomain() } }
             }
         }
 }
@@ -8328,13 +8449,12 @@ fun favoriteId(latitude: Double, longitude: Double): String =
 ```kotlin
 package com.mhq.fynecast.favorites.domain.repository
 
-import androidx.paging.PagingData
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import kotlinx.coroutines.flow.Flow
 
 interface FavoritesRepository {
-    /** Gets the complete list of favorites in the lazy item. */
-    fun getAllFavorites(): Flow<PagingData<FavoriteCityDomainModel>>
+    /** Observes the signed-in user's favorites, sorted by city then country. */
+    fun getAllFavorites(): Flow<List<FavoriteCityDomainModel>>
     /** Observes whether the city is a favorite to perform CRUD operations accordingly. */
     fun observeIsFavorite(id: String): Flow<Boolean>
     /** Adds the city if it isn't a favorite and removes it if it is, as one atomic step. */
@@ -8345,7 +8465,7 @@ interface FavoritesRepository {
     suspend fun deleteFavorite(id: String)
     /** updates temperature and icon. */
     suspend fun refreshSnapshot(city: FavoriteCityDomainModel)
-    /** one-off read, not paged. */
+    /** one-off read, not observed. */
     suspend fun getFavoritesList(): List<FavoriteCityDomainModel>
 }
 ```
@@ -8367,15 +8487,13 @@ class DeleteFavoriteUseCase(private val favoritesRepository: FavoritesRepository
 ```kotlin
 package com.mhq.fynecast.favorites.domain.usecases
 
-import androidx.paging.PagingData
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
 import kotlinx.coroutines.flow.Flow
 
 class GetFavoritesUseCase(private val favoritesRepository: FavoritesRepository) {
-    operator fun invoke(): Flow<PagingData<FavoriteCityDomainModel>> {
-        return favoritesRepository.getAllFavorites()
-    }
+    operator fun invoke(): Flow<List<FavoriteCityDomainModel>> =
+        favoritesRepository.getAllFavorites()
 }
 ```
 
@@ -8385,7 +8503,7 @@ class GetFavoritesUseCase(private val favoritesRepository: FavoritesRepository) 
 package com.mhq.fynecast.favorites.domain.usecases
 
 import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
-import com.mhq.fynecast.home.domain.repository.WeatherRepository
+import com.mhq.fynecast.core.domain.weather.WeatherRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -8798,8 +8916,6 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import androidx.paging.PagingData
-import androidx.paging.cachedIn
 import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
@@ -8810,22 +8926,27 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class FavoritesViewModel(
-    private val getFavoritesUseCase: GetFavoritesUseCase,
+    getFavoritesUseCase: GetFavoritesUseCase,
     private val deleteFavoriteUseCase: DeleteFavoriteUseCase,
     private val restoreFavoriteUseCase: RestoreFavoriteUseCase,
     private val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase
 ) : ViewModel() {
 
-    private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
-    val uiEvent = _uiEventChannel.receiveAsFlow()
-
-    val favoritesPageFlow: Flow<PagingData<FavoriteCityDomainModel>> =
-        getFavoritesUseCase().cachedIn(viewModelScope)
+    /** null = the first load has not finished yet; an empty list = the user has no favorites. */
+    val favorites: StateFlow<List<FavoriteCityDomainModel>?> =
+        getFavoritesUseCase().stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null
+        )
 
     private val _events = Channel<FavoritesEvent>(Channel.BUFFERED)
     val events: Flow<FavoritesEvent> = _events.receiveAsFlow()
@@ -8951,15 +9072,15 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.paging.LoadState
-import androidx.paging.compose.collectAsLazyPagingItems
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
@@ -8978,7 +9099,7 @@ fun FavoritesContainer(
 ) {
     val resources = LocalResources.current
     val undoLabel = stringResource(R.string.undo)
-    val lazyFavoriteCities = favoritesViewModel.favoritesPageFlow.collectAsLazyPagingItems()
+    val favorites by favoritesViewModel.favorites.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val langCode = currentLocale().language
 
@@ -8988,16 +9109,6 @@ fun FavoritesContainer(
      * */
     LaunchedEffect(Unit) {
         favoritesViewModel.onScreenShown(langCode)
-    }
-
-    LaunchedEffect(Unit) {
-        favoritesViewModel.uiEvent.collect { message ->
-            snackbarHostState.currentSnackbarData?.dismiss()
-            snackbarHostState.showSnackbar(
-                message = message,
-                duration = SnackbarDuration.Short
-            )
-        }
     }
 
     LaunchedEffect(favoritesViewModel, resources) {
@@ -9024,20 +9135,19 @@ fun FavoritesContainer(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        when (lazyFavoriteCities.itemCount) {
-            0 if lazyFavoriteCities.loadState.refresh is LoadState.Loading -> {
+        val currentFavorites = favorites
+        when {
+            currentFavorites == null -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
-            0 -> {
-                FavoritesBlank(
-                    contentPadding = contentPadding
-                )
+            currentFavorites.isEmpty() -> {
+                FavoritesBlank(contentPadding = contentPadding)
             }
             else -> {
                 FavoritesContent(
-                    favoriteCities = lazyFavoriteCities,
+                    favoriteCities = currentFavorites,
                     onCityRowSelected = onCityRowSelected,
                     onDeleteFavorite = favoritesViewModel::onDeleteFavorite,
                     contentPadding = contentPadding,
@@ -9068,6 +9178,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -9077,19 +9188,14 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.paging.PagingData
-import androidx.paging.compose.LazyPagingItems
-import androidx.paging.compose.collectAsLazyPagingItems
-import androidx.paging.compose.itemKey
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.ui.components.FavoriteCityItem
 import com.mhq.fynecast.favorites.ui.components.SwipeBackground
-import kotlinx.coroutines.flow.flowOf
 
 @Composable
 fun FavoritesContent(
-    favoriteCities: LazyPagingItems<FavoriteCityDomainModel>,
+    favoriteCities: List<FavoriteCityDomainModel>,
     onCityRowSelected: (FavoriteCityDomainModel) -> Unit,
     onDeleteFavorite: (FavoriteCityDomainModel) -> Unit,
     isMetric: Boolean,
@@ -9106,41 +9212,38 @@ fun FavoritesContent(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(
-                count = favoriteCities.itemCount,
-                key = favoriteCities.itemKey { it.id }
-            ) { index ->
-                val favorite = favoriteCities[index]
-                if (favorite != null) {
-                    val currentFavorite by rememberUpdatedState(favorite)
-                    val currentOnDelete by rememberUpdatedState(onDeleteFavorite)
+                items = favoriteCities,
+                key = { it.id }
+            ) { favorite ->
+                val currentFavorite by rememberUpdatedState(favorite)
+                val currentOnDelete by rememberUpdatedState(onDeleteFavorite)
 
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value == SwipeToDismissBoxValue.EndToStart) {
-                                /** Runs once, when the user finishes the swipe. */
-                                currentOnDelete(currentFavorite)
-                            }
-                            /**
-                             * Never keep a row in the "swiped away" state.
-                             * The row leaves the list when the delete lands, and a row brought back
-                             * by Undo must start settled so it can be swiped again.
-                             * */
-                            false
+                val dismissState = rememberSwipeToDismissBoxState(
+                    confirmValueChange = { value ->
+                        if (value == SwipeToDismissBoxValue.EndToStart) {
+                            /** Runs once, when the user finishes the swipe. */
+                            currentOnDelete(currentFavorite)
                         }
-                    )
-
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        modifier = Modifier.animateItem(),
-                        backgroundContent = { SwipeBackground(dismissState) },
-                        enableDismissFromStartToEnd = false
-                    ) {
-                        FavoriteCityItem(
-                            favoriteCityDomainModel = favorite,
-                            isMetric = isMetric,
-                            modifier = Modifier.clickable { onCityRowSelected(favorite) }
-                        )
+                        /**
+                         * Never keep a row in the "swiped away" state.
+                         * The row leaves the list when the delete lands, and a row brought back
+                         * by Undo must start settled so it can be swiped again.
+                         * */
+                        false
                     }
+                )
+
+                SwipeToDismissBox(
+                    state = dismissState,
+                    modifier = Modifier.animateItem(),
+                    backgroundContent = { SwipeBackground(dismissState) },
+                    enableDismissFromStartToEnd = false
+                ) {
+                    FavoriteCityItem(
+                        favoriteCityDomainModel = favorite,
+                        isMetric = isMetric,
+                        modifier = Modifier.clickable { onCityRowSelected(favorite) }
+                    )
                 }
             }
         }
@@ -9150,13 +9253,9 @@ fun FavoritesContent(
 @Preview
 @Composable
 private fun FavoritesContentPreview() {
-    FyneCastTheme() {
-        val mockFavoriteCities = flowOf(
-            PagingData.empty<FavoriteCityDomainModel>()
-        ).collectAsLazyPagingItems()
-
+    FyneCastTheme {
         FavoritesContent(
-            favoriteCities = mockFavoriteCities,
+            favoriteCities = emptyList(),
             onCityRowSelected = {},
             onDeleteFavorite = {},
             isMetric = true
@@ -9762,7 +9861,7 @@ class AndroidPlaceNameSource(context: Context) : PlaceNameSource {
 ```kotlin
 package com.mhq.fynecast.home.data.mapper
 
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 import com.mhq.fynecast.home.data.api.weather.dto.AlertDto
 import java.time.OffsetDateTime
 
@@ -9808,10 +9907,10 @@ private fun parseToEpochMillis(isoString: String): Long? =
 package com.mhq.fynecast.home.data.mapper
 
 import com.mhq.fynecast.home.data.api.weather.dto.WeatherApiResponse
-import com.mhq.fynecast.home.domain.models.DailyForecastDomainModel
-import com.mhq.fynecast.home.domain.models.HourlyForecastDomainModel
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
-import com.mhq.fynecast.home.domain.models.WeatherStatsDomainModel
+import com.mhq.fynecast.core.domain.weather.DailyForecastDomainModel
+import com.mhq.fynecast.core.domain.weather.HourlyForecastDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherStatsDomainModel
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -9906,7 +10005,7 @@ import android.os.SystemClock
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
-import com.mhq.fynecast.home.domain.models.GeoCoordinates
+import com.mhq.fynecast.core.domain.location.GeoCoordinates
 import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
 import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
 import kotlinx.coroutines.CancellationException
@@ -9979,8 +10078,8 @@ class DefaultLocationRepoImpl(
 package com.mhq.fynecast.home.data.repoimpl.location
 
 import com.mhq.fynecast.home.data.api.location.LocationApiService
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
-import com.mhq.fynecast.home.domain.repository.LocationRepository
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.LocationRepository
 import kotlinx.coroutines.CancellationException
 
 class PhotonLocationRepoImpl(
@@ -10110,8 +10209,8 @@ interface PlaceNameSource {
 ```kotlin
 package com.mhq.fynecast.home.data.repoimpl.weather
 
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
-import com.mhq.fynecast.home.domain.repository.CurrentWeatherStore
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -10130,8 +10229,8 @@ package com.mhq.fynecast.home.data.repoimpl.weather
 
 import com.mhq.fynecast.home.data.api.weather.WeatherApiService
 import com.mhq.fynecast.home.data.mapper.toDomain
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
-import com.mhq.fynecast.home.domain.repository.WeatherRepository
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherRepository
 
 class WeatherRepoImpl(
     private val weatherApiService: WeatherApiService,
@@ -10152,7 +10251,7 @@ class WeatherRepoImpl(
 package com.mhq.fynecast.home.domain.mapper
 
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
 
 fun WeatherDomainModel.toFavoriteCity() = FavoriteCityDomainModel(
     cityName = cityName,
@@ -10162,62 +10261,6 @@ fun WeatherDomainModel.toFavoriteCity() = FavoriteCityDomainModel(
     temperatureC = currentTempC,
     temperatureF = currentTempF,
     weatherIconUrl = conditionIcon
-)
-```
-
-## home\domain\models\CitySuggestionModel.kt
-
-```kotlin
-package com.mhq.fynecast.home.domain.models
-
-data class CitySuggestionModel(
-    val fullName: String,
-    val latitude: Double,
-    val longitude: Double
-)
-```
-
-## home\domain\models\DailyForecastDomainModel.kt
-
-```kotlin
-package com.mhq.fynecast.home.domain.models
-
-import java.time.LocalDate
-
-data class DailyForecastDomainModel(
-    val date: LocalDate,
-    val iconUrl: String,
-    val description: String,
-    val maxTempC: Double,
-    val maxTempF: Double,
-    val minTempC: Double,
-    val minTempF: Double
-)
-```
-
-## home\domain\models\GeoCoordinates.kt
-
-```kotlin
-package com.mhq.fynecast.home.domain.models
-
-data class GeoCoordinates(
-    val latitude: Double,
-    val longitude: Double
-)
-```
-
-## home\domain\models\HourlyForecastDomainModel.kt
-
-```kotlin
-package com.mhq.fynecast.home.domain.models
-
-import java.time.LocalDateTime
-
-data class HourlyForecastDomainModel(
-    val time: LocalDateTime,
-    val iconUrl: String,
-    val tempC: Double,
-    val tempF: Double
 )
 ```
 
@@ -10233,67 +10276,12 @@ data class SavedCityDomainModel(
 )
 ```
 
-## home\domain\models\WeatherDomainModel.kt
-
-```kotlin
-package com.mhq.fynecast.home.domain.models
-
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
-import java.time.LocalDateTime
-
-data class WeatherDomainModel(
-    val cityName: String,
-    val country: String,
-    val latitude: Double,
-    val longitude: Double,
-    val currentTempC: Double,
-    val currentTempF: Double,
-    val conditionText: String,
-    val conditionIcon: String,
-    val lastUpdated: LocalDateTime?,
-    val timeZoneId: String?,
-    val alerts: List<AlertDomainModel>,
-    val stats: WeatherStatsDomainModel,
-    val dailyForecasts: List<DailyForecastDomainModel>,
-    val hourlyForecasts: List<HourlyForecastDomainModel>
-)
-```
-
-## home\domain\models\WeatherStatsDomainModel.kt
-
-```kotlin
-package com.mhq.fynecast.home.domain.models
-
-data class WeatherStatsDomainModel(
-    val humidity: Int,
-    val windKph: Double,
-    val windMph: Double,
-    val pressureMb: Double,
-    val pressureIn: Double,
-    val uvIndex: Double
-)
-```
-
-## home\domain\repository\CurrentWeatherStore.kt
-
-```kotlin
-package com.mhq.fynecast.home.domain.repository
-
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
-import kotlinx.coroutines.flow.StateFlow
-
-interface CurrentWeatherStore {
-    val current: StateFlow<WeatherDomainModel?>
-    fun publish(weather: WeatherDomainModel)
-}
-```
-
 ## home\domain\repository\DeviceLocationRepository.kt
 
 ```kotlin
 package com.mhq.fynecast.home.domain.repository
 
-import com.mhq.fynecast.home.domain.models.GeoCoordinates
+import com.mhq.fynecast.core.domain.location.GeoCoordinates
 
 interface DeviceLocationRepository {
     suspend fun getCurrentLocation(): GeoCoordinates?
@@ -10311,40 +10299,12 @@ interface LocationProviderStatusChecker {
 }
 ```
 
-## home\domain\repository\LocationRepository.kt
-
-```kotlin
-package com.mhq.fynecast.home.domain.repository
-
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
-
-interface LocationRepository {
-    suspend fun getCitySuggestions(query: String, lang: String): List<CitySuggestionModel>
-    suspend fun getCityNameOffMap(lat: Double, lon: Double, lang: String): CitySuggestionModel?
-    /** [name] rewritten in [lang] for the place near these coordinates, or null if not found. */
-    suspend fun getLocalizedPlaceName(name: String, lat: Double, lon: Double, lang: String): String?
-}
-```
-
-## home\domain\repository\WeatherRepository.kt
-
-```kotlin
-package com.mhq.fynecast.home.domain.repository
-
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
-import kotlinx.coroutines.flow.StateFlow
-
-interface WeatherRepository {
-    suspend fun fetchWeather(query: String, lang: String): WeatherDomainModel
-}
-```
-
 ## home\domain\usecases\GetCurrentLocationUseCase.kt
 
 ```kotlin
 package com.mhq.fynecast.home.domain.usecases
 
-import com.mhq.fynecast.home.domain.models.GeoCoordinates
+import com.mhq.fynecast.core.domain.location.GeoCoordinates
 import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
 
 class GetCurrentLocationUseCase(
@@ -10384,8 +10344,8 @@ class GetLastSearchedCityUseCase(
 ```kotlin
 package com.mhq.fynecast.home.domain.usecases
 
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
-import com.mhq.fynecast.home.domain.repository.LocationRepository
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.LocationRepository
 
 class GetLocationSuggestionsUseCase(
     private val locationRepository: LocationRepository
@@ -10405,8 +10365,8 @@ class GetLocationSuggestionsUseCase(
 ```kotlin
 package com.mhq.fynecast.home.domain.usecases
 
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
-import com.mhq.fynecast.home.domain.repository.WeatherRepository
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherRepository
 
 class GetWeatherUseCase(private val weatherRepository: WeatherRepository) {
     suspend operator fun invoke(query: String, lang: String): WeatherDomainModel =
@@ -10419,9 +10379,9 @@ class GetWeatherUseCase(private val weatherRepository: WeatherRepository) {
 ```kotlin
 package com.mhq.fynecast.home.domain.usecases
 
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
-import com.mhq.fynecast.home.domain.repository.CurrentWeatherStore
-import com.mhq.fynecast.home.domain.repository.WeatherRepository
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
+import com.mhq.fynecast.core.domain.weather.WeatherRepository
 
 class LoadCurrentWeatherUseCase(
     private val weatherRepository: WeatherRepository,
@@ -10439,7 +10399,7 @@ class LoadCurrentWeatherUseCase(
 ```kotlin
 package com.mhq.fynecast.home.domain.usecases
 
-import com.mhq.fynecast.home.domain.repository.LocationRepository
+import com.mhq.fynecast.core.domain.location.LocationRepository
 
 class LocalizePlaceNameUseCase(private val locationRepository: LocationRepository) {
     suspend operator fun invoke(
@@ -10456,28 +10416,13 @@ class LocalizePlaceNameUseCase(private val locationRepository: LocationRepositor
 }
 ```
 
-## home\domain\usecases\ObserveCurrentCityNameUseCase.kt
-
-```kotlin
-package com.mhq.fynecast.home.domain.usecases
-
-import com.mhq.fynecast.home.domain.repository.CurrentWeatherStore
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-
-class ObserveCurrentCityNameUseCase(private val currentWeatherStore: CurrentWeatherStore) {
-    operator fun invoke(): Flow<String> =
-        currentWeatherStore.current.map { it?.cityName ?: "Unknown Location" }
-}
-```
-
 ## home\domain\usecases\ObserveCurrentLocationUseCase.kt
 
 ```kotlin
 package com.mhq.fynecast.home.domain.usecases
 
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
-import com.mhq.fynecast.home.domain.repository.CurrentWeatherStore
+import com.mhq.fynecast.core.domain.location.TrackedLocation
+import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -10652,7 +10597,7 @@ import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.home.domain.models.DailyForecastDomainModel
+import com.mhq.fynecast.core.domain.weather.DailyForecastDomainModel
 
 @Composable
 fun WeatherDailyCarousel(
@@ -11182,10 +11127,9 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.home.domain.models.HourlyForecastDomainModel
+import com.mhq.fynecast.core.domain.weather.HourlyForecastDomainModel
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
-import java.time.LocalDateTime
 
 @Composable
 fun WeatherHourlyCarousel(
@@ -11437,7 +11381,7 @@ import androidx.compose.ui.zIndex
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 
 @Composable
 fun WeatherSearchBar(
@@ -11786,7 +11730,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.home.domain.models.WeatherStatsDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherStatsDomainModel
 import java.text.NumberFormat
 
 @Composable
@@ -11871,7 +11815,7 @@ enum class HomeRetryAction {
 ```kotlin
 package com.mhq.fynecast.home.ui
 
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 
 data class HomeStateContainer(
     val uiState: HomeUiState = HomeUiState.Loading,
@@ -11888,7 +11832,7 @@ data class HomeStateContainer(
 ```kotlin
 package com.mhq.fynecast.home.ui
 
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
 
 sealed interface HomeUiState {
     data object Loading : HomeUiState
@@ -11913,8 +11857,8 @@ import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
 import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
 import com.mhq.fynecast.home.domain.mapper.toFavoriteCity
-import com.mhq.fynecast.home.domain.models.GeoCoordinates
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
+import com.mhq.fynecast.core.domain.location.GeoCoordinates
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
 import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
@@ -11923,7 +11867,7 @@ import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
-import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SaveLastSearchedCityUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
@@ -11949,7 +11893,7 @@ class HomeViewModel(
     private val observeFavoriteStatusUseCase: ObserveFavoriteStatusUseCase,
     private val refreshFavoriteSnapshotUseCase: RefreshFavoriteSnapshotUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
-    private val updatePreferenceUseCase: UpdatePreferenceUseCase,
+    private val saveLastSearchedCityUseCase: SaveLastSearchedCityUseCase,
     private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase,
     private val localizePlaceNameUseCase: LocalizePlaceNameUseCase,
     private val defaultCityFallback: String = "Cairo"
@@ -12029,7 +11973,7 @@ class HomeViewModel(
         langCode: String
     ) {
         viewModelScope.launch {
-            updatePreferenceUseCase.lastSearchedCity(
+            saveLastSearchedCityUseCase(
                 name = suggestionName,
                 lat = lat,
                 lon = lon
@@ -12079,7 +12023,7 @@ class HomeViewModel(
                 onWeatherShown(loaded.weather)
                 if (target is LoadTarget.Place && target.relocalizeName && !target.nameFromDevice) {
                     viewModelScope.launch {
-                        updatePreferenceUseCase.lastSearchedCity(
+                        saveLastSearchedCityUseCase(
                             name = loaded.name,
                             lat = target.latitude,
                             lon = target.longitude
@@ -12251,9 +12195,13 @@ class HomeViewModel(
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
             delay(500.milliseconds)
-            val suggestions = runCatching {
+            val suggestions = try {
                 getLocationSuggestionsUseCase(newQuery, langCode)
-            }.getOrNull() ?: emptyList()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                emptyList()
+            }
             _state.update { it.copy(citySuggestions = suggestions) }
         }
     }
@@ -12324,7 +12272,7 @@ class HomeViewModel(
                     observeSignedInUserIdUseCase = app.container.observeSignedInUserIdUseCase,
                     refreshFavoriteSnapshotUseCase = app.container.refreshFavoriteSnapshotUseCase,
                     toggleFavoriteUseCase = app.container.toggleFavoriteUseCase,
-                    updatePreferenceUseCase = app.container.updatePreferenceUseCase,
+                    saveLastSearchedCityUseCase = app.container.saveLastSearchedCityUseCase,
                     reverseGeocodeLocationUseCase = app.container.reverseGeocodeLocationUseCase,
                     localizePlaceNameUseCase = app.container.localizePlaceNameUseCase
                 )
@@ -12446,8 +12394,8 @@ import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
 import com.mhq.fynecast.home.ui.components.WeatherDailyCarousel
 import com.mhq.fynecast.home.ui.components.WeatherHeroCard
 import com.mhq.fynecast.home.ui.components.WeatherHourlyCarousel
@@ -12728,8 +12676,8 @@ fun HomeLoadingPreview() {
 ```kotlin
 package com.mhq.fynecast.map.domain.usecases
 
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
-import com.mhq.fynecast.home.domain.repository.LocationRepository
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.LocationRepository
 
 class ReverseGeocodeLocationUseCase(
     private val locationRepository: LocationRepository
@@ -12886,7 +12834,7 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.core.ui.theme.AbyssalVoid
 import com.mhq.fynecast.core.ui.theme.ElectricLimeGreen
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 
 @Composable
 fun LocationConfirmCard(
@@ -12951,7 +12899,7 @@ private fun LocationConfirmCardPreview() {
 package com.mhq.fynecast.map.ui
 
 import com.mhq.fynecast.core.ui.text.UiText
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 
 /**
  * Where the user last tapped
@@ -13085,7 +13033,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.theme.AbyssalVoid
 import com.mhq.fynecast.core.ui.theme.ElectricLimeGreen
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 import com.mhq.fynecast.map.ui.MapPickerViewModel
 import com.mhq.fynecast.map.ui.components.ErrorCard
 import com.mhq.fynecast.map.ui.components.LoadingCard
@@ -13363,8 +13311,8 @@ class UserPreferencesRepositoryImpl(
         dataStore.edit { prefs -> prefs[PreferencesKeys.NOTIFICATIONS_ENABLED] = enabled }
     }
 
-    override suspend fun updateLanguage(language: String) {
-        dataStore.edit { prefs -> prefs[PreferencesKeys.CURRENT_LANGUAGE] = language }
+    override suspend fun updateLanguage(language: AppLanguage) {
+        dataStore.edit { prefs -> prefs[PreferencesKeys.CURRENT_LANGUAGE] = language.storedName }
     }
 
     override suspend fun updateDarkMode(enabled: Boolean) {
@@ -13403,7 +13351,9 @@ class UserPreferencesRepositoryImpl(
         return UserPreferences(
             isMetric = preferences[PreferencesKeys.IS_METRIC] ?: true,
             notificationsEnabled = preferences[PreferencesKeys.NOTIFICATIONS_ENABLED] ?: true,
-            currentLanguage = preferences[PreferencesKeys.CURRENT_LANGUAGE] ?: phoneLanguage(),
+            currentLanguage = preferences[PreferencesKeys.CURRENT_LANGUAGE]
+                ?.let { AppLanguage.fromStoredName(it) }
+                ?: phoneLanguage(),
             isDarkMode = preferences[PreferencesKeys.IS_DARK_MODE],
             lastSearchedCityName = preferences[PreferencesKeys.LAST_CITY_NAME],
             lastSearchedCityLat = preferences[PreferencesKeys.LAST_CITY_LAT],
@@ -13412,12 +13362,8 @@ class UserPreferencesRepositoryImpl(
     }
 
     /** First run: follow the phone's language. Anything that isn't Arabic gets English. */
-    private fun phoneLanguage(): String =
-        if (Locale.getDefault().language == "ar") {
-            AppLanguage.Arabic.storedName
-        } else {
-            AppLanguage.English.storedName
-        }
+    private fun phoneLanguage(): AppLanguage =
+        if (Locale.getDefault().language == "ar") AppLanguage.Arabic else AppLanguage.English
 }
 ```
 
@@ -13445,7 +13391,7 @@ package com.mhq.fynecast.settings.domain.models
 data class UserPreferences(
     val isMetric: Boolean,
     val notificationsEnabled: Boolean,
-    val currentLanguage: String,
+    val currentLanguage: AppLanguage,
     val isDarkMode: Boolean?,
     val lastSearchedCityName: String? = null,
     val lastSearchedCityLat: Double? = null,
@@ -13459,6 +13405,7 @@ data class UserPreferences(
 ```kotlin
 package com.mhq.fynecast.settings.domain.repository
 
+import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.domain.models.UserPreferences
 import kotlinx.coroutines.flow.Flow
 
@@ -13468,11 +13415,23 @@ interface UserPreferencesRepository {
     suspend fun getPreferences(): UserPreferences
     suspend fun updateMetricSystem(isMetric: Boolean)
     suspend fun updateNotifications(enabled: Boolean)
-    suspend fun updateLanguage(language: String)
+    suspend fun updateLanguage(language: AppLanguage)
     suspend fun updateDarkMode(enabled: Boolean)
     suspend fun updateLastSearchedCity(name: String, lat: Double, lon: Double)
     suspend fun clearLastSearchedCity()
     suspend fun consumeNotificationPrompt(): Boolean
+}
+```
+
+## settings\domain\usecases\profile\ClearLastSearchedCityUseCase.kt
+
+```kotlin
+package com.mhq.fynecast.settings.domain.usecases.profile
+
+import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
+
+class ClearLastSearchedCityUseCase(private val preferencesRepository: UserPreferencesRepository) {
+    suspend operator fun invoke() = preferencesRepository.clearLastSearchedCity()
 }
 ```
 
@@ -13490,32 +13449,69 @@ class ObserveUserPreferencesUseCase(private val preferencesRepository: UserPrefe
 }
 ```
 
-## settings\domain\usecases\profile\UpdatePreferenceUseCase.kt
+## settings\domain\usecases\profile\SaveLastSearchedCityUseCase.kt
 
 ```kotlin
 package com.mhq.fynecast.settings.domain.usecases.profile
 
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
 
-class UpdatePreferenceUseCase(
-    private val preferencesRepository: UserPreferencesRepository
-) {
-    suspend fun metricSystem(isMetric: Boolean) =
-        preferencesRepository.updateMetricSystem(isMetric)
-
-    suspend fun notifications(enabled: Boolean) =
-        preferencesRepository.updateNotifications(enabled)
-
-    suspend fun language(language: String) =
-        preferencesRepository.updateLanguage(language)
-
-    suspend fun darkMode(enabled: Boolean) =
-        preferencesRepository.updateDarkMode(enabled)
-
-    suspend fun lastSearchedCity(name: String, lat: Double, lon: Double) =
+class SaveLastSearchedCityUseCase(private val preferencesRepository: UserPreferencesRepository) {
+    suspend operator fun invoke(name: String, lat: Double, lon: Double) =
         preferencesRepository.updateLastSearchedCity(name, lat, lon)
+}
+```
 
-    suspend fun clearLastSearchedCity() = preferencesRepository.clearLastSearchedCity()
+## settings\domain\usecases\profile\SetDarkModeUseCase.kt
+
+```kotlin
+package com.mhq.fynecast.settings.domain.usecases.profile
+
+import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
+
+class SetDarkModeUseCase(private val preferencesRepository: UserPreferencesRepository) {
+    suspend operator fun invoke(enabled: Boolean) =
+        preferencesRepository.updateDarkMode(enabled)
+}
+```
+
+## settings\domain\usecases\profile\SetLanguageUseCase.kt
+
+```kotlin
+package com.mhq.fynecast.settings.domain.usecases.profile
+
+import com.mhq.fynecast.settings.domain.models.AppLanguage
+import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
+
+class SetLanguageUseCase(private val preferencesRepository: UserPreferencesRepository) {
+    suspend operator fun invoke(language: AppLanguage) =
+        preferencesRepository.updateLanguage(language)
+}
+```
+
+## settings\domain\usecases\profile\SetNotificationsEnabledUseCase.kt
+
+```kotlin
+package com.mhq.fynecast.settings.domain.usecases.profile
+
+import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
+
+class SetNotificationsEnabledUseCase(private val preferencesRepository: UserPreferencesRepository) {
+    suspend operator fun invoke(enabled: Boolean) =
+        preferencesRepository.updateNotifications(enabled)
+}
+```
+
+## settings\domain\usecases\profile\SetUnitSystemUseCase.kt
+
+```kotlin
+package com.mhq.fynecast.settings.domain.usecases.profile
+
+import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
+
+class SetUnitSystemUseCase(private val preferencesRepository: UserPreferencesRepository) {
+    suspend operator fun invoke(isMetric: Boolean) =
+        preferencesRepository.updateMetricSystem(isMetric)
 }
 ```
 
@@ -13656,11 +13652,11 @@ fun SettingsPanel(
     notificationsEnabled: Boolean,
     isDarkMode: Boolean,
     isMetric: Boolean,
-    currentLanguage: String,
+    currentLanguage: AppLanguage,
     onNotificationsToggle: (Boolean) -> Unit,
     onDarkModeToggle: (Boolean) -> Unit,
     onMetricToggle: (Boolean) -> Unit,
-    onLanguageChange: (String) -> Unit,
+    onLanguageChange: (AppLanguage) -> Unit,
     modifier: Modifier = Modifier
 ) {
     GlassyCard(
@@ -13693,11 +13689,11 @@ fun SettingsPanel(
             SettingsPanelDivider()
             SettingsToggleRow(
                 label = stringResource(R.string.language),
-                isFirstOptionSelected = currentLanguage == AppLanguage.English.storedName,
+                isFirstOptionSelected = currentLanguage == AppLanguage.English,
                 firstOptionLabel = stringResource(R.string.english),
                 secondOptionLabel = "العربية",
-                onFirstOptionSelected = { onLanguageChange(AppLanguage.English.storedName) },
-                onSecondOptionSelected = { onLanguageChange(AppLanguage.Arabic.storedName) }
+                onFirstOptionSelected = { onLanguageChange(AppLanguage.English) },
+                onSecondOptionSelected = { onLanguageChange(AppLanguage.Arabic) }
             )
             SettingsPanelDivider()
             SettingsToggleRow(
@@ -13733,7 +13729,7 @@ private fun SettingsPanelPreview() {
             notificationsEnabled = true,
             isDarkMode = true,
             isMetric = true,
-            currentLanguage = "",
+            currentLanguage = AppLanguage.English,
             onNotificationsToggle = {},
             onDarkModeToggle = {},
             onMetricToggle = {},
@@ -14163,18 +14159,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
+import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.ui.components.SettingsLogoutButton
 import com.mhq.fynecast.settings.ui.components.SettingsPanel
 import com.mhq.fynecast.settings.ui.components.SettingsProfileHeader
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsContent(
     notificationsEnabled: Boolean,
@@ -14183,11 +14178,11 @@ fun SettingsContent(
     profileName: String,
     profileEmail: String,
     profileImageUri: String?,
-    currentLanguage: String,
+    currentLanguage: AppLanguage,
     onNotificationsToggle: (Boolean) -> Unit,
     onDarkModeToggle: (Boolean) -> Unit,
     onMetricToggle: (Boolean) -> Unit,
-    onLanguageChange: (String) -> Unit,
+    onLanguageChange: (AppLanguage) -> Unit,
     onEditProfileClick: () -> Unit,
     onLogoutClick: () -> Unit,
     contentPadding: PaddingValues,
@@ -14259,7 +14254,7 @@ fun SettingsScreenPreview() {
             onEditProfileClick = {},
             onLogoutClick = {},
             contentPadding = PaddingValues(0.dp),
-            currentLanguage = "",
+            currentLanguage = AppLanguage.English,
             onLanguageChange = {},
             profileImageUri = null
         )
@@ -14299,7 +14294,9 @@ import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
 import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
-import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetDarkModeUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetLanguageUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetUnitSystemUseCase
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14316,7 +14313,9 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val observeUserProfileUseCase: ObserveUserProfileUseCase,
     private val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase,
-    private val updatePreference: UpdatePreferenceUseCase,
+    private val setUnitSystem: SetUnitSystemUseCase,
+    private val setLanguage: SetLanguageUseCase,
+    private val setDarkMode: SetDarkModeUseCase,
     private val toggleNotifications: ToggleNotificationsUseCase,
     private val handleNotificationPermissionResult: HandleNotificationPermissionResultUseCase,
     private val syncNotificationPermission: SyncNotificationPermissionUseCase,
@@ -14363,8 +14362,8 @@ class SettingsViewModel(
     private val _isMetric = MutableStateFlow(true)
     val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
 
-    private val _currentLanguage = MutableStateFlow("English")
-    val currentLanguage: StateFlow<String> = _currentLanguage.asStateFlow()
+    private val _currentLanguage = MutableStateFlow(AppLanguage.English)
+    val currentLanguage: StateFlow<AppLanguage> = _currentLanguage.asStateFlow()
 
     private val _isDarkMode = MutableStateFlow<Boolean?>(null)
     val isDarkMode: StateFlow<Boolean?> = _isDarkMode.asStateFlow()
@@ -14386,7 +14385,7 @@ class SettingsViewModel(
         }
         viewModelScope.launch {
             preferencesFlow
-                .map { AppLanguage.fromStoredName(it.currentLanguage).code }
+                .map { it.currentLanguage.code }
                 .distinctUntilChanged()
                 .collect { _localeEvent.tryEmit(it) }
         }
@@ -14394,7 +14393,7 @@ class SettingsViewModel(
 
     fun toggleUnitSystem(isMetric: Boolean) {
         viewModelScope.launch {
-            updatePreference.metricSystem(isMetric)
+            setUnitSystem(isMetric)
         }
     }
 
@@ -14432,12 +14431,12 @@ class SettingsViewModel(
         }
     }
 
-    fun toggleLanguage(language: String) {
-        viewModelScope.launch { updatePreference.language(language) }
+    fun toggleLanguage(language: AppLanguage)  {
+        viewModelScope.launch { setLanguage(language) }
     }
 
     fun toggleDarkMode(enabled: Boolean) {
-        viewModelScope.launch { updatePreference.darkMode(enabled) }
+        viewModelScope.launch { setDarkMode(enabled) }
     }
 
     fun logOutUserSession() {
@@ -14463,7 +14462,9 @@ class SettingsViewModel(
                 SettingsViewModel(
                     observeUserProfileUseCase = container.observeUserProfileUseCase,
                     observeUserPreferencesUseCase = container.observeUserPreferencesUseCase,
-                    updatePreference = container.updatePreferenceUseCase,
+                    setUnitSystem = container.setUnitSystemUseCase,
+                    setLanguage = container.setLanguageUseCase,
+                    setDarkMode = container.setDarkModeUseCase,
                     toggleNotifications = container.toggleNotificationsUseCase,
                     handleNotificationPermissionResult = container.handleNotificationPermissionResultUseCase,
                     syncNotificationPermission = container.syncNotificationPermissionUseCase,

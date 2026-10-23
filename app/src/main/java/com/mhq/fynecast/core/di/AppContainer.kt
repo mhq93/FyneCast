@@ -40,7 +40,6 @@ import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
 import com.mhq.fynecast.home.domain.usecases.GetWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
-import com.mhq.fynecast.home.domain.usecases.ObserveCurrentCityNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
@@ -57,7 +56,6 @@ interface AppContainer {
 
     val getWeatherUseCase: GetWeatherUseCase
     val loadCurrentWeatherUseCase: LoadCurrentWeatherUseCase
-    val observeCurrentCityNameUseCase: ObserveCurrentCityNameUseCase
     val observeCurrentLocationUseCase: ObserveCurrentLocationUseCase
 
     // --- Authentication & Profile Use Cases ---

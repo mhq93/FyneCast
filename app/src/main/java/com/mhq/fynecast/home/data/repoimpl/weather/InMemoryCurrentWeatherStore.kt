@@ -1,7 +1,7 @@
 package com.mhq.fynecast.home.data.repoimpl.weather
 
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
-import com.mhq.fynecast.home.domain.repository.CurrentWeatherStore
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

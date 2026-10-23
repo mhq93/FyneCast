@@ -1,0 +1,126 @@
+package com.mhq.fynecast.core.di
+
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mhq.fynecast.alerts.ui.AlertsViewModel
+import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
+import com.mhq.fynecast.auth.ui.forgotpassword.ui.ForgotPasswordViewModel
+import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
+import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
+import com.mhq.fynecast.core.navigation.SessionViewModel
+import com.mhq.fynecast.favorites.ui.FavoritesViewModel
+import com.mhq.fynecast.home.ui.HomeViewModel
+import com.mhq.fynecast.map.ui.MapPickerViewModel
+import com.mhq.fynecast.settings.ui.SettingsViewModel
+
+private fun CreationExtras.container(): AppContainer =
+    (this[APPLICATION_KEY] as FyneCastApplication).container
+
+/** The single place where ViewModels are wired to the DI container. */
+val AppViewModelFactory: ViewModelProvider.Factory = viewModelFactory {
+
+    initializer {
+        val container = container()
+        AlertsViewModel(
+            getAlertsUseCase = container.getAlertsUseCase,
+            getTrackedAlertIdsUseCase = container.getTrackedAlertIdsUseCase,
+            observeCurrentLocationUseCase = container.observeCurrentLocationUseCase,
+            toggleAlertsUseCase = container.toggleAlertsUseCase,
+            toggleNotificationsUseCase = container.toggleNotificationsUseCase,
+            handleNotificationPermissionResultUseCase = container.handleNotificationPermissionResultUseCase,
+        )
+    }
+
+    initializer {
+        val container = container()
+        EditProfileViewModel(
+            observeUserProfileUseCase = container.observeUserProfileUseCase,
+            validateEditProfileUseCase = container.validateEditProfileUseCase,
+            updateUserProfileUseCase = container.updateUserProfileUseCase
+        )
+    }
+
+    initializer {
+        val container = container()
+        ForgotPasswordViewModel(
+            validateLoginFormUseCase = container.validateLoginFormUseCase,
+            sendPasswordResetUseCase = container.sendPasswordResetUseCase
+        )
+    }
+
+    initializer {
+        val container = container()
+        LoginViewModel(
+            loginWithEmailUseCase = container.loginWithEmailUseCase,
+            validateLoginFormUseCase = container.validateLoginFormUseCase,
+            authenticateWithSocialTokenUseCase = container.authenticateWithSocialTokenUseCase
+        )
+    }
+
+    initializer {
+        val container = container()
+        SignupViewModel(
+            validateSignupFormUseCase = container.validateSignupFormUseCase,
+            registerWithEmailUseCase = container.registerWithEmailUseCase,
+            authenticateWithSocialTokenUseCase = container.authenticateWithSocialTokenUseCase
+        )
+    }
+
+    initializer {
+        SessionViewModel(
+            checkUserLoggedIn = container().checkUserLoggedInUseCase
+        )
+    }
+
+    initializer {
+        val container = container()
+        FavoritesViewModel(
+            getFavoritesUseCase = container.getFavoritesUseCase,
+            deleteFavoriteUseCase = container.deleteFavoriteUseCase,
+            restoreFavoriteUseCase = container.restoreFavoriteUseCase,
+            refreshAllFavoritesUseCase = container.refreshAllFavoritesUseCase
+        )
+    }
+
+    initializer {
+        val container = container()
+        HomeViewModel(
+            loadCurrentWeatherUseCase = container.loadCurrentWeatherUseCase,
+            getCurrentLocationUseCase = container.getCurrentLocationUseCase,
+            getLocationSuggestionsUseCase = container.getLocationSuggestionsUseCase,
+            getLastSearchedCityUseCase = container.getLastSearchedCityUseCase,
+            observeFavoriteStatusUseCase = container.observeFavoriteStatusUseCase,
+            observeSignedInUserIdUseCase = container.observeSignedInUserIdUseCase,
+            refreshFavoriteSnapshotUseCase = container.refreshFavoriteSnapshotUseCase,
+            toggleFavoriteUseCase = container.toggleFavoriteUseCase,
+            saveLastSearchedCityUseCase = container.saveLastSearchedCityUseCase,
+            reverseGeocodeLocationUseCase = container.reverseGeocodeLocationUseCase,
+            localizePlaceNameUseCase = container.localizePlaceNameUseCase
+        )
+    }
+
+    initializer {
+        MapPickerViewModel(
+            reverseGeocodeLocationUseCase = container().reverseGeocodeLocationUseCase
+        )
+    }
+
+    initializer {
+        val container = container()
+        SettingsViewModel(
+            observeUserProfileUseCase = container.observeUserProfileUseCase,
+            observeUserPreferencesUseCase = container.observeUserPreferencesUseCase,
+            setUnitSystem = container.setUnitSystemUseCase,
+            setLanguage = container.setLanguageUseCase,
+            setDarkMode = container.setDarkModeUseCase,
+            toggleNotifications = container.toggleNotificationsUseCase,
+            handleNotificationPermissionResult = container.handleNotificationPermissionResultUseCase,
+            syncNotificationPermission = container.syncNotificationPermissionUseCase,
+            consumeNotificationPrompt = container.consumeNotificationPromptUseCase,
+            logoutUserUseCase = container.logoutUserUseCase
+        )
+    }
+}

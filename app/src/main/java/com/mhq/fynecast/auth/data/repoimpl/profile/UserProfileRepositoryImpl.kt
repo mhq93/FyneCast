@@ -9,6 +9,7 @@ import com.google.firebase.auth.userProfileChangeRequest
 import com.mhq.fynecast.auth.data.session.SessionKeys
 import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
+import com.mhq.fynecast.core.domain.util.suspendRunCatching
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -74,7 +75,7 @@ class UserProfileRepositoryImpl(
     }
 
     override suspend fun updateRemoteProfile(name: String, email: String): Result<Boolean> =
-        runCatching {
+        suspendRunCatching  {
             withContext(Dispatchers.IO) {
                 val user = firebaseAuth.currentUser
                     ?: throw Exception("No authenticated user active session found")

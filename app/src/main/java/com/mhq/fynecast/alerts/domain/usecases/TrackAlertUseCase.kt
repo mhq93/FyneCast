@@ -1,7 +1,7 @@
 package com.mhq.fynecast.alerts.domain.usecases
 
-import com.mhq.fynecast.alerts.domain.models.AlertDomainModel
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.repository.AlertTrackingController
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
 import com.mhq.fynecast.alerts.notifications.domain.infra.NotificationPermissionChecker

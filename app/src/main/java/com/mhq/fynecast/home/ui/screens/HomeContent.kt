@@ -20,8 +20,8 @@ import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
 import com.mhq.fynecast.home.ui.components.WeatherDailyCarousel
 import com.mhq.fynecast.home.ui.components.WeatherHeroCard
 import com.mhq.fynecast.home.ui.components.WeatherHourlyCarousel

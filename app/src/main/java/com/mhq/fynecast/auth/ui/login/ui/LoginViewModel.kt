@@ -129,17 +129,4 @@ class LoginViewModel(
         _loginUiState.value = LoginUiState.Error(message)
         _uiEventChannel.send(message)
     }
-
-    companion object {
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-
-                LoginViewModel(
-                    loginWithEmailUseCase = app.container.loginWithEmailUseCase,
-                    validateLoginFormUseCase = app.container.validateLoginFormUseCase,
-                    authenticateWithSocialTokenUseCase = app.container.authenticateWithSocialTokenUseCase                )
-            }
-        }
-    }
 }

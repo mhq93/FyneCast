@@ -8,13 +8,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.home.ui.HomeRetryAction
 import com.mhq.fynecast.home.ui.HomeUiState
 import com.mhq.fynecast.home.ui.HomeViewModel
 
 @Composable
 fun HomeContainer(
-    homeViewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory),
+    homeViewModel: HomeViewModel = viewModel(factory = AppViewModelFactory),
     onNavigateToMap: () -> Unit,
     onAlertsBannerClick: () -> Unit,
     onRequestPermission: (String) -> Unit,

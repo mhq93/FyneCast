@@ -43,7 +43,7 @@ import androidx.compose.ui.zIndex
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.home.domain.models.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 
 @Composable
 fun WeatherSearchBar(

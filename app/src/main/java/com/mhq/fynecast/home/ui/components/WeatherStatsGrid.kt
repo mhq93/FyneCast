@@ -18,7 +18,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.home.domain.models.WeatherStatsDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherStatsDomainModel
 import java.text.NumberFormat
 
 @Composable

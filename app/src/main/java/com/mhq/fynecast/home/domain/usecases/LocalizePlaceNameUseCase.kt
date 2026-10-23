@@ -1,6 +1,6 @@
 package com.mhq.fynecast.home.domain.usecases
 
-import com.mhq.fynecast.home.domain.repository.LocationRepository
+import com.mhq.fynecast.core.domain.location.LocationRepository
 
 class LocalizePlaceNameUseCase(private val locationRepository: LocationRepository) {
     suspend operator fun invoke(

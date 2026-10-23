@@ -10,10 +10,9 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.mhq.fynecast.alerts.domain.models.TrackedLocation
 import com.mhq.fynecast.alerts.notifications.data.infra.AlertsNotificationManager
 import com.mhq.fynecast.core.di.FyneCastApplication
-import com.mhq.fynecast.settings.domain.models.AppLanguage
+import com.mhq.fynecast.core.domain.location.TrackedLocation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
 import java.util.concurrent.TimeUnit
@@ -111,7 +110,7 @@ class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
 
         return try {
             val prefs = container.observeUserPreferencesUseCase().first()
-            val lang = AppLanguage.fromStoredName(prefs.currentLanguage).code
+            val lang = prefs.currentLanguage.code
             val snapshot = container.getWeatherUseCase(location.trackedLocationQuery, lang)
             val cleared = container.checkAlertConditionsUseCase(location, snapshot)
 

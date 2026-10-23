@@ -1,6 +1,6 @@
 package com.mhq.fynecast.home.ui
 
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
 
 sealed interface HomeUiState {
     data object Loading : HomeUiState

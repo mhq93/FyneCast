@@ -1,7 +1,7 @@
 package com.mhq.fynecast.favorites.domain.usecases
 
 import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
-import com.mhq.fynecast.home.domain.repository.WeatherRepository
+import com.mhq.fynecast.core.domain.weather.WeatherRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll

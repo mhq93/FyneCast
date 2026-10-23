@@ -1,10 +1,10 @@
 package com.mhq.fynecast.home.data.mapper
 
 import com.mhq.fynecast.home.data.api.weather.dto.WeatherApiResponse
-import com.mhq.fynecast.home.domain.models.DailyForecastDomainModel
-import com.mhq.fynecast.home.domain.models.HourlyForecastDomainModel
-import com.mhq.fynecast.home.domain.models.WeatherDomainModel
-import com.mhq.fynecast.home.domain.models.WeatherStatsDomainModel
+import com.mhq.fynecast.core.domain.weather.DailyForecastDomainModel
+import com.mhq.fynecast.core.domain.weather.HourlyForecastDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherStatsDomainModel
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
