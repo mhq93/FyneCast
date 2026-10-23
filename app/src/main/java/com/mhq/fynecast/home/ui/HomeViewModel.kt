@@ -21,7 +21,7 @@ import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
-import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SaveLastSearchedCityUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
@@ -47,7 +47,7 @@ class HomeViewModel(
     private val observeFavoriteStatusUseCase: ObserveFavoriteStatusUseCase,
     private val refreshFavoriteSnapshotUseCase: RefreshFavoriteSnapshotUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
-    private val updatePreferenceUseCase: UpdatePreferenceUseCase,
+    private val saveLastSearchedCityUseCase: SaveLastSearchedCityUseCase,
     private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase,
     private val localizePlaceNameUseCase: LocalizePlaceNameUseCase,
     private val defaultCityFallback: String = "Cairo"
@@ -127,7 +127,7 @@ class HomeViewModel(
         langCode: String
     ) {
         viewModelScope.launch {
-            updatePreferenceUseCase.lastSearchedCity(
+            saveLastSearchedCityUseCase(
                 name = suggestionName,
                 lat = lat,
                 lon = lon
@@ -177,7 +177,7 @@ class HomeViewModel(
                 onWeatherShown(loaded.weather)
                 if (target is LoadTarget.Place && target.relocalizeName && !target.nameFromDevice) {
                     viewModelScope.launch {
-                        updatePreferenceUseCase.lastSearchedCity(
+                        saveLastSearchedCityUseCase(
                             name = loaded.name,
                             lat = target.latitude,
                             lon = target.longitude
@@ -422,7 +422,7 @@ class HomeViewModel(
                     observeSignedInUserIdUseCase = app.container.observeSignedInUserIdUseCase,
                     refreshFavoriteSnapshotUseCase = app.container.refreshFavoriteSnapshotUseCase,
                     toggleFavoriteUseCase = app.container.toggleFavoriteUseCase,
-                    updatePreferenceUseCase = app.container.updatePreferenceUseCase,
+                    saveLastSearchedCityUseCase = app.container.saveLastSearchedCityUseCase,
                     reverseGeocodeLocationUseCase = app.container.reverseGeocodeLocationUseCase,
                     localizePlaceNameUseCase = app.container.localizePlaceNameUseCase
                 )

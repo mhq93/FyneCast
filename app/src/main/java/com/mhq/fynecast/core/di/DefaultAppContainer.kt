@@ -35,6 +35,7 @@ import com.mhq.fynecast.auth.data.repoimpl.auth.SocialAuthCredentialProviderImpl
 import com.mhq.fynecast.auth.data.repoimpl.profile.ImageStorageRepositoryImpl
 import com.mhq.fynecast.auth.data.repoimpl.profile.UserProfileRepositoryImpl
 import com.mhq.fynecast.auth.data.repository.auth.SocialAuthCredentialProvider
+import com.mhq.fynecast.auth.data.storage.ImageStorageManager
 import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
 import com.mhq.fynecast.auth.domain.repository.profile.ImageStorageRepository
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
@@ -50,10 +51,9 @@ import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
-import com.mhq.fynecast.auth.data.storage.ImageStorageManager
 import com.mhq.fynecast.core.data.infra.AppInitializerImpl
-import com.mhq.fynecast.core.data.time.SystemTimeProvider
 import com.mhq.fynecast.core.data.infra.FirebaseCurrentUserProvider
+import com.mhq.fynecast.core.data.time.SystemTimeProvider
 import com.mhq.fynecast.core.domain.infra.AppInitializer
 import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
 import com.mhq.fynecast.core.domain.time.TimeProvider
@@ -92,8 +92,13 @@ import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.data.repoimpl.UserPreferencesRepositoryImpl
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
+import com.mhq.fynecast.settings.domain.usecases.profile.ClearLastSearchedCityUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
-import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SaveLastSearchedCityUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetDarkModeUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetLanguageUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetNotificationsEnabledUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetUnitSystemUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -297,7 +302,7 @@ class DefaultAppContainer(
             authRepository,
             userProfileRepository,
             cancelAllAlertTrackingUseCase,
-            updatePreferenceUseCase
+            clearLastSearchedCityUseCase
         )
     }
 
@@ -308,8 +313,17 @@ class DefaultAppContainer(
     override val observeUserPreferencesUseCase by lazy {
         ObserveUserPreferencesUseCase(userPreferencesRepository)
     }
-    override val updatePreferenceUseCase by lazy {
-        UpdatePreferenceUseCase(userPreferencesRepository)
+    override val setUnitSystemUseCase by lazy { SetUnitSystemUseCase(userPreferencesRepository) }
+    override val setLanguageUseCase by lazy { SetLanguageUseCase(userPreferencesRepository) }
+    override val setDarkModeUseCase by lazy { SetDarkModeUseCase(userPreferencesRepository) }
+    override val saveLastSearchedCityUseCase by lazy {
+        SaveLastSearchedCityUseCase(userPreferencesRepository)
+    }
+    private val setNotificationsEnabledUseCase by lazy {
+        SetNotificationsEnabledUseCase(userPreferencesRepository)
+    }
+    private val clearLastSearchedCityUseCase by lazy {
+        ClearLastSearchedCityUseCase(userPreferencesRepository)
     }
 
 
@@ -411,18 +425,18 @@ class DefaultAppContainer(
     }
     override val toggleNotificationsUseCase by lazy {
         ToggleNotificationsUseCase(
-            updatePreferenceUseCase = updatePreferenceUseCase,
+            setNotificationsEnabledUseCase = setNotificationsEnabledUseCase,
             notificationPermissionChecker = notificationPermissionChecker,
             cancelAllAlertTrackingUseCase = cancelAllAlertTrackingUseCase
         )
     }
     override val handleNotificationPermissionResultUseCase by lazy {
-        HandleNotificationPermissionResultUseCase(updatePreferenceUseCase)
+        HandleNotificationPermissionResultUseCase(setNotificationsEnabledUseCase)
     }
     override val syncNotificationPermissionUseCase by lazy {
         SyncNotificationPermissionUseCase(
             observeUserPreferencesUseCase = observeUserPreferencesUseCase,
-            updatePreferenceUseCase = updatePreferenceUseCase,
+            setNotificationsEnabledUseCase = setNotificationsEnabledUseCase,
             notificationPermissionChecker = notificationPermissionChecker,
             cancelAllAlertTrackingUseCase = cancelAllAlertTrackingUseCase
         )

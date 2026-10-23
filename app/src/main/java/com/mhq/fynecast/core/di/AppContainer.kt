@@ -46,7 +46,10 @@ import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
-import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SaveLastSearchedCityUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetDarkModeUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetLanguageUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetUnitSystemUseCase
 
 interface AppContainer {
 
@@ -70,9 +73,12 @@ interface AppContainer {
     val observeUserProfileUseCase: ObserveUserProfileUseCase
     val observeSignedInUserIdUseCase: ObserveSignedInUserIdUseCase
     val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase
-    val updatePreferenceUseCase: UpdatePreferenceUseCase
     val logoutUserUseCase: LogoutUserUseCase
     val checkUserLoggedInUseCase: CheckUserLoggedInUseCase
+    val setUnitSystemUseCase: SetUnitSystemUseCase
+    val setLanguageUseCase: SetLanguageUseCase
+    val setDarkModeUseCase: SetDarkModeUseCase
+    val saveLastSearchedCityUseCase: SaveLastSearchedCityUseCase
 
     // Location Use Cases
     val getCurrentLocationUseCase: GetCurrentLocationUseCase

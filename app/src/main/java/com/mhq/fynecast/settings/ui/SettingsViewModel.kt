@@ -15,7 +15,9 @@ import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
 import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
-import com.mhq.fynecast.settings.domain.usecases.profile.UpdatePreferenceUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetDarkModeUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetLanguageUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetUnitSystemUseCase
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +34,9 @@ import kotlinx.coroutines.launch
 class SettingsViewModel(
     private val observeUserProfileUseCase: ObserveUserProfileUseCase,
     private val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase,
-    private val updatePreference: UpdatePreferenceUseCase,
+    private val setUnitSystem: SetUnitSystemUseCase,
+    private val setLanguage: SetLanguageUseCase,
+    private val setDarkMode: SetDarkModeUseCase,
     private val toggleNotifications: ToggleNotificationsUseCase,
     private val handleNotificationPermissionResult: HandleNotificationPermissionResultUseCase,
     private val syncNotificationPermission: SyncNotificationPermissionUseCase,
@@ -110,7 +114,7 @@ class SettingsViewModel(
 
     fun toggleUnitSystem(isMetric: Boolean) {
         viewModelScope.launch {
-            updatePreference.metricSystem(isMetric)
+            setUnitSystem(isMetric)
         }
     }
 
@@ -149,11 +153,11 @@ class SettingsViewModel(
     }
 
     fun toggleLanguage(language: String) {
-        viewModelScope.launch { updatePreference.language(language) }
+        viewModelScope.launch { setLanguage(language) }
     }
 
     fun toggleDarkMode(enabled: Boolean) {
-        viewModelScope.launch { updatePreference.darkMode(enabled) }
+        viewModelScope.launch { setDarkMode(enabled) }
     }
 
     fun logOutUserSession() {
@@ -179,7 +183,9 @@ class SettingsViewModel(
                 SettingsViewModel(
                     observeUserProfileUseCase = container.observeUserProfileUseCase,
                     observeUserPreferencesUseCase = container.observeUserPreferencesUseCase,
-                    updatePreference = container.updatePreferenceUseCase,
+                    setUnitSystem = container.setUnitSystemUseCase,
+                    setLanguage = container.setLanguageUseCase,
+                    setDarkMode = container.setDarkModeUseCase,
                     toggleNotifications = container.toggleNotificationsUseCase,
                     handleNotificationPermissionResult = container.handleNotificationPermissionResultUseCase,
                     syncNotificationPermission = container.syncNotificationPermissionUseCase,
