@@ -37,8 +37,9 @@ import com.mhq.fynecast.auth.ui.login.ui.screens.LoginContainer
 import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
 import com.mhq.fynecast.auth.ui.signup.ui.screens.SignupContainer
 import com.mhq.fynecast.core.di.AppViewModelFactory
+import com.mhq.fynecast.core.navigation.AppDestination
+import com.mhq.fynecast.core.navigation.BottomNavTab
 import com.mhq.fynecast.core.navigation.BottomNavigationBar
-import com.mhq.fynecast.core.navigation.BottomNavigationItem
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.favorites.ui.FavoritesViewModel
@@ -91,14 +92,9 @@ fun FyneCastApp(
         val currentRoute = navBackStackEntry?.destination?.route
         val homeUiState = homeViewModel.state.collectAsStateWithLifecycle().value.uiState
 
-        val rootRoutes = listOf(
-            BottomNavigationItem.Home.route,
-            BottomNavigationItem.Favorites.route,
-            BottomNavigationItem.Alerts.route,
-            BottomNavigationItem.Settings.route
-        )
+        val rootRoutes = BottomNavTab.entries.map { it.destination.route }
 
-        val shouldShowBar = if (currentRoute == BottomNavigationItem.Home.route) {
+        val shouldShowBar = if (currentRoute == AppDestination.Home.route) {
             homeUiState !is HomeUiState.Loading
         } else {
             currentRoute in rootRoutes
@@ -121,43 +117,43 @@ fun FyneCastApp(
                     startDestination = sessionViewModel.startDestination,
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    composable(BottomNavigationItem.Signup.route) {
+                    composable(AppDestination.Signup.route) {
                         val signupViewModel: SignupViewModel =
                             viewModel(factory = AppViewModelFactory)
                         SignupContainer(
-                            onLoginNavigate = { navController.goToAuthScreen(BottomNavigationItem.Login.route) },
+                            onLoginNavigate = { navController.goToAuthScreen(AppDestination.Login.route) },
                             onSignupClick = { navController.enterApp() },
                             modifier = Modifier,
                             signupViewModel = signupViewModel
                         )
                     }
 
-                    composable(BottomNavigationItem.Login.route) {
+                    composable(AppDestination.Login.route) {
                         LoginContainer(
-                            onSignUpNavigate = { navController.goToAuthScreen(BottomNavigationItem.Signup.route) },
+                            onSignUpNavigate = { navController.goToAuthScreen(AppDestination.Signup.route) },
                             onLoginClick = { navController.enterApp() },
                             onForgotPasswordClick = {
                                 navController.goToAuthScreen(
-                                    BottomNavigationItem.ForgotPassword.route
+                                    AppDestination.ForgotPassword.route
                                 )
                             },
                             modifier = Modifier
                         )
                     }
 
-                    composable(BottomNavigationItem.ForgotPassword.route) {
+                    composable(AppDestination.ForgotPassword.route) {
                         ForgotPasswordContainer(
-                            onBackToLoginClick = { navController.goToAuthScreen(BottomNavigationItem.Login.route) },
+                            onBackToLoginClick = { navController.goToAuthScreen(AppDestination.Login.route) },
                             onSendLinkSuccessNavigate = {
                                 navController.goToAuthScreen(
-                                    BottomNavigationItem.Login.route
+                                    AppDestination.Login.route
                                 )
                             },
                             modifier = Modifier
                         )
                     }
 
-                    composable(BottomNavigationItem.EditProfile.route) {
+                    composable(AppDestination.EditProfile.route) {
                         val editProfileViewModel: EditProfileViewModel =
                             viewModel(factory = AppViewModelFactory)
                         EditProfileContainer(
@@ -167,12 +163,12 @@ fun FyneCastApp(
                         )
                     }
 
-                    composable(BottomNavigationItem.Home.route) {
+                    composable(AppDestination.Home.route) {
                         val isMetric by settingsViewModel.isMetric.collectAsStateWithLifecycle()
                         HomeContainer(
                             homeViewModel = homeViewModel,
                             onNavigateToMap = { navController.navigate("map_picker") },
-                            onAlertsBannerClick = { navController.navigate(BottomNavigationItem.Alerts.route) },
+                            onAlertsBannerClick = { navController.navigate(AppDestination.Alerts.route) },
                             onRequestPermission = onRequestPermission,
                             contentPadding = bottomContentPadding,
                             isMetric = isMetric,
@@ -180,7 +176,7 @@ fun FyneCastApp(
                         )
                     }
 
-                    composable(BottomNavigationItem.Favorites.route) {
+                    composable(AppDestination.Favorites.route) {
                         val favoritesViewModel: FavoritesViewModel =
                             viewModel(factory = AppViewModelFactory)
 
@@ -189,8 +185,8 @@ fun FyneCastApp(
                             // Favorites destination
                             onCityRowSelected = { favoriteCity ->
                                 favoritesViewModel.onCitySelected(favoriteCity)
-                                navController.navigate(BottomNavigationItem.Home.route) {
-                                    popUpTo(BottomNavigationItem.Home.route) { saveState = true }
+                                navController.navigate(AppDestination.Home.route) {
+                                    popUpTo(AppDestination.Home.route) { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
@@ -200,22 +196,22 @@ fun FyneCastApp(
                         )
                     }
 
-                    composable(BottomNavigationItem.Alerts.route) {
+                    composable(AppDestination.Alerts.route) {
                         AlertsContainer(
                             contentPadding = bottomContentPadding,
                             alertsViewModel = alertsViewModel
                         )
                     }
 
-                    composable(BottomNavigationItem.Settings.route) {
+                    composable(AppDestination.Settings.route) {
                         SettingsContainer(
                             settingsViewModel = settingsViewModel,
                             contentPadding = bottomContentPadding,
                             onEditProfileClick = {
-                                navController.navigate(BottomNavigationItem.EditProfile.route)
+                                navController.navigate(AppDestination.EditProfile.route)
                             },
                             onLogoutClick = {
-                                navController.navigate(BottomNavigationItem.Signup.route) {
+                                navController.navigate(AppDestination.Signup.route) {
                                     popUpTo(0) { inclusive = true }
                                     launchSingleTop = true
                                 }
@@ -241,7 +237,7 @@ fun FyneCastApp(
                                     latitude = location.latitude,
                                     longitude = location.longitude
                                 )
-                                if (navController.currentBackStackEntry?.destination?.route == "map_picker") {
+                                if (navController.currentBackStackEntry?.destination?.route == AppDestination.MapPicker.route) {
                                     navController.popBackStack()
                                 }
                             },
@@ -259,11 +255,9 @@ fun FyneCastApp(
             ) {
                 BottomNavigationBar(
                     currentRoute = currentRoute,
-                    onItemSelected = { screen ->
-                        navController.navigate(screen.route) {
-                            popUpTo(BottomNavigationItem.Home.route) {
-                                saveState = true
-                            }
+                    onItemSelected = { tab ->
+                        navController.navigate(tab.destination.route) {
+                            popUpTo(AppDestination.Home.route) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
                         }
@@ -289,7 +283,7 @@ private fun NavController.goToAuthScreen(route: String) {
 }
 
 private fun NavController.enterApp() {
-    navigate(BottomNavigationItem.Home.route) {
+    navigate(AppDestination.Home.route) {
         popUpTo(0) { inclusive = true }
         launchSingleTop = true
     }

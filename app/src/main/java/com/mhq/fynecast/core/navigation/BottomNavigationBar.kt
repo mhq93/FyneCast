@@ -22,15 +22,8 @@ import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 @Composable
 fun BottomNavigationBar(
     currentRoute: String?,
-    onItemSelected: (BottomNavigationItem) -> Unit
+    onItemSelected: (BottomNavTab) -> Unit
 ) {
-    val navigationItems = listOf(
-        BottomNavigationItem.Home,
-        BottomNavigationItem.Favorites,
-        BottomNavigationItem.Alerts,
-        BottomNavigationItem.Settings
-    )
-
     Surface(
         shape = RoundedCornerShape(32.dp),
         color = MaterialTheme.colorScheme.primary,
@@ -48,28 +41,17 @@ fun BottomNavigationBar(
             containerColor = Color.Transparent,
             tonalElevation = 0.dp
         ) {
-            navigationItems.forEach { screen ->
-                val isSelected = currentRoute == screen.route
-
+            BottomNavTab.entries.forEach { tab ->
                 NavigationBarItem(
-                    selected = isSelected,
+                    selected = currentRoute == tab.destination.route,
                     label = {
-                        screen.titleRes?.let { resId ->
-                            Text(
-                                text = stringResource(id = resId),
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Text(
+                            text = stringResource(id = tab.titleRes),
+                            fontWeight = FontWeight.Bold
+                        )
                     },
-                    icon = {
-                        screen.icon?.let {
-                            Icon(
-                                it,
-                                contentDescription = null
-                            )
-                        }
-                    },
-                    onClick = { onItemSelected(screen) },
+                    icon = { Icon(tab.icon, contentDescription = null) },
+                    onClick = { onItemSelected(tab) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.onPrimary,
                         selectedTextColor = MaterialTheme.colorScheme.onPrimary,

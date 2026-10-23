@@ -12,14 +12,19 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.mhq.fynecast.alerts.ui.AlertsViewModel
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.FyneCastApp
 import com.mhq.fynecast.home.ui.HomeViewModel
 import com.mhq.fynecast.settings.ui.SettingsViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -65,34 +70,19 @@ class MainActivity : AppCompatActivity() {
         splashScreen.setKeepOnScreenCondition { !settingsViewModel.arePreferencesLoaded.value }
 
         lifecycleScope.launch {
-            var isStartupEvent = true
-            settingsViewModel.localeEvent.collect { langCode ->
-                val appLocales = AppCompatDelegate.getApplicationLocales()
-                val needsChange = if (isStartupEvent) {
-                    /**
-                     * Fresh install: no app language saved yet.
-                     * If the phone already uses this language, skip the change,
-                     * because applying it recreates the activity and shows up as a black flash.
-                     * */
-                    val effectiveLanguage =
-                        (appLocales[0] ?: resources.configuration.locales[0]).language
-                    effectiveLanguage != Locale.forLanguageTag(langCode).language
-                } else {
-                    // Later events come from the language picker: always apply and save the choice.
-                    appLocales.toLanguageTags() != langCode
-                }
-                isStartupEvent = false
-                if (needsChange) {
-                    AppCompatDelegate.setApplicationLocales(
-                        LocaleListCompat.forLanguageTags(langCode)
-                    )
-                }
-            }
+            // Wait for the saved preferences, otherwise the default language is applied first.
+            settingsViewModel.arePreferencesLoaded.first { it }
+            settingsViewModel.currentLanguage
+                .map { it.code }
+                .distinctUntilChanged()
+                .collect { langCode -> applyAppLanguage(langCode) }
         }
 
         lifecycleScope.launch {
-            settingsViewModel.requestNotificationPermissionEvent.collect {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                settingsViewModel.requestNotificationPermissionEvent.collect {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
             }
         }
 
@@ -130,6 +120,18 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             )
+        }
+    }
+
+    /**
+     * Applies the chosen language, but skips it when the app already shows it:
+     * applying recreates the activity and shows up as a black flash.
+     */
+    private fun applyAppLanguage(langCode: String) {
+        val appLocales = AppCompatDelegate.getApplicationLocales()
+        val effectiveLanguage = (appLocales[0] ?: resources.configuration.locales[0]).language
+        if (effectiveLanguage != Locale.forLanguageTag(langCode).language) {
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(langCode))
         }
     }
 

@@ -14,13 +14,10 @@ import com.mhq.fynecast.settings.domain.usecases.profile.SetDarkModeUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.SetLanguageUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.SetUnitSystemUseCase
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -39,10 +36,8 @@ class SettingsViewModel(
     private val logoutUserUseCase: LogoutUserUseCase
 ) : ViewModel() {
 
-    private val _localeEvent = MutableSharedFlow<String>(replay = 1, extraBufferCapacity = 1)
-    val localeEvent = _localeEvent.asSharedFlow()
-    private val _requestNotificationPermissionEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val requestNotificationPermissionEvent = _requestNotificationPermissionEvent.asSharedFlow()
+    private val _requestNotificationPermissionEvent = Channel<Unit>(Channel.BUFFERED)
+    val requestNotificationPermissionEvent = _requestNotificationPermissionEvent.receiveAsFlow()
     private val profileFlow = observeUserProfileUseCase()
     private val preferencesFlow = observeUserPreferencesUseCase()
     private val _logoutCompleteChannel = Channel<Unit>(Channel.BUFFERED)
@@ -99,12 +94,6 @@ class SettingsViewModel(
                 _arePreferencesLoaded.value = true
             }
         }
-        viewModelScope.launch {
-            preferencesFlow
-                .map { it.currentLanguage.code }
-                .distinctUntilChanged()
-                .collect { _localeEvent.tryEmit(it) }
-        }
     }
 
     fun onUnitSystemChanged(isMetric: Boolean) {
@@ -121,7 +110,7 @@ class SettingsViewModel(
     /** Called once the location permission flow finishes, whether it was granted or denied. */
     fun requestNotificationPermissionOnFirstLaunch() {
         viewModelScope.launch {
-            if (consumeNotificationPrompt()) _requestNotificationPermissionEvent.tryEmit(Unit)
+            if (consumeNotificationPrompt()) _requestNotificationPermissionEvent.trySend(Unit)
         }
     }
 
@@ -129,7 +118,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             when (toggleNotifications.invoke(wantsEnabled)) {
                 ToggleNotificationsUseCase.Result.PermissionRequired ->
-                    _requestNotificationPermissionEvent.tryEmit(Unit)
+                    _requestNotificationPermissionEvent.trySend(Unit)
                 else -> Unit
             }
         }

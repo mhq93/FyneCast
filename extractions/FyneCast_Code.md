@@ -1326,6 +1326,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * ViewModel managing state, user actions, permission flows, and event channels for the alerts feature.
@@ -1347,7 +1348,7 @@ class AlertsViewModel(
                 emit(AlertsUiState.Success(alerts))
             } else {
                 emit(AlertsUiState.Loading)
-                delay(LOAD_TIMEOUT_MILLIS)
+                delay(LOAD_TIMEOUT_MILLIS.milliseconds)
                 emit(AlertsUiState.Unavailable)
             }
         }
@@ -1453,21 +1454,6 @@ class AlertsViewModel(
 
     companion object {
         private const val LOAD_TIMEOUT_MILLIS = 20_000L
-
-        /** Factory providing dependency injection wiring from the application container. */
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-                AlertsViewModel(
-                    getAlertsUseCase = app.container.getAlertsUseCase,
-                    getTrackedAlertIdsUseCase = app.container.getTrackedAlertIdsUseCase,
-                    observeCurrentLocationUseCase = app.container.observeCurrentLocationUseCase,
-                    toggleAlertsUseCase = app.container.toggleAlertsUseCase,
-                    toggleNotificationsUseCase = app.container.toggleNotificationsUseCase,
-                    handleNotificationPermissionResultUseCase = app.container.handleNotificationPermissionResultUseCase,
-                )
-            }
-        }
     }
 }
 ```
@@ -1949,6 +1935,7 @@ import com.mhq.fynecast.alerts.ui.AlertsEvent
 import com.mhq.fynecast.alerts.ui.AlertsUiState
 import com.mhq.fynecast.alerts.ui.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.components.NotificationsDialog
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import kotlinx.coroutines.launch
 
 /**
@@ -1957,8 +1944,7 @@ import kotlinx.coroutines.launch
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
 fun AlertsContainer(
-    alertsViewModel: AlertsViewModel = viewModel(factory = AlertsViewModel.factory),
-    contentPadding: PaddingValues = PaddingValues(0.dp),
+    alertsViewModel: AlertsViewModel = viewModel(factory = AppViewModelFactory),    contentPadding: PaddingValues = PaddingValues(0.dp),
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -3480,26 +3466,22 @@ sealed interface EditProfileUiState {
 package com.mhq.fynecast.auth.ui.editprofile.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.R
+import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
 import com.mhq.fynecast.auth.ui.toUiText
-import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.core.ui.text.UiText
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -3520,57 +3502,24 @@ class EditProfileViewModel(
     private val _navigationEventChannel = Channel<Unit>(Channel.BUFFERED)
     val navigationEvent = _navigationEventChannel.receiveAsFlow()
 
-    private val _profileImageUri = MutableStateFlow<String?>(null)
-    val profileImageUri = _profileImageUri.asStateFlow()
-    fun onProfileImagePicked(uriString: String) {
-        _profileImageUri.value = uriString
-    }
+    /**
+     * The stored profile, emitted once it is loaded (null until then).
+     * The UI copies it into its own fields one time; later refreshes of the profile
+     * never overwrite what the user is typing.
+     */
+    val initialProfile: StateFlow<UserDomainModel?> = flow {
+        emit(observeUserProfileUseCase().first { it.id.isNotEmpty() })
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    private val _username = MutableStateFlow("")
-    val username = _username.asStateFlow()
-    fun onUsernameChanged(newUsername: String) {
-        _username.value = newUsername
-    }
-    val isUsernameValid = _username
-        .map { validateEditProfileUseCase.validateUsernameFormat(it) }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            true
-        )
+    /** Pure checks used by the UI to show field errors while typing. */
+    fun isUsernameValid(username: String): Boolean =
+        validateEditProfileUseCase.validateUsernameFormat(username)
 
-    private val _userEmail = MutableStateFlow("")
-    val userEmail = _userEmail.asStateFlow()
-    fun onUserEmailChanged(newEmail: String) {
-        _userEmail.value = newEmail.trim()
-    }
-    val isEmailValid = _userEmail
-        .map { validateEditProfileUseCase.validateEmailFormat(it) }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            true
-        )
+    fun isEmailValid(email: String): Boolean =
+        validateEditProfileUseCase.validateEmailFormat(email)
 
-    init {
-        viewModelScope.launch {
-            /** Seed the form once.
-            The flow starts with a placeholder (empty id) and re-emits on every refresh,
-            so collecting it would overwrite what the user is typing. */
-            val profile = observeUserProfileUseCase().first { it.id.isNotEmpty() }
-            if (_username.value.isEmpty()) _username.value = profile.name
-            if (_userEmail.value.isEmpty()) _userEmail.value = profile.email
-            if (_profileImageUri.value == null) _profileImageUri.value = profile.profileImageUri
-        }
-    }
-
-    fun handleSavingProfileChanges() {
-        when (
-            val validation = validateEditProfileUseCase(
-                _username.value,
-                _userEmail.value
-            )
-        ) {
+    fun onSaveProfileAction(username: String, email: String, profileImageUri: String?) {
+        when (val validation = validateEditProfileUseCase(username, email)) {
             is ValidationResult.Success -> {
                 if (_editProfileUiState.value is EditProfileUiState.Loading) return
                 _editProfileUiState.value = EditProfileUiState.Loading
@@ -3579,9 +3528,9 @@ class EditProfileViewModel(
                     _uiEventChannel.send(UiText.res(R.string.msg_profile_processing))
 
                     updateUserProfileUseCase(
-                        newName = _username.value,
-                        newEmail = _userEmail.value,
-                        localImageUriString = _profileImageUri.value
+                        newName = username,
+                        newEmail = email,
+                        localImageUriString = profileImageUri
                     )
                         .onSuccess { verificationSent ->
                             _editProfileUiState.value = EditProfileUiState.Success
@@ -3610,18 +3559,6 @@ class EditProfileViewModel(
 
     companion object {
         private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
-
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-
-                EditProfileViewModel(
-                    observeUserProfileUseCase = app.container.observeUserProfileUseCase,
-                    validateEditProfileUseCase = app.container.validateEditProfileUseCase,
-                    updateUserProfileUseCase = app.container.updateUserProfileUseCase
-                )
-            }
-        }
     }
 }
 ```
@@ -3641,8 +3578,11 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -3650,23 +3590,38 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.launch
 
 @Composable
 fun EditProfileContainer(
-    editProfileViewModel: EditProfileViewModel = viewModel(factory = EditProfileViewModel.factory),
+    editProfileViewModel: EditProfileViewModel = viewModel(factory = AppViewModelFactory),
     onBackClick: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
-    val profileImageUri by editProfileViewModel.profileImageUri.collectAsStateWithLifecycle()
-    val username by editProfileViewModel.username.collectAsStateWithLifecycle()
-    val isUsernameValid by editProfileViewModel.isUsernameValid.collectAsStateWithLifecycle()
-    val userEmail by editProfileViewModel.userEmail.collectAsStateWithLifecycle()
-    val isEmailValid by editProfileViewModel.isEmailValid.collectAsStateWithLifecycle()
+    val initialProfile by editProfileViewModel.initialProfile.collectAsStateWithLifecycle()
+
+    var username by rememberSaveable { mutableStateOf("") }
+    var userEmail by rememberSaveable { mutableStateOf("") }
+    var profileImageUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var isSeeded by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
+
+    LaunchedEffect(initialProfile) {
+        val profile = initialProfile ?: return@LaunchedEffect
+        if (!isSeeded) {
+            username = profile.name
+            userEmail = profile.email
+            profileImageUri = profile.profileImageUri
+            isSeeded = true
+        }
+    }
+
+    val isUsernameValid = editProfileViewModel.isUsernameValid(username)
+    val isEmailValid = editProfileViewModel.isEmailValid(userEmail)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -3694,16 +3649,18 @@ fun EditProfileContainer(
             userEmail = userEmail,
             isUsernameValid = isUsernameValid,
             isEmailValid = isEmailValid,
-            onUsernameChanged = editProfileViewModel::onUsernameChanged,
-            onUserEmailChanged = editProfileViewModel::onUserEmailChanged,
+            onUsernameChanged = { username = it },
+            onUserEmailChanged = { userEmail = it.trim() },
             onBackClick = onBackClick,
             onSaveClick = {
-                editProfileViewModel.handleSavingProfileChanges()
+                editProfileViewModel.onSaveProfileAction(username, userEmail, profileImageUri)
             },
             contentPadding = contentPadding,
             modifier = modifier,
             profileImageUri = profileImageUri,
-            onProfileImagePicked = editProfileViewModel::onProfileImagePicked
+            onProfileImagePicked = {
+                profileImageUri = it
+            }
         )
         SnackbarHost(
             hostState = snackbarHostState,
@@ -3711,8 +3668,8 @@ fun EditProfileContainer(
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 96.dp)
                 .padding(horizontal = 24.dp)
-        ) {
-            data -> AuthWarningSnackbar(data)
+        ) { data ->
+            AuthWarningSnackbar(data)
         }
     }
 }
@@ -3996,25 +3953,16 @@ sealed interface ForgotPasswordUiState {
 package com.mhq.fynecast.auth.ui.forgotpassword.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.domain.usecases.auth.SendPasswordResetUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
 import com.mhq.fynecast.auth.ui.toUiText
-import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.core.ui.text.UiText
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -4030,29 +3978,19 @@ class ForgotPasswordViewModel(
     private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
     val navigationEvent = _navigationEvent.receiveAsFlow()
 
-    private val _email = MutableStateFlow("")
-    val email = _email.asStateFlow()
-    fun onEmailChanged(newEmail: String) {
-        _email.value = newEmail.trim()
-    }
+    /** Pure check used by the UI to show the field error while typing. */
+    fun isEmailValid(email: String): Boolean =
+        validateLoginFormUseCase.validateEmailFormat(email)
 
-    val isEmailValid = _email
-        .map { validateLoginFormUseCase.validateEmailFormat(it) }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            true
-        )
-
-    fun handlePasswordReset() {
+    fun onPasswordResetAction(email: String) {
         val state = _forgotPasswordUiState.value
         if (state is ForgotPasswordUiState.Loading || state is ForgotPasswordUiState.Success) return
         viewModelScope.launch {
             _forgotPasswordUiState.value = ForgotPasswordUiState.Loading
-            sendPasswordResetUseCase(_email.value)
+            sendPasswordResetUseCase(email)
                 .onSuccess {
                     _forgotPasswordUiState.value = ForgotPasswordUiState.Success
-                    _uiEventChannel.send(UiText.res(R.string.msg_reset_link_sent, _email.value))
+                    _uiEventChannel.send(UiText.res(R.string.msg_reset_link_sent, email))
                     delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
                     _navigationEvent.send(Unit)
                 }
@@ -4066,17 +4004,6 @@ class ForgotPasswordViewModel(
 
     companion object {
         private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
-
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-
-                ForgotPasswordViewModel(
-                    validateLoginFormUseCase = app.container.validateLoginFormUseCase,
-                    sendPasswordResetUseCase = app.container.sendPasswordResetUseCase
-                )
-            }
-        }
     }
 }
 ```
@@ -4095,26 +4022,29 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.forgotpassword.ui.ForgotPasswordViewModel
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
 fun ForgotPasswordContainer(
-    forgotPasswordViewModel: ForgotPasswordViewModel = viewModel(factory = ForgotPasswordViewModel.factory),
+    forgotPasswordViewModel: ForgotPasswordViewModel = viewModel(factory = AppViewModelFactory),
     onSendLinkSuccessNavigate: () -> Unit,
     onBackToLoginClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val email by forgotPasswordViewModel.email.collectAsStateWithLifecycle()
-    val isEmailValid by forgotPasswordViewModel.isEmailValid.collectAsStateWithLifecycle()
+    var email by rememberSaveable { mutableStateOf("") }
+    val isEmailValid = forgotPasswordViewModel.isEmailValid(email)
 
     val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -4137,10 +4067,9 @@ fun ForgotPasswordContainer(
         ForgotPasswordContent(
             email = email,
             isEmailValid = isEmailValid,
-            onEmailChanged = forgotPasswordViewModel::onEmailChanged,
+            onEmailChanged = { email = it.trim() },
             onBackToLoginClick = onBackToLoginClick,
-            onSendLink = { forgotPasswordViewModel.handlePasswordReset() },
-            modifier = modifier
+            onSendLink = { forgotPasswordViewModel.onPasswordResetAction(email) },            modifier = modifier
         )
 
         SnackbarHost(
@@ -4429,27 +4358,18 @@ sealed interface LoginUiState {
 package com.mhq.fynecast.auth.ui.login.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.LoginWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
 import com.mhq.fynecast.auth.ui.toUiText
-import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.core.ui.text.UiText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class LoginViewModel(
@@ -4464,37 +4384,17 @@ class LoginViewModel(
     private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
     val navigationEvent = _navigationEvent.receiveAsFlow()
 
-    private val _email = MutableStateFlow("")
-    val email = _email.asStateFlow()
-    fun onEmailChanged(newEmail: String) {
-        _email.value = newEmail.trim()
-    }
-    val isEmailValid = _email
-        .map { validateLoginFormUseCase.validateEmailFormat(it) }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            true
-        )
+    /** Pure check used by the UI to show the field error while typing. */
+    fun isEmailValid(email: String): Boolean =
+        validateLoginFormUseCase.validateEmailFormat(email)
 
-    private val _password = MutableStateFlow("")
-    val password = _password.asStateFlow()
-    fun onPasswordChanged(newPassword: String) {
-        _password.value = newPassword
-    }
-    private val _passwordVisible = MutableStateFlow(false)
-    val passwordVisible = _passwordVisible.asStateFlow()
-    fun togglePasswordVisibility() {
-        _passwordVisible.value = !_passwordVisible.value
-    }
-
-    fun validateThenLogin() {
+    fun onLoginAction(email: String, password: String) {
         if (_loginUiState.value is LoginUiState.Loading) return
-        when (val validation = validateLoginFormUseCase(_email.value, _password.value)) {
+        when (val validation = validateLoginFormUseCase(email, password)) {
             is ValidationResult.Success -> {
                 viewModelScope.launch {
                     _loginUiState.value = LoginUiState.Loading
-                    loginWithEmailUseCase(_email.value, _password.value)
+                    loginWithEmailUseCase(email, password)
                         .onSuccess {
                             _loginUiState.value = LoginUiState.Success
                             _navigationEvent.send(Unit)
@@ -4557,19 +4457,6 @@ class LoginViewModel(
         _loginUiState.value = LoginUiState.Error(message)
         _uiEventChannel.send(message)
     }
-
-    companion object {
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-
-                LoginViewModel(
-                    loginWithEmailUseCase = app.container.loginWithEmailUseCase,
-                    validateLoginFormUseCase = app.container.validateLoginFormUseCase,
-                    authenticateWithSocialTokenUseCase = app.container.authenticateWithSocialTokenUseCase                )
-            }
-        }
-    }
 }
 ```
 
@@ -4588,32 +4475,35 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
 import com.mhq.fynecast.auth.ui.social.SocialTokenFetcher
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @Composable
 fun LoginContainer(
-    loginViewModel: LoginViewModel = viewModel(factory = LoginViewModel.factory),
+    loginViewModel: LoginViewModel = viewModel(factory = AppViewModelFactory),
     onLoginClick: () -> Unit,
     onSignUpNavigate: () -> Unit,
     onForgotPasswordClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val email by loginViewModel.email.collectAsStateWithLifecycle()
-    val isEmailValid by loginViewModel.isEmailValid.collectAsStateWithLifecycle()
-    val password by loginViewModel.password.collectAsStateWithLifecycle()
-    val isPasswordVisible by loginViewModel.passwordVisible.collectAsStateWithLifecycle()
+    var email by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
+    val isEmailValid = loginViewModel.isEmailValid(email)
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -4637,14 +4527,13 @@ fun LoginContainer(
         LoginContent(
             email = email,
             isEmailValid = isEmailValid,
-            onEmailChanged = loginViewModel::onEmailChanged,
+            onEmailChanged = { email = it.trim() },
             password = password,
-            onPasswordChanged = loginViewModel::onPasswordChanged,
+            onPasswordChanged = { password = it },
             isPasswordVisible = isPasswordVisible,
-            onTogglePasswordVisibility = loginViewModel::togglePasswordVisibility,
+            onTogglePasswordVisibility = { isPasswordVisible = !isPasswordVisible },
             onSignUpClick = onSignUpNavigate,
-            onLoginClick = { loginViewModel.validateThenLogin() },
-            onForgotPasswordClick = onForgotPasswordClick,
+            onLoginClick = { loginViewModel.onLoginAction(email, password) },            onForgotPasswordClick = onForgotPasswordClick,
             onGoogleAuthenticate = {
                 scope.launch {
                     loginViewModel.onGoogleAuthenticate {
@@ -5024,36 +4913,40 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
 import com.mhq.fynecast.auth.ui.social.SocialTokenFetcher
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 @Composable
 fun SignupContainer(
-    signupViewModel: SignupViewModel = viewModel(factory = SignupViewModel.factory),
+    signupViewModel: SignupViewModel = viewModel(factory = AppViewModelFactory),
     onSignupClick: () -> Unit,
     onLoginNavigate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val userName by signupViewModel.username.collectAsStateWithLifecycle()
-    val isUsernameValid by signupViewModel.isUsernameValid.collectAsStateWithLifecycle()
-    val userEmail by signupViewModel.userEmail.collectAsStateWithLifecycle()
-    val isEmailValid by signupViewModel.isEmailValid.collectAsStateWithLifecycle()
-    val userPassword by signupViewModel.userPassword.collectAsStateWithLifecycle()
-    val isPasswordValid by signupViewModel.isPasswordValid.collectAsStateWithLifecycle()
-    val confirmPassword by signupViewModel.confirmPassword.collectAsStateWithLifecycle()
-    val doPasswordsMatch by signupViewModel.doPasswordsMatch.collectAsStateWithLifecycle()
-    val arePasswordsVisible by signupViewModel.arePasswordsVisible.collectAsStateWithLifecycle()
+    var userName by rememberSaveable { mutableStateOf("") }
+    var userEmail by rememberSaveable { mutableStateOf("") }
+    var userPassword by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var arePasswordsVisible by rememberSaveable { mutableStateOf(false) }
+
+    val isUsernameValid = signupViewModel.isUsernameValid(userName)
+    val isEmailValid = signupViewModel.isEmailValid(userEmail)
+    val isPasswordValid = signupViewModel.isPasswordValid(userPassword)
+    val doPasswordsMatch = signupViewModel.doPasswordsMatch(userPassword, confirmPassword)
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -5079,19 +4972,18 @@ fun SignupContainer(
         SignupContent(
             username = userName,
             isUsernameValid = isUsernameValid,
-            onUsernameChanged = signupViewModel::onUsernameChanged,
+            onUsernameChanged = { userName = it },
             email = userEmail,
             isEmailValid = isEmailValid,
-            onEmailChanged = signupViewModel::onUserEmailChanged,
+            onEmailChanged = { userEmail = it.trim() },
             password = userPassword,
             isPasswordValid = isPasswordValid,
-            onPasswordChanged = signupViewModel::onUserPasswordChanged,
+            onPasswordChanged = { userPassword = it },
             confirmPassword = confirmPassword,
-            onConfirmPasswordChanged = signupViewModel::onConfirmPasswordChanged,
+            onConfirmPasswordChanged = { confirmPassword = it },
             doPasswordsMatch = doPasswordsMatch,
             arePasswordsVisible = arePasswordsVisible,
-            onTogglePasswordVisibility = signupViewModel::togglePasswordsVisibility,
-            onGoogleAuthenticate = {
+            onTogglePasswordVisibility = { arePasswordsVisible = !arePasswordsVisible },            onGoogleAuthenticate = {
                 scope.launch {
                     signupViewModel.onGoogleAuthenticate {
                         SocialTokenFetcher.getGoogleIdToken(context)
@@ -5108,7 +5000,9 @@ fun SignupContainer(
                 }
             },
             onLoginClick = onLoginNavigate,
-            onSignupClick = { signupViewModel.validateThenRegister() },
+            onSignupClick = {
+                signupViewModel.onSignupAction(userName, userEmail, userPassword, confirmPassword)
+            },
             modifier = modifier
         )
 
@@ -5278,28 +5172,18 @@ sealed interface SignupUiState {
 package com.mhq.fynecast.auth.ui.signup.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.RegisterWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
 import com.mhq.fynecast.auth.ui.toUiText
-import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.core.ui.text.UiText
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration.Companion.milliseconds
@@ -5316,79 +5200,32 @@ class SignupViewModel(
     private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
     val navigationEvent = _navigationEvent.receiveAsFlow()
 
-    private val _username = MutableStateFlow("")
-    val username = _username.asStateFlow()
-    fun onUsernameChanged(newUsername: String) {
-        _username.value = newUsername
-    }
+    /** Pure checks used by the UI to show field errors while typing. */
+    fun isUsernameValid(username: String): Boolean =
+        validateSignupFormUseCase.validateUsername(username)
 
-    val isUsernameValid = _username
-        .map { validateSignupFormUseCase.validateUsername(it) }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            true
-        )
+    fun isEmailValid(email: String): Boolean =
+        validateSignupFormUseCase.validateEmail(email)
 
-    private val _userEmail = MutableStateFlow("")
-    val userEmail = _userEmail.asStateFlow()
-    fun onUserEmailChanged(newEmail: String) {
-        _userEmail.value = newEmail.trim()
-    }
+    fun isPasswordValid(password: String): Boolean =
+        validateSignupFormUseCase.validatePassword(password)
 
-    val isEmailValid = _userEmail
-        .map { validateSignupFormUseCase.validateEmail(it) }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            true
-        )
+    fun doPasswordsMatch(password: String, confirmPassword: String): Boolean =
+        validateSignupFormUseCase.validatePasswordMatch(password, confirmPassword)
 
-    private val _userPassword = MutableStateFlow("")
-    val userPassword = _userPassword.asStateFlow()
-    fun onUserPasswordChanged(newPassword: String) {
-        _userPassword.value = newPassword
-    }
-
-    val isPasswordValid = _userPassword
-        .map { validateSignupFormUseCase.validatePassword(it) }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            true
-        )
-
-    private val _confirmPassword = MutableStateFlow("")
-    val confirmPassword = _confirmPassword.asStateFlow()
-    fun onConfirmPasswordChanged(newConfirmedPassword: String) {
-        _confirmPassword.value = newConfirmedPassword
-    }
-
-    private val _arePasswordsVisible = MutableStateFlow(false)
-    val arePasswordsVisible = _arePasswordsVisible.asStateFlow()
-    fun togglePasswordsVisibility() {
-        _arePasswordsVisible.value = !_arePasswordsVisible.value
-    }
-
-    val doPasswordsMatch = combine(_userPassword, _confirmPassword) {
-        password, confirmedPassword ->  validateSignupFormUseCase.validatePasswordMatch(
-        password,
-        confirmedPassword
-        )
-    }.stateIn(
-        viewModelScope,
-        SharingStarted.WhileSubscribed(5000),
-        true
-    )
-
-    fun validateThenRegister() {
+    fun onSignupAction(
+        username: String,
+        email: String,
+        password: String,
+        confirmPassword: String
+    ) {
         val state = _signupUiState.value
         if (state is SignupUiState.Loading || state is SignupUiState.Success) return
         val validation = validateSignupFormUseCase(
-            username = _username.value,
-            email = _userEmail.value,
-            password = _userPassword.value,
-            confirmPassword = _confirmPassword.value
+            username = username,
+            email = email,
+            password = password,
+            confirmPassword = confirmPassword
         )
         if (validation is ValidationResult.Failure) {
             viewModelScope.launch { _uiEventChannel.send(validation.error.toUiText()) }
@@ -5397,9 +5234,9 @@ class SignupViewModel(
         viewModelScope.launch {
             _signupUiState.value = SignupUiState.Loading
             registerWithEmailUseCase(
-                username = _username.value,
-                email = _userEmail.value,
-                password = _userPassword.value
+                username = username,
+                email = email,
+                password = password
             )
                 .onSuccess {
                     _signupUiState.value = SignupUiState.Success
@@ -5462,18 +5299,6 @@ class SignupViewModel(
 
     companion object {
         private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
-
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-
-                SignupViewModel(
-                    validateSignupFormUseCase = app.container.validateSignupFormUseCase,
-                    registerWithEmailUseCase = app.container.registerWithEmailUseCase,
-                    authenticateWithSocialTokenUseCase = app.container.authenticateWithSocialTokenUseCase
-                )
-            }
-        }
     }
 }
 ```
@@ -5659,6 +5484,24 @@ class FirebaseCurrentUserProvider(
 }
 ```
 
+## core\data\location\SelectedCityRepositoryImpl.kt
+
+```kotlin
+package com.mhq.fynecast.core.data.location
+
+import com.mhq.fynecast.core.domain.location.SelectedCity
+import com.mhq.fynecast.core.domain.location.SelectedCityRepository
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
+
+class SelectedCityRepositoryImpl : SelectedCityRepository {
+    private val channel = Channel<SelectedCity>(Channel.BUFFERED)
+    override val selections: Flow<SelectedCity> = channel.receiveAsFlow()
+    override suspend fun select(city: SelectedCity) = channel.send(city)
+}
+```
+
 ## core\data\time\SystemTimeProvider.kt
 
 ```kotlin
@@ -5704,6 +5547,8 @@ import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
 import com.mhq.fynecast.core.domain.infra.AppInitializer
+import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
+import com.mhq.fynecast.core.domain.location.SelectCityUseCase
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
@@ -5719,6 +5564,7 @@ import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
+import com.mhq.fynecast.home.domain.usecases.ResolveStartupLocationUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.SaveLastSearchedCityUseCase
@@ -5759,6 +5605,9 @@ interface AppContainer {
     val getLocationSuggestionsUseCase: GetLocationSuggestionsUseCase
     val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase
     val getLastSearchedCityUseCase: GetLastSearchedCityUseCase
+    val resolveStartupLocationUseCase: ResolveStartupLocationUseCase
+    val selectCityUseCase: SelectCityUseCase
+    val observeSelectedCityUseCase: ObserveSelectedCityUseCase
     val localizePlaceNameUseCase: LocalizePlaceNameUseCase
     val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase
 
@@ -5788,6 +5637,140 @@ interface AppContainer {
     val handleNotificationPermissionResultUseCase: HandleNotificationPermissionResultUseCase
     val syncNotificationPermissionUseCase: SyncNotificationPermissionUseCase
     val consumeNotificationPromptUseCase: ConsumeNotificationPromptUseCase
+}
+```
+
+## core\di\AppViewModelFactory.kt
+
+```kotlin
+package com.mhq.fynecast.core.di
+
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
+import androidx.lifecycle.viewmodel.CreationExtras
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.mhq.fynecast.alerts.ui.AlertsViewModel
+import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
+import com.mhq.fynecast.auth.ui.forgotpassword.ui.ForgotPasswordViewModel
+import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
+import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
+import com.mhq.fynecast.core.navigation.SessionViewModel
+import com.mhq.fynecast.favorites.ui.FavoritesViewModel
+import com.mhq.fynecast.home.ui.HomeViewModel
+import com.mhq.fynecast.map.ui.MapPickerViewModel
+import com.mhq.fynecast.settings.ui.SettingsViewModel
+
+private fun CreationExtras.container(): AppContainer =
+    (this[APPLICATION_KEY] as FyneCastApplication).container
+
+/** The single place where ViewModels are wired to the DI container. */
+val AppViewModelFactory: ViewModelProvider.Factory = viewModelFactory {
+
+    initializer {
+        val container = container()
+        AlertsViewModel(
+            getAlertsUseCase = container.getAlertsUseCase,
+            getTrackedAlertIdsUseCase = container.getTrackedAlertIdsUseCase,
+            observeCurrentLocationUseCase = container.observeCurrentLocationUseCase,
+            toggleAlertsUseCase = container.toggleAlertsUseCase,
+            toggleNotificationsUseCase = container.toggleNotificationsUseCase,
+            handleNotificationPermissionResultUseCase = container.handleNotificationPermissionResultUseCase,
+        )
+    }
+
+    initializer {
+        val container = container()
+        EditProfileViewModel(
+            observeUserProfileUseCase = container.observeUserProfileUseCase,
+            validateEditProfileUseCase = container.validateEditProfileUseCase,
+            updateUserProfileUseCase = container.updateUserProfileUseCase
+        )
+    }
+
+    initializer {
+        val container = container()
+        ForgotPasswordViewModel(
+            validateLoginFormUseCase = container.validateLoginFormUseCase,
+            sendPasswordResetUseCase = container.sendPasswordResetUseCase
+        )
+    }
+
+    initializer {
+        val container = container()
+        LoginViewModel(
+            loginWithEmailUseCase = container.loginWithEmailUseCase,
+            validateLoginFormUseCase = container.validateLoginFormUseCase,
+            authenticateWithSocialTokenUseCase = container.authenticateWithSocialTokenUseCase
+        )
+    }
+
+    initializer {
+        val container = container()
+        SignupViewModel(
+            validateSignupFormUseCase = container.validateSignupFormUseCase,
+            registerWithEmailUseCase = container.registerWithEmailUseCase,
+            authenticateWithSocialTokenUseCase = container.authenticateWithSocialTokenUseCase
+        )
+    }
+
+    initializer {
+        SessionViewModel(
+            checkUserLoggedIn = container().checkUserLoggedInUseCase
+        )
+    }
+
+    initializer {
+        val container = container()
+        FavoritesViewModel(
+            getFavoritesUseCase = container.getFavoritesUseCase,
+            deleteFavoriteUseCase = container.deleteFavoriteUseCase,
+            restoreFavoriteUseCase = container.restoreFavoriteUseCase,
+            refreshAllFavoritesUseCase = container.refreshAllFavoritesUseCase,
+            selectCityUseCase = container.selectCityUseCase
+        )
+    }
+
+    initializer {
+        val container = container()
+        HomeViewModel(
+            loadCurrentWeatherUseCase = container.loadCurrentWeatherUseCase,
+            getLocationSuggestionsUseCase = container.getLocationSuggestionsUseCase,
+            observeFavoriteStatusUseCase = container.observeFavoriteStatusUseCase,
+            observeSignedInUserIdUseCase = container.observeSignedInUserIdUseCase,
+            observeSelectedCityUseCase = container.observeSelectedCityUseCase,
+            resolveStartupLocationUseCase = container.resolveStartupLocationUseCase,
+            refreshFavoriteSnapshotUseCase = container.refreshFavoriteSnapshotUseCase,
+            toggleFavoriteUseCase = container.toggleFavoriteUseCase,
+            saveLastSearchedCityUseCase = container.saveLastSearchedCityUseCase,
+            reverseGeocodeLocationUseCase = container.reverseGeocodeLocationUseCase,
+            localizePlaceNameUseCase = container.localizePlaceNameUseCase
+        )
+    }
+
+    initializer {
+        val container = container()
+        MapPickerViewModel(
+            reverseGeocodeLocationUseCase = container().reverseGeocodeLocationUseCase,
+            selectCityUseCase = container.selectCityUseCase
+        )
+    }
+
+    initializer {
+        val container = container()
+        SettingsViewModel(
+            observeUserProfileUseCase = container.observeUserProfileUseCase,
+            observeUserPreferencesUseCase = container.observeUserPreferencesUseCase,
+            setUnitSystem = container.setUnitSystemUseCase,
+            setLanguage = container.setLanguageUseCase,
+            setDarkMode = container.setDarkModeUseCase,
+            toggleNotifications = container.toggleNotificationsUseCase,
+            handleNotificationPermissionResult = container.handleNotificationPermissionResultUseCase,
+            syncNotificationPermission = container.syncNotificationPermissionUseCase,
+            consumeNotificationPrompt = container.consumeNotificationPromptUseCase,
+            logoutUserUseCase = container.logoutUserUseCase
+        )
+    }
 }
 ```
 
@@ -5849,6 +5832,7 @@ import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
 import com.mhq.fynecast.core.data.infra.AppInitializerImpl
 import com.mhq.fynecast.core.data.infra.FirebaseCurrentUserProvider
+import com.mhq.fynecast.core.data.location.SelectedCityRepositoryImpl
 import com.mhq.fynecast.core.data.time.SystemTimeProvider
 import com.mhq.fynecast.core.domain.infra.AppInitializer
 import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
@@ -5874,6 +5858,9 @@ import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
 import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
 import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
 import com.mhq.fynecast.core.domain.location.LocationRepository
+import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
+import com.mhq.fynecast.core.domain.location.SelectCityUseCase
+import com.mhq.fynecast.core.domain.location.SelectedCityRepository
 import com.mhq.fynecast.core.domain.weather.WeatherRepository
 import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
@@ -5884,6 +5871,7 @@ import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
+import com.mhq.fynecast.home.domain.usecases.ResolveStartupLocationUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.data.repoimpl.UserPreferencesRepositoryImpl
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
@@ -6023,6 +6011,18 @@ class DefaultAppContainer(
     }
     override val getLastSearchedCityUseCase: GetLastSearchedCityUseCase by lazy {
         GetLastSearchedCityUseCase(userPreferencesRepository)
+    }
+    private val selectedCityRepository: SelectedCityRepository by lazy {
+        SelectedCityRepositoryImpl()
+    }
+    override val selectCityUseCase: SelectCityUseCase by lazy {
+        SelectCityUseCase(selectedCityRepository)
+    }
+    override val observeSelectedCityUseCase: ObserveSelectedCityUseCase by lazy {
+        ObserveSelectedCityUseCase(selectedCityRepository)
+    }
+    override val resolveStartupLocationUseCase: ResolveStartupLocationUseCase by lazy {
+        ResolveStartupLocationUseCase(getCurrentLocationUseCase, getLastSearchedCityUseCase)
     }
 
 
@@ -6387,6 +6387,54 @@ interface LocationRepository {
 }
 ```
 
+## core\domain\location\ObserveSelectedCityUseCase.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.location
+
+import kotlinx.coroutines.flow.Flow
+
+class ObserveSelectedCityUseCase(private val repository: SelectedCityRepository) {
+    operator fun invoke(): Flow<SelectedCity> = repository.selections
+}
+```
+
+## core\domain\location\SelectCityUseCase.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.location
+
+class SelectCityUseCase(private val repository: SelectedCityRepository) {
+    suspend operator fun invoke(city: SelectedCity) = repository.select(city)
+}
+```
+
+## core\domain\location\SelectedCity.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.location
+
+data class SelectedCity(
+    val name: String,
+    val latitude: Double,
+    val longitude: Double
+)
+```
+
+## core\domain\location\SelectedCityRepository.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.location
+
+import kotlinx.coroutines.flow.Flow
+
+/** Carries "the user picked this city" from any screen to Home. Each pick is delivered once. */
+interface SelectedCityRepository {
+    val selections: Flow<SelectedCity>
+    suspend fun select(city: SelectedCity)
+}
+```
+
 ## core\domain\location\TrackedLocation.kt
 
 ```kotlin
@@ -6552,6 +6600,25 @@ data class WeatherStatsDomainModel(
 )
 ```
 
+## core\navigation\AppDestination.kt
+
+```kotlin
+package com.mhq.fynecast.core.navigation
+
+/** Every screen route in the app. */
+enum class AppDestination(val route: String) {
+    Signup("signup"),
+    Login("login"),
+    ForgotPassword("forgot_password"),
+    EditProfile("edit_profile"),
+    MapPicker("map_picker"),
+    Home("home"),
+    Favorites("favorites"),
+    Alerts("alerts"),
+    Settings("settings")
+}
+```
+
 ## core\navigation\BottomNavigationBar.kt
 
 ```kotlin
@@ -6579,15 +6646,8 @@ import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 @Composable
 fun BottomNavigationBar(
     currentRoute: String?,
-    onItemSelected: (BottomNavigationItem) -> Unit
+    onItemSelected: (BottomNavTab) -> Unit
 ) {
-    val navigationItems = listOf(
-        BottomNavigationItem.Home,
-        BottomNavigationItem.Favorites,
-        BottomNavigationItem.Alerts,
-        BottomNavigationItem.Settings
-    )
-
     Surface(
         shape = RoundedCornerShape(32.dp),
         color = MaterialTheme.colorScheme.primary,
@@ -6605,28 +6665,17 @@ fun BottomNavigationBar(
             containerColor = Color.Transparent,
             tonalElevation = 0.dp
         ) {
-            navigationItems.forEach { screen ->
-                val isSelected = currentRoute == screen.route
-
+            BottomNavTab.entries.forEach { tab ->
                 NavigationBarItem(
-                    selected = isSelected,
+                    selected = currentRoute == tab.destination.route,
                     label = {
-                        screen.titleRes?.let { resId ->
-                            Text(
-                                text = stringResource(id = resId),
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Text(
+                            text = stringResource(id = tab.titleRes),
+                            fontWeight = FontWeight.Bold
+                        )
                     },
-                    icon = {
-                        screen.icon?.let {
-                            Icon(
-                                it,
-                                contentDescription = null
-                            )
-                        }
-                    },
-                    onClick = { onItemSelected(screen) },
+                    icon = { Icon(tab.icon, contentDescription = null) },
+                    onClick = { onItemSelected(tab) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.onPrimary,
                         selectedTextColor = MaterialTheme.colorScheme.onPrimary,
@@ -6652,7 +6701,7 @@ fun BottomNavigationBarPreview() {
 }
 ```
 
-## core\navigation\BottomNavigationItem.kt
+## core\navigation\BottomNavTab.kt
 
 ```kotlin
 package com.mhq.fynecast.core.navigation
@@ -6666,20 +6715,16 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.mhq.fynecast.R
 
-sealed class BottomNavigationItem(
-    val route: String,
-    @StringRes val titleRes: Int? = null,
-    val icon: ImageVector? = null
+/** Only the four tabs shown in the bottom bar. */
+enum class BottomNavTab(
+    val destination: AppDestination,
+    @StringRes val titleRes: Int,
+    val icon: ImageVector
 ) {
-    object Signup : BottomNavigationItem("signup")
-    object Login : BottomNavigationItem("login")
-    object ForgotPassword : BottomNavigationItem("forgot_password")
-    object EditProfile : BottomNavigationItem("edit_profile")
-
-    object Home : BottomNavigationItem("home", R.string.home, Icons.Default.Home)
-    object Favorites : BottomNavigationItem("favorites", R.string.favorites, Icons.Default.Favorite)
-    object Alerts : BottomNavigationItem("alerts", R.string.alerts, Icons.Default.Notifications)
-    object Settings : BottomNavigationItem("settings", R.string.settings, Icons.Default.Settings)
+    Home(AppDestination.Home, R.string.home, Icons.Default.Home),
+    Favorites(AppDestination.Favorites, R.string.favorites, Icons.Default.Favorite),
+    Alerts(AppDestination.Alerts, R.string.alerts, Icons.Default.Notifications),
+    Settings(AppDestination.Settings, R.string.settings, Icons.Default.Settings)
 }
 ```
 
@@ -6689,31 +6734,16 @@ sealed class BottomNavigationItem(
 package com.mhq.fynecast.core.navigation
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
-import com.mhq.fynecast.core.di.FyneCastApplication
 
 class SessionViewModel(
     checkUserLoggedIn: CheckUserLoggedInUseCase
 ) : ViewModel() {
     val startDestination: String =
         if (checkUserLoggedIn())
-            BottomNavigationItem.Home.route
+            AppDestination.Home.route
         else
-            BottomNavigationItem.Signup.route
-
-    companion object {
-        val factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-                SessionViewModel(
-                    checkUserLoggedIn = app.container.checkUserLoggedInUseCase
-                )
-            }
-        }
-    }
+            AppDestination.Signup.route
 }
 ```
 
@@ -7516,8 +7546,10 @@ import com.mhq.fynecast.auth.ui.forgotpassword.ui.screens.ForgotPasswordContaine
 import com.mhq.fynecast.auth.ui.login.ui.screens.LoginContainer
 import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
 import com.mhq.fynecast.auth.ui.signup.ui.screens.SignupContainer
+import com.mhq.fynecast.core.di.AppViewModelFactory
+import com.mhq.fynecast.core.navigation.AppDestination
+import com.mhq.fynecast.core.navigation.BottomNavTab
 import com.mhq.fynecast.core.navigation.BottomNavigationBar
-import com.mhq.fynecast.core.navigation.BottomNavigationItem
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.favorites.ui.FavoritesViewModel
@@ -7559,7 +7591,7 @@ fun FyneCastApp(
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (true) {
                 delay(AUTO_REFRESH_INTERVAL_MILLIS.milliseconds)
-                homeViewModel.refreshCurrentCity(appLangCode)
+                homeViewModel.onRefreshRequested(appLangCode)
             }
         }
     }
@@ -7570,14 +7602,9 @@ fun FyneCastApp(
         val currentRoute = navBackStackEntry?.destination?.route
         val homeUiState = homeViewModel.state.collectAsStateWithLifecycle().value.uiState
 
-        val rootRoutes = listOf(
-            BottomNavigationItem.Home.route,
-            BottomNavigationItem.Favorites.route,
-            BottomNavigationItem.Alerts.route,
-            BottomNavigationItem.Settings.route
-        )
+        val rootRoutes = BottomNavTab.entries.map { it.destination.route }
 
-        val shouldShowBar = if (currentRoute == BottomNavigationItem.Home.route) {
+        val shouldShowBar = if (currentRoute == AppDestination.Home.route) {
             homeUiState !is HomeUiState.Loading
         } else {
             currentRoute in rootRoutes
@@ -7600,45 +7627,45 @@ fun FyneCastApp(
                     startDestination = sessionViewModel.startDestination,
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    composable(BottomNavigationItem.Signup.route) {
+                    composable(AppDestination.Signup.route) {
                         val signupViewModel: SignupViewModel =
-                            viewModel(factory = SignupViewModel.factory)
+                            viewModel(factory = AppViewModelFactory)
                         SignupContainer(
-                            onLoginNavigate = { navController.goToAuthScreen(BottomNavigationItem.Login.route) },
+                            onLoginNavigate = { navController.goToAuthScreen(AppDestination.Login.route) },
                             onSignupClick = { navController.enterApp() },
                             modifier = Modifier,
                             signupViewModel = signupViewModel
                         )
                     }
 
-                    composable(BottomNavigationItem.Login.route) {
+                    composable(AppDestination.Login.route) {
                         LoginContainer(
-                            onSignUpNavigate = { navController.goToAuthScreen(BottomNavigationItem.Signup.route) },
+                            onSignUpNavigate = { navController.goToAuthScreen(AppDestination.Signup.route) },
                             onLoginClick = { navController.enterApp() },
                             onForgotPasswordClick = {
                                 navController.goToAuthScreen(
-                                    BottomNavigationItem.ForgotPassword.route
+                                    AppDestination.ForgotPassword.route
                                 )
                             },
                             modifier = Modifier
                         )
                     }
 
-                    composable(BottomNavigationItem.ForgotPassword.route) {
+                    composable(AppDestination.ForgotPassword.route) {
                         ForgotPasswordContainer(
-                            onBackToLoginClick = { navController.goToAuthScreen(BottomNavigationItem.Login.route) },
+                            onBackToLoginClick = { navController.goToAuthScreen(AppDestination.Login.route) },
                             onSendLinkSuccessNavigate = {
                                 navController.goToAuthScreen(
-                                    BottomNavigationItem.Login.route
+                                    AppDestination.Login.route
                                 )
                             },
                             modifier = Modifier
                         )
                     }
 
-                    composable(BottomNavigationItem.EditProfile.route) {
+                    composable(AppDestination.EditProfile.route) {
                         val editProfileViewModel: EditProfileViewModel =
-                            viewModel(factory = EditProfileViewModel.factory)
+                            viewModel(factory = AppViewModelFactory)
                         EditProfileContainer(
                             onBackClick = { navController.popBackStack() },
                             contentPadding = bottomContentPadding,
@@ -7646,12 +7673,12 @@ fun FyneCastApp(
                         )
                     }
 
-                    composable(BottomNavigationItem.Home.route) {
+                    composable(AppDestination.Home.route) {
                         val isMetric by settingsViewModel.isMetric.collectAsStateWithLifecycle()
                         HomeContainer(
                             homeViewModel = homeViewModel,
                             onNavigateToMap = { navController.navigate("map_picker") },
-                            onAlertsBannerClick = { navController.navigate(BottomNavigationItem.Alerts.route) },
+                            onAlertsBannerClick = { navController.navigate(AppDestination.Alerts.route) },
                             onRequestPermission = onRequestPermission,
                             contentPadding = bottomContentPadding,
                             isMetric = isMetric,
@@ -7659,21 +7686,17 @@ fun FyneCastApp(
                         )
                     }
 
-                    composable(BottomNavigationItem.Favorites.route) {
+                    composable(AppDestination.Favorites.route) {
                         val favoritesViewModel: FavoritesViewModel =
-                            viewModel(factory = FavoritesViewModel.factory)
+                            viewModel(factory = AppViewModelFactory)
 
                         FavoritesContainer(
                             favoritesViewModel = favoritesViewModel,
+                            // Favorites destination
                             onCityRowSelected = { favoriteCity ->
-                                homeViewModel.onCitySelected(
-                                    suggestionName = "${favoriteCity.cityName}, ${favoriteCity.countryName}",
-                                    lat = favoriteCity.latitude,
-                                    lon = favoriteCity.longitude,
-                                    langCode = appLangCode
-                                )
-                                navController.navigate(BottomNavigationItem.Home.route) {
-                                    popUpTo(BottomNavigationItem.Home.route) { saveState = true }
+                                favoritesViewModel.onCitySelected(favoriteCity)
+                                navController.navigate(AppDestination.Home.route) {
+                                    popUpTo(AppDestination.Home.route) { saveState = true }
                                     launchSingleTop = true
                                     restoreState = true
                                 }
@@ -7683,22 +7706,22 @@ fun FyneCastApp(
                         )
                     }
 
-                    composable(BottomNavigationItem.Alerts.route) {
+                    composable(AppDestination.Alerts.route) {
                         AlertsContainer(
                             contentPadding = bottomContentPadding,
                             alertsViewModel = alertsViewModel
                         )
                     }
 
-                    composable(BottomNavigationItem.Settings.route) {
+                    composable(AppDestination.Settings.route) {
                         SettingsContainer(
                             settingsViewModel = settingsViewModel,
                             contentPadding = bottomContentPadding,
                             onEditProfileClick = {
-                                navController.navigate(BottomNavigationItem.EditProfile.route)
+                                navController.navigate(AppDestination.EditProfile.route)
                             },
                             onLogoutClick = {
-                                navController.navigate(BottomNavigationItem.Signup.route) {
+                                navController.navigate(AppDestination.Signup.route) {
                                     popUpTo(0) { inclusive = true }
                                     launchSingleTop = true
                                 }
@@ -7709,7 +7732,7 @@ fun FyneCastApp(
                     composable("map_picker") {
                         val mapLangCode = currentLanguage.code
                         val mapPickerViewModel: MapPickerViewModel =
-                            viewModel(factory = MapPickerViewModel.factory)
+                            viewModel(factory = AppViewModelFactory)
 
                         val currentWeather = (homeUiState as? HomeUiState.Success)?.weather
                         MapPickerScreen(
@@ -7717,14 +7740,14 @@ fun FyneCastApp(
                             langCode = mapLangCode,
                             initialLatitude = currentWeather?.latitude,
                             initialLongitude = currentWeather?.longitude,
+                            // map_picker destination
                             onLocationPicked = { location ->
-                                homeViewModel.onCitySelected(
-                                    suggestionName = location.fullName,
-                                    lat = location.latitude,
-                                    lon = location.longitude,
-                                    langCode = mapLangCode
+                                mapPickerViewModel.onLocationConfirmed(
+                                    name = location.fullName,
+                                    latitude = location.latitude,
+                                    longitude = location.longitude
                                 )
-                                if (navController.currentBackStackEntry?.destination?.route == "map_picker") {
+                                if (navController.currentBackStackEntry?.destination?.route == AppDestination.MapPicker.route) {
                                     navController.popBackStack()
                                 }
                             },
@@ -7742,11 +7765,9 @@ fun FyneCastApp(
             ) {
                 BottomNavigationBar(
                     currentRoute = currentRoute,
-                    onItemSelected = { screen ->
-                        navController.navigate(screen.route) {
-                            popUpTo(BottomNavigationItem.Home.route) {
-                                saveState = true
-                            }
+                    onItemSelected = { tab ->
+                        navController.navigate(tab.destination.route) {
+                            popUpTo(AppDestination.Home.route) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
                         }
@@ -7772,7 +7793,7 @@ private fun NavController.goToAuthScreen(route: String) {
 }
 
 private fun NavController.enterApp() {
-    navigate(BottomNavigationItem.Home.route) {
+    navigate(AppDestination.Home.route) {
         popUpTo(0) { inclusive = true }
         launchSingleTop = true
     }
@@ -7865,32 +7886,38 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.mhq.fynecast.alerts.ui.AlertsViewModel
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.FyneCastApp
 import com.mhq.fynecast.home.ui.HomeViewModel
 import com.mhq.fynecast.settings.ui.SettingsViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
     private val homeViewModel: HomeViewModel by lazy {
-        ViewModelProvider(this, HomeViewModel.factory)[HomeViewModel::class.java]
+        ViewModelProvider(this, AppViewModelFactory)[HomeViewModel::class.java]
     }
 
     private val alertsViewModel: AlertsViewModel by lazy {
-        ViewModelProvider(this, AlertsViewModel.factory)[AlertsViewModel::class.java]
+        ViewModelProvider(this, AppViewModelFactory)[AlertsViewModel::class.java]
     }
 
     private val settingsViewModel: SettingsViewModel by lazy {
-        ViewModelProvider(this, SettingsViewModel.factory)[SettingsViewModel::class.java]
+        ViewModelProvider(this, AppViewModelFactory)[SettingsViewModel::class.java]
     }
 
     private val sessionViewModel: SessionViewModel by lazy {
-        ViewModelProvider(this, SessionViewModel.factory)[SessionViewModel::class.java]
+        ViewModelProvider(this, AppViewModelFactory)[SessionViewModel::class.java]
     }
 
     private var onLocationPermissionResult: ((Boolean) -> Unit)? = null
@@ -7917,34 +7944,19 @@ class MainActivity : AppCompatActivity() {
         splashScreen.setKeepOnScreenCondition { !settingsViewModel.arePreferencesLoaded.value }
 
         lifecycleScope.launch {
-            var isStartupEvent = true
-            settingsViewModel.localeEvent.collect { langCode ->
-                val appLocales = AppCompatDelegate.getApplicationLocales()
-                val needsChange = if (isStartupEvent) {
-                    /**
-                     * Fresh install: no app language saved yet.
-                     * If the phone already uses this language, skip the change,
-                     * because applying it recreates the activity and shows up as a black flash.
-                     * */
-                    val effectiveLanguage =
-                        (appLocales[0] ?: resources.configuration.locales[0]).language
-                    effectiveLanguage != Locale.forLanguageTag(langCode).language
-                } else {
-                    // Later events come from the language picker: always apply and save the choice.
-                    appLocales.toLanguageTags() != langCode
-                }
-                isStartupEvent = false
-                if (needsChange) {
-                    AppCompatDelegate.setApplicationLocales(
-                        LocaleListCompat.forLanguageTags(langCode)
-                    )
-                }
-            }
+            // Wait for the saved preferences, otherwise the default language is applied first.
+            settingsViewModel.arePreferencesLoaded.first { it }
+            settingsViewModel.currentLanguage
+                .map { it.code }
+                .distinctUntilChanged()
+                .collect { langCode -> applyAppLanguage(langCode) }
         }
 
         lifecycleScope.launch {
-            settingsViewModel.requestNotificationPermissionEvent.collect {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                settingsViewModel.requestNotificationPermissionEvent.collect {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
             }
         }
 
@@ -7985,11 +7997,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Applies the chosen language, but skips it when the app already shows it:
+     * applying recreates the activity and shows up as a black flash.
+     */
+    private fun applyAppLanguage(langCode: String) {
+        val appLocales = AppCompatDelegate.getApplicationLocales()
+        val effectiveLanguage = (appLocales[0] ?: resources.configuration.locales[0]).language
+        if (effectiveLanguage != Locale.forLanguageTag(langCode).language) {
+            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(langCode))
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         val currentLangTag = AppCompatDelegate.getApplicationLocales().toLanguageTags().ifEmpty { "en" }
-        homeViewModel.refreshCurrentCity(langCode = currentLangTag)
-        settingsViewModel.syncNotificationPermissionState()
+        homeViewModel.onRefreshRequested(langCode = currentLangTag)
+        settingsViewModel.onAppResumed()
     }
 }
 ```
@@ -8917,6 +8941,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.core.domain.location.SelectCityUseCase
+import com.mhq.fynecast.core.domain.location.SelectedCity
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
@@ -8934,7 +8960,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class FavoritesViewModel(
-    getFavoritesUseCase: GetFavoritesUseCase,
+    private val selectCityUseCase: SelectCityUseCase,
+    private val getFavoritesUseCase: GetFavoritesUseCase,
     private val deleteFavoriteUseCase: DeleteFavoriteUseCase,
     private val restoreFavoriteUseCase: RestoreFavoriteUseCase,
     private val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase
@@ -8952,6 +8979,18 @@ class FavoritesViewModel(
     val events: Flow<FavoritesEvent> = _events.receiveAsFlow()
 
     private var lastRemoved: FavoriteCityDomainModel? = null
+
+    fun onCitySelected(city: FavoriteCityDomainModel) {
+        viewModelScope.launch {
+            selectCityUseCase(
+                SelectedCity(
+                    name = "${city.cityName}, ${city.countryName}",
+                    latitude = city.latitude,
+                    longitude = city.longitude
+                )
+            )
+        }
+    }
 
     fun onDeleteFavorite(city: FavoriteCityDomainModel) {
         viewModelScope.launch {
@@ -8982,21 +9021,6 @@ class FavoritesViewModel(
                 throw e
             } catch (e: Exception) {
                 // Old temperatures stay; nothing else to do.
-            }
-        }
-    }
-
-    companion object {
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-
-                FavoritesViewModel(
-                    getFavoritesUseCase = app.container.getFavoritesUseCase,
-                    deleteFavoriteUseCase = app.container.deleteFavoriteUseCase,
-                    restoreFavoriteUseCase = app.container.restoreFavoriteUseCase,
-                    refreshAllFavoritesUseCase = app.container.refreshAllFavoritesUseCase
-                )
             }
         }
     }
@@ -9082,6 +9106,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.ui.FavoritesEvent
@@ -9091,7 +9116,7 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun FavoritesContainer(
-    favoritesViewModel: FavoritesViewModel = viewModel(factory = FavoritesViewModel.factory),
+    favoritesViewModel: FavoritesViewModel = viewModel(factory = AppViewModelFactory),
     onCityRowSelected: (FavoriteCityDomainModel) -> Unit,
     isMetric: Boolean,
     contentPadding: PaddingValues = PaddingValues(0.dp),
@@ -10262,6 +10287,16 @@ fun WeatherDomainModel.toFavoriteCity() = FavoriteCityDomainModel(
     temperatureF = currentTempF,
     weatherIconUrl = conditionIcon
 )
+
+/** Same as [toFavoriteCity], but uses the name the user picked ("City, Country") when there is one. */
+fun WeatherDomainModel.toFavoriteCity(displayName: String): FavoriteCityDomainModel {
+    val base = toFavoriteCity()
+    if (displayName.isBlank()) return base
+    return base.copy(
+        cityName = displayName.substringBefore(",").trim(),
+        countryName = displayName.substringAfter(",", "").trim().ifBlank { base.countryName }
+    )
+}
 ```
 
 ## home\domain\models\SavedCityDomainModel.kt
@@ -10273,6 +10308,20 @@ data class SavedCityDomainModel(
     val name: String,
     val latitude: Double,
     val longitude: Double
+)
+```
+
+## home\domain\models\StartupLocation.kt
+
+```kotlin
+package com.mhq.fynecast.home.domain.models
+
+data class StartupLocation(
+    val query: String,
+    val name: String?,
+    val latitude: Double?,
+    val longitude: Double?,
+    val fromDevice: Boolean
 )
 ```
 
@@ -10459,6 +10508,62 @@ import kotlinx.coroutines.flow.Flow
 
 class ObserveSignedInUserIdUseCase(private val currentUserProvider: CurrentUserProvider) {
     operator fun invoke(): Flow<String?> = currentUserProvider.observeUserId()
+}
+```
+
+## home\domain\usecases\ResolveStartupLocationUseCase.kt
+
+```kotlin
+package com.mhq.fynecast.home.domain.usecases
+
+import com.mhq.fynecast.home.domain.models.StartupLocation
+import kotlinx.coroutines.CancellationException
+
+/** Where to load weather on startup: GPS (when allowed) → last searched city → default city. */
+class ResolveStartupLocationUseCase(
+    private val getCurrentLocationUseCase: GetCurrentLocationUseCase,
+    private val getLastSearchedCityUseCase: GetLastSearchedCityUseCase,
+    private val defaultCity: String = "Cairo"
+) {
+    suspend operator fun invoke(useDeviceLocation: Boolean): StartupLocation {
+        val coordinates = if (useDeviceLocation) {
+            try {
+                getCurrentLocationUseCase()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
+        } else null
+
+        if (coordinates != null) {
+            return StartupLocation(
+                query = "${coordinates.latitude},${coordinates.longitude}",
+                name = null,
+                latitude = coordinates.latitude,
+                longitude = coordinates.longitude,
+                fromDevice = true
+            )
+        }
+        val savedCity = getLastSearchedCityUseCase()
+        return if (savedCity != null) {
+            StartupLocation(
+                query = "${savedCity.latitude},${savedCity.longitude}",
+                name = savedCity.name,
+                latitude = savedCity.latitude,
+                longitude = savedCity.longitude,
+                fromDevice = false
+            )
+        } else {
+            StartupLocation(
+                query = defaultCity,
+                name = null,
+                latitude = null,
+                longitude = null,
+                fromDevice = false
+            )
+        }
+    }
 }
 ```
 
@@ -11848,24 +11953,18 @@ package com.mhq.fynecast.home.ui
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
 import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
 import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
 import com.mhq.fynecast.home.domain.mapper.toFavoriteCity
-import com.mhq.fynecast.core.domain.location.GeoCoordinates
-import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
-import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
-import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
 import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
 import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
+import com.mhq.fynecast.home.domain.usecases.ResolveStartupLocationUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.SaveLastSearchedCityUseCase
 import kotlinx.coroutines.CancellationException
@@ -11886,9 +11985,9 @@ import kotlin.time.Duration.Companion.milliseconds
 
 class HomeViewModel(
     private val loadCurrentWeatherUseCase: LoadCurrentWeatherUseCase,
-    private val getCurrentLocationUseCase: GetCurrentLocationUseCase,
+    private val resolveStartupLocationUseCase : ResolveStartupLocationUseCase,
+    private val observeSelectedCityUseCase: ObserveSelectedCityUseCase,
     private val getLocationSuggestionsUseCase: GetLocationSuggestionsUseCase,
-    private val getLastSearchedCityUseCase: GetLastSearchedCityUseCase,
     private val observeSignedInUserIdUseCase: ObserveSignedInUserIdUseCase,
     private val observeFavoriteStatusUseCase: ObserveFavoriteStatusUseCase,
     private val refreshFavoriteSnapshotUseCase: RefreshFavoriteSnapshotUseCase,
@@ -11941,14 +12040,6 @@ class HomeViewModel(
         val fromDevice: Boolean
     )
 
-    private class StartupSpot(
-        val query: String,
-        val name: String?,
-        val latitude: Double?,
-        val longitude: Double?,
-        val fromDevice: Boolean
-    )
-
     private class LoadedCity(
         val weather: WeatherDomainModel,
         val name: String,
@@ -11959,6 +12050,12 @@ class HomeViewModel(
         observeSignedInUserIdUseCase()
             .drop(1)
             .onEach { resetForNewSession() }
+            .launchIn(viewModelScope)
+
+        observeSelectedCityUseCase()
+            .onEach { city ->
+                onCitySelected(city.name, city.latitude, city.longitude, latestLangCode ?: "en")
+            }
             .launchIn(viewModelScope)
     }
 
@@ -12076,7 +12173,8 @@ class HomeViewModel(
             }
 
             is LoadTarget.Startup -> {
-                val spot = startupSpot(target)
+                delay(300.milliseconds)
+                val spot = resolveStartupLocationUseCase(target.useDeviceLocation)
                 val weather = loadCurrentWeatherUseCase(spot.query, langCode)
                 val deviceName = if (spot.fromDevice) {
                     lookupCityName(spot.latitude, spot.longitude, langCode)
@@ -12098,49 +12196,7 @@ class HomeViewModel(
             }
         }
 
-    /** GPS (when allowed) → last searched city → default city. */
-    private suspend fun startupSpot(target: LoadTarget.Startup): StartupSpot {
-        delay(300.milliseconds)
-        val coordinates = if (target.useDeviceLocation) currentCoordinatesOrNull() else null
-        if (coordinates != null) {
-            return StartupSpot(
-                query = "${coordinates.latitude},${coordinates.longitude}",
-                name = null,
-                latitude = coordinates.latitude,
-                longitude = coordinates.longitude,
-                fromDevice = true
-            )
-        }
-        val savedCity = getLastSearchedCityUseCase()
-        return if (savedCity != null) {
-            StartupSpot(
-                query = "${savedCity.latitude},${savedCity.longitude}",
-                name = savedCity.name,
-                latitude = savedCity.latitude,
-                longitude = savedCity.longitude,
-                fromDevice = false
-            )
-        } else {
-            StartupSpot(
-                query = defaultCityFallback,
-                name = null,
-                latitude = null,
-                longitude = null,
-                fromDevice = false
-            )
-        }
-    }
-
-    private suspend fun currentCoordinatesOrNull(): GeoCoordinates? =
-        try {
-            getCurrentLocationUseCase()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            null
-        }
-
-    fun refreshCurrentCity(langCode: String) {
+    fun onRefreshRequested(langCode: String) {
         val now = System.currentTimeMillis()
         if (now - lastRefreshTime < refreshCooldownMillis) return
         if (loadJob?.isActive == true) return
@@ -12209,18 +12265,7 @@ class HomeViewModel(
     fun onToggleFavorite() {
         val state = _state.value
         val weather = (state.uiState as? HomeUiState.Success)?.weather ?: return
-        val pickedName = state.selectedCityName
-        val favorite = weather.toFavoriteCity().let { city ->
-            if (pickedName.isBlank()) {
-                city
-            } else {
-                city.copy(
-                    cityName = pickedName.substringBefore(",").trim(),
-                    countryName = pickedName.substringAfter(",", "").trim()
-                        .ifBlank { city.countryName }
-                )
-            }
-        }
+        val favorite = weather.toFavoriteCity(state.selectedCityName)
         viewModelScope.launch { toggleFavoriteUseCase(favorite) }
     }
 
@@ -12259,25 +12304,6 @@ class HomeViewModel(
         private const val TAG = "HomeViewModel"
         private const val LOAD_TIMEOUT_MILLIS = 30_000L
         private const val NAME_LOOKUP_TIMEOUT_MILLIS = 4_000L
-
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = this[APPLICATION_KEY] as FyneCastApplication
-                HomeViewModel(
-                    loadCurrentWeatherUseCase = app.container.loadCurrentWeatherUseCase,
-                    getCurrentLocationUseCase = app.container.getCurrentLocationUseCase,
-                    getLocationSuggestionsUseCase = app.container.getLocationSuggestionsUseCase,
-                    getLastSearchedCityUseCase = app.container.getLastSearchedCityUseCase,
-                    observeFavoriteStatusUseCase = app.container.observeFavoriteStatusUseCase,
-                    observeSignedInUserIdUseCase = app.container.observeSignedInUserIdUseCase,
-                    refreshFavoriteSnapshotUseCase = app.container.refreshFavoriteSnapshotUseCase,
-                    toggleFavoriteUseCase = app.container.toggleFavoriteUseCase,
-                    saveLastSearchedCityUseCase = app.container.saveLastSearchedCityUseCase,
-                    reverseGeocodeLocationUseCase = app.container.reverseGeocodeLocationUseCase,
-                    localizePlaceNameUseCase = app.container.localizePlaceNameUseCase
-                )
-            }
-        }
     }
 }
 ```
@@ -12295,13 +12321,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.home.ui.HomeRetryAction
 import com.mhq.fynecast.home.ui.HomeUiState
 import com.mhq.fynecast.home.ui.HomeViewModel
 
 @Composable
 fun HomeContainer(
-    homeViewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory),
+    homeViewModel: HomeViewModel = viewModel(factory = AppViewModelFactory),
     onNavigateToMap: () -> Unit,
     onAlertsBannerClick: () -> Unit,
     onRequestPermission: (String) -> Unit,
@@ -12921,12 +12948,10 @@ data class MapPickerUiState(
 package com.mhq.fynecast.map.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.core.domain.location.SelectCityUseCase
+import com.mhq.fynecast.core.domain.location.SelectedCity
 import com.mhq.fynecast.core.ui.text.UiText
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import kotlinx.coroutines.CancellationException
@@ -12938,6 +12963,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class MapPickerViewModel(
+    private val selectCityUseCase: SelectCityUseCase,
     private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase
 ) : ViewModel() {
 
@@ -12978,15 +13004,8 @@ class MapPickerViewModel(
         }
     }
 
-    companion object {
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as FyneCastApplication
-                MapPickerViewModel(
-                    reverseGeocodeLocationUseCase = app.container.reverseGeocodeLocationUseCase
-                )
-            }
-        }
+    fun onLocationConfirmed(name: String, latitude: Double, longitude: Double) {
+        viewModelScope.launch { selectCityUseCase(SelectedCity(name, latitude, longitude)) }
     }
 }
 ```
@@ -14079,11 +14098,12 @@ import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 
 @Composable
 fun SettingsContainer(
-    settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory),
+    settingsViewModel: SettingsViewModel = viewModel(factory = AppViewModelFactory),
     onEditProfileClick: () -> Unit,
     onLogoutClick: () -> Unit,
     contentPadding: PaddingValues,
@@ -14118,18 +14138,18 @@ fun SettingsContainer(
     Box(modifier = modifier.fillMaxSize()) {
         SettingsContent(
             isMetric = isMetric,
-            onMetricToggle = settingsViewModel::toggleUnitSystem,
+            onMetricToggle = settingsViewModel::onUnitSystemChanged,
             isDarkMode = isDarkMode,
-            onDarkModeToggle = settingsViewModel::toggleDarkMode,
+            onDarkModeToggle = settingsViewModel::onThemeChanged,
             notificationsEnabled = notificationsEnabled,
             onNotificationsToggle = settingsViewModel::toggleNotifications,
             profileName = profileName,
             profileEmail = profileEmail,
             profileImageUri = profileImageUri,
             currentLanguage = currentLanguage,
-            onLanguageChange = settingsViewModel::toggleLanguage,
+            onLanguageChange = settingsViewModel::onLanguageChanged,
             onEditProfileClick = onEditProfileClick,
-            onLogoutClick = { settingsViewModel.logOutUserSession() },
+            onLogoutClick = { settingsViewModel.onLogoutAction() },
             contentPadding = contentPadding,
             modifier = modifier
         )
@@ -14280,31 +14300,23 @@ data class SettingsState(
 package com.mhq.fynecast.settings.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.alerts.notifications.domain.usecases.ConsumeNotificationPromptUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.HandleNotificationPermissionResultUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.SyncNotificationPermissionUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
-import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.SetDarkModeUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.SetLanguageUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.SetUnitSystemUseCase
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -14323,10 +14335,8 @@ class SettingsViewModel(
     private val logoutUserUseCase: LogoutUserUseCase
 ) : ViewModel() {
 
-    private val _localeEvent = MutableSharedFlow<String>(replay = 1, extraBufferCapacity = 1)
-    val localeEvent = _localeEvent.asSharedFlow()
-    private val _requestNotificationPermissionEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val requestNotificationPermissionEvent = _requestNotificationPermissionEvent.asSharedFlow()
+    private val _requestNotificationPermissionEvent = Channel<Unit>(Channel.BUFFERED)
+    val requestNotificationPermissionEvent = _requestNotificationPermissionEvent.receiveAsFlow()
     private val profileFlow = observeUserProfileUseCase()
     private val preferencesFlow = observeUserPreferencesUseCase()
     private val _logoutCompleteChannel = Channel<Unit>(Channel.BUFFERED)
@@ -14383,15 +14393,9 @@ class SettingsViewModel(
                 _arePreferencesLoaded.value = true
             }
         }
-        viewModelScope.launch {
-            preferencesFlow
-                .map { it.currentLanguage.code }
-                .distinctUntilChanged()
-                .collect { _localeEvent.tryEmit(it) }
-        }
     }
 
-    fun toggleUnitSystem(isMetric: Boolean) {
+    fun onUnitSystemChanged(isMetric: Boolean) {
         viewModelScope.launch {
             setUnitSystem(isMetric)
         }
@@ -14405,7 +14409,7 @@ class SettingsViewModel(
     /** Called once the location permission flow finishes, whether it was granted or denied. */
     fun requestNotificationPermissionOnFirstLaunch() {
         viewModelScope.launch {
-            if (consumeNotificationPrompt()) _requestNotificationPermissionEvent.tryEmit(Unit)
+            if (consumeNotificationPrompt()) _requestNotificationPermissionEvent.trySend(Unit)
         }
     }
 
@@ -14413,7 +14417,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             when (toggleNotifications.invoke(wantsEnabled)) {
                 ToggleNotificationsUseCase.Result.PermissionRequired ->
-                    _requestNotificationPermissionEvent.tryEmit(Unit)
+                    _requestNotificationPermissionEvent.trySend(Unit)
                 else -> Unit
             }
         }
@@ -14425,21 +14429,21 @@ class SettingsViewModel(
         }
     }
 
-    fun syncNotificationPermissionState() {
+    fun onAppResumed() {
         viewModelScope.launch {
             syncNotificationPermission()
         }
     }
 
-    fun toggleLanguage(language: AppLanguage)  {
+    fun onLanguageChanged(language: AppLanguage)  {
         viewModelScope.launch { setLanguage(language) }
     }
 
-    fun toggleDarkMode(enabled: Boolean) {
+    fun onThemeChanged(enabled: Boolean) {
         viewModelScope.launch { setDarkMode(enabled) }
     }
 
-    fun logOutUserSession() {
+    fun onLogoutAction() {
         if (isLoggingOut) return
         isLoggingOut = true
         viewModelScope.launch {
@@ -14450,27 +14454,6 @@ class SettingsViewModel(
                 )
             } finally {
                 isLoggingOut = false
-            }
-        }
-    }
-
-    companion object {
-        val factory: ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                val app = (this[APPLICATION_KEY] as FyneCastApplication)
-                val container = app.container
-                SettingsViewModel(
-                    observeUserProfileUseCase = container.observeUserProfileUseCase,
-                    observeUserPreferencesUseCase = container.observeUserPreferencesUseCase,
-                    setUnitSystem = container.setUnitSystemUseCase,
-                    setLanguage = container.setLanguageUseCase,
-                    setDarkMode = container.setDarkModeUseCase,
-                    toggleNotifications = container.toggleNotificationsUseCase,
-                    handleNotificationPermissionResult = container.handleNotificationPermissionResultUseCase,
-                    syncNotificationPermission = container.syncNotificationPermissionUseCase,
-                    consumeNotificationPrompt = container.consumeNotificationPromptUseCase,
-                    logoutUserUseCase = container.logoutUserUseCase
-                )
             }
         }
     }
