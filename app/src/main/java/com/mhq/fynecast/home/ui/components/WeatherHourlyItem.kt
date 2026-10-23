@@ -23,9 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import kotlin.String
-import kotlin.math.roundToInt
 
 @Composable
 fun WeatherHourlyItem(
@@ -92,7 +91,7 @@ fun WeatherHourlyItem(
         )
 
         Text(
-            text = "${temperature.roundToInt()}°",
+            text = TemperatureFormatter.format(temperature),
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.titleMedium,
             color = contentColor

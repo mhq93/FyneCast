@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.rememberSwipeToDismissBoxState
@@ -16,19 +17,14 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.paging.PagingData
-import androidx.paging.compose.LazyPagingItems
-import androidx.paging.compose.collectAsLazyPagingItems
-import androidx.paging.compose.itemKey
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.ui.components.FavoriteCityItem
 import com.mhq.fynecast.favorites.ui.components.SwipeBackground
-import kotlinx.coroutines.flow.flowOf
 
 @Composable
 fun FavoritesContent(
-    favoriteCities: LazyPagingItems<FavoriteCityDomainModel>,
+    favoriteCities: List<FavoriteCityDomainModel>,
     onCityRowSelected: (FavoriteCityDomainModel) -> Unit,
     onDeleteFavorite: (FavoriteCityDomainModel) -> Unit,
     isMetric: Boolean,
@@ -45,41 +41,38 @@ fun FavoritesContent(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(
-                count = favoriteCities.itemCount,
-                key = favoriteCities.itemKey { it.id }
-            ) { index ->
-                val favorite = favoriteCities[index]
-                if (favorite != null) {
-                    val currentFavorite by rememberUpdatedState(favorite)
-                    val currentOnDelete by rememberUpdatedState(onDeleteFavorite)
+                items = favoriteCities,
+                key = { it.id }
+            ) { favorite ->
+                val currentFavorite by rememberUpdatedState(favorite)
+                val currentOnDelete by rememberUpdatedState(onDeleteFavorite)
 
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value == SwipeToDismissBoxValue.EndToStart) {
-                                /** Runs once, when the user finishes the swipe. */
-                                currentOnDelete(currentFavorite)
-                            }
-                            /**
-                             * Never keep a row in the "swiped away" state.
-                             * The row leaves the list when the delete lands, and a row brought back
-                             * by Undo must start settled so it can be swiped again.
-                             * */
-                            false
+                val dismissState = rememberSwipeToDismissBoxState(
+                    confirmValueChange = { value ->
+                        if (value == SwipeToDismissBoxValue.EndToStart) {
+                            /** Runs once, when the user finishes the swipe. */
+                            currentOnDelete(currentFavorite)
                         }
-                    )
-
-                    SwipeToDismissBox(
-                        state = dismissState,
-                        modifier = Modifier.animateItem(),
-                        backgroundContent = { SwipeBackground(dismissState) },
-                        enableDismissFromStartToEnd = false
-                    ) {
-                        FavoriteCityItem(
-                            favoriteCityDomainModel = favorite,
-                            isMetric = isMetric,
-                            modifier = Modifier.clickable { onCityRowSelected(favorite) }
-                        )
+                        /**
+                         * Never keep a row in the "swiped away" state.
+                         * The row leaves the list when the delete lands, and a row brought back
+                         * by Undo must start settled so it can be swiped again.
+                         * */
+                        false
                     }
+                )
+
+                SwipeToDismissBox(
+                    state = dismissState,
+                    modifier = Modifier.animateItem(),
+                    backgroundContent = { SwipeBackground(dismissState) },
+                    enableDismissFromStartToEnd = false
+                ) {
+                    FavoriteCityItem(
+                        favoriteCityDomainModel = favorite,
+                        isMetric = isMetric,
+                        modifier = Modifier.clickable { onCityRowSelected(favorite) }
+                    )
                 }
             }
         }
@@ -89,13 +82,9 @@ fun FavoritesContent(
 @Preview
 @Composable
 private fun FavoritesContentPreview() {
-    FyneCastTheme() {
-        val mockFavoriteCities = flowOf(
-            PagingData.empty<FavoriteCityDomainModel>()
-        ).collectAsLazyPagingItems()
-
+    FyneCastTheme {
         FavoritesContent(
-            favoriteCities = mockFavoriteCities,
+            favoriteCities = emptyList(),
             onCityRowSelected = {},
             onDeleteFavorite = {},
             isMetric = true

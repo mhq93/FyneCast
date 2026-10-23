@@ -12,15 +12,15 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.paging.LoadState
-import androidx.paging.compose.collectAsLazyPagingItems
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
@@ -39,7 +39,7 @@ fun FavoritesContainer(
 ) {
     val resources = LocalResources.current
     val undoLabel = stringResource(R.string.undo)
-    val lazyFavoriteCities = favoritesViewModel.favoritesPageFlow.collectAsLazyPagingItems()
+    val favorites by favoritesViewModel.favorites.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val langCode = currentLocale().language
 
@@ -49,16 +49,6 @@ fun FavoritesContainer(
      * */
     LaunchedEffect(Unit) {
         favoritesViewModel.onScreenShown(langCode)
-    }
-
-    LaunchedEffect(Unit) {
-        favoritesViewModel.uiEvent.collect { message ->
-            snackbarHostState.currentSnackbarData?.dismiss()
-            snackbarHostState.showSnackbar(
-                message = message,
-                duration = SnackbarDuration.Short
-            )
-        }
     }
 
     LaunchedEffect(favoritesViewModel, resources) {
@@ -85,20 +75,19 @@ fun FavoritesContainer(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        when (lazyFavoriteCities.itemCount) {
-            0 if lazyFavoriteCities.loadState.refresh is LoadState.Loading -> {
+        val currentFavorites = favorites
+        when {
+            currentFavorites == null -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
-            0 -> {
-                FavoritesBlank(
-                    contentPadding = contentPadding
-                )
+            currentFavorites.isEmpty() -> {
+                FavoritesBlank(contentPadding = contentPadding)
             }
             else -> {
                 FavoritesContent(
-                    favoriteCities = lazyFavoriteCities,
+                    favoriteCities = currentFavorites,
                     onCityRowSelected = onCityRowSelected,
                     onDeleteFavorite = favoritesViewModel::onDeleteFavorite,
                     contentPadding = contentPadding,

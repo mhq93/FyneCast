@@ -27,10 +27,6 @@ class ImageStorageRepositoryImpl(
         return imageStorageManager.processAndSaveProfileImage(uriString)
     }
 
-    override fun commitProfileImage(uriString: String) {
-        imageStorageManager.commitProfileImage(uriString)
-    }
-
     override fun deleteProfileImage(uriString: String) {
         imageStorageManager.deleteProfileImage(uriString)
     }

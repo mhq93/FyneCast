@@ -1,6 +1,5 @@
 package com.mhq.fynecast.home.data.mapper
 
-import com.mhq.fynecast.alerts.data.mapper.toDomain
 import com.mhq.fynecast.home.data.api.weather.dto.WeatherApiResponse
 import com.mhq.fynecast.home.domain.models.DailyForecastDomainModel
 import com.mhq.fynecast.home.domain.models.HourlyForecastDomainModel

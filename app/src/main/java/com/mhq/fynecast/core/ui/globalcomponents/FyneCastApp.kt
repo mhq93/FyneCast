@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +20,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
@@ -65,10 +65,10 @@ fun FyneCastApp(
     onRequestPermission: (String) -> Unit
 ) {
 
-    val storedDarkMode by settingsViewModel.isDarkMode.collectAsState()
+    val storedDarkMode by settingsViewModel.isDarkMode.collectAsStateWithLifecycle()
     val isDarkMode = storedDarkMode ?: isSystemInDarkTheme()
-    val isMetric by settingsViewModel.isMetric.collectAsState()
-    val currentLanguage by settingsViewModel.currentLanguage.collectAsState()
+    val isMetric by settingsViewModel.isMetric.collectAsStateWithLifecycle()
+    val currentLanguage by settingsViewModel.currentLanguage.collectAsStateWithLifecycle()
     val appLangCode = AppLanguage.fromStoredName(currentLanguage).code
 
     LaunchedEffect(appLangCode) {
@@ -89,7 +89,7 @@ fun FyneCastApp(
         val navController = rememberNavController()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
-        val homeUiState = homeViewModel.state.collectAsState().value.uiState
+        val homeUiState = homeViewModel.state.collectAsStateWithLifecycle().value.uiState
 
         val rootRoutes = listOf(
             BottomNavigationItem.Home.route,
@@ -168,7 +168,7 @@ fun FyneCastApp(
                     }
 
                     composable(BottomNavigationItem.Home.route) {
-                        val isMetric by settingsViewModel.isMetric.collectAsState()
+                        val isMetric by settingsViewModel.isMetric.collectAsStateWithLifecycle()
                         HomeContainer(
                             homeViewModel = homeViewModel,
                             onNavigateToMap = { navController.navigate("map_picker") },

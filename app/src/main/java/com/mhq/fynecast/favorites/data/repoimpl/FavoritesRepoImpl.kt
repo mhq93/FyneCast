@@ -1,9 +1,5 @@
 package com.mhq.fynecast.favorites.data.repoimpl
 
-import androidx.paging.Pager
-import androidx.paging.PagingConfig
-import androidx.paging.PagingData
-import androidx.paging.map
 import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
 import com.mhq.fynecast.favorites.data.database.FavoriteDao
 import com.mhq.fynecast.favorites.data.mapper.toDomain
@@ -61,15 +57,13 @@ class FavoritesRepoImpl(
         return favoriteDao.getFavoritesOnce(userId).map { it.toDomain() }
     }
 
-    override fun getAllFavorites(): Flow<PagingData<FavoriteCityDomainModel>> =
+    override fun getAllFavorites(): Flow<List<FavoriteCityDomainModel>> =
         currentUserProvider.observeUserId().flatMapLatest { userId ->
             if (userId == null) {
-                flowOf(PagingData.empty())
+                flowOf(emptyList())
             } else {
-                Pager(
-                    config = PagingConfig(pageSize = 20, enablePlaceholders = false),
-                    pagingSourceFactory = { favoriteDao.getAllFavorites(userId) }
-                ).flow.map { pagingData -> pagingData.map { it.toDomain() } }
+                favoriteDao.getAllFavorites(userId)
+                    .map { entities -> entities.map { it.toDomain() } }
             }
         }
 }

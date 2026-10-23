@@ -1,12 +1,11 @@
 package com.mhq.fynecast.favorites.domain.repository
 
-import androidx.paging.PagingData
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import kotlinx.coroutines.flow.Flow
 
 interface FavoritesRepository {
-    /** Gets the complete list of favorites in the lazy item. */
-    fun getAllFavorites(): Flow<PagingData<FavoriteCityDomainModel>>
+    /** Observes the signed-in user's favorites, sorted by city then country. */
+    fun getAllFavorites(): Flow<List<FavoriteCityDomainModel>>
     /** Observes whether the city is a favorite to perform CRUD operations accordingly. */
     fun observeIsFavorite(id: String): Flow<Boolean>
     /** Adds the city if it isn't a favorite and removes it if it is, as one atomic step. */
@@ -17,6 +16,6 @@ interface FavoritesRepository {
     suspend fun deleteFavorite(id: String)
     /** updates temperature and icon. */
     suspend fun refreshSnapshot(city: FavoriteCityDomainModel)
-    /** one-off read, not paged. */
+    /** one-off read, not observed. */
     suspend fun getFavoritesList(): List<FavoriteCityDomainModel>
 }

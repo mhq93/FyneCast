@@ -22,6 +22,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
@@ -81,11 +82,12 @@ fun FavoriteCityItem(
                     modifier = Modifier.size(48.dp)
                 )
                 Text(
-                    text =
+                    text = TemperatureFormatter.format(
                         if (isMetric)
-                            "${favoriteCityDomainModel.temperatureC}°"
+                            favoriteCityDomainModel.temperatureC
                         else
-                            "${favoriteCityDomainModel.temperatureF}°",
+                            favoriteCityDomainModel.temperatureF
+                    ),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onPrimary

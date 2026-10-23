@@ -176,4 +176,9 @@
     <string name="msg_profile_saved">تم حفظ تغييرات الملف الشخصي بنجاح!</string>
     <string name="msg_profile_saved_verify_email">تم الحفظ. تحقق من صندوق بريدك الجديد لتأكيد التغيير.</string>
     <string name="msg_reset_link_sent">تم إرسال رابط إعادة التعيين إلى %1$s</string>
+
+    <string name="channel_alert_tracking_name">تنبيهات الطقس النشطة</string>
+    <string name="channel_alert_tracking_description">يظهر أثناء تتبّع تنبيه طقس</string>
+    <string name="channel_alert_alarm_name">منبّه تنبيه الطقس</string>
+    <string name="channel_alert_alarm_description">يرنّ عند انتهاء تنبيه طقس تتتبّعه أو زواله</string>
 </resources>

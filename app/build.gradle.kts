@@ -79,9 +79,6 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.compose.material.icons.extended)
-    implementation(libs.androidx.paging.common)
-    implementation(libs.androidx.paging.runtime)
-    implementation(libs.androidx.paging.compose)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.googleid)
 
@@ -95,7 +92,6 @@ dependencies {
     ksp("androidx.room:room-compiler:${room_version}")
     implementation("androidx.room:room-ktx:${room_version}")
     implementation("androidx.room:room-runtime:${room_version}")
-    implementation("androidx.room:room-paging:${room_version}")
     implementation("androidx.datastore:datastore-preferences:1.2.1")
     implementation("androidx.navigation:navigation-compose:${nav_version}")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.10.0")

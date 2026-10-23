@@ -8,6 +8,7 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import androidx.datastore.preferences.preferencesDataStore
 import com.mhq.fynecast.BuildConfig
+import com.mhq.fynecast.R
 
 private val Context.internalPrefsStore by preferencesDataStore(name = "user_preferences")
 private val Context.internalSessionStore by preferencesDataStore(name = "user_session")
@@ -38,10 +39,10 @@ class FyneCastApplication : Application() {
                 // 1. Silent, persistent background tracking channel
                 NotificationChannel(
                     CHANNEL_ALERT_TRACKING,
-                    "Active Weather Alerts",
+                    getString(R.string.channel_alert_tracking_name),
                     NotificationManager.IMPORTANCE_LOW
                 ).apply {
-                    description = "Shows while you are tracking a weather alert"
+                    description = getString(R.string.channel_alert_tracking_description)
                     setSound(null, null)
                     enableVibration(false)
                 },
@@ -49,10 +50,10 @@ class FyneCastApplication : Application() {
                 // 2. High-priority critical emergency alarm channel
                 NotificationChannel(
                     CHANNEL_ALERT_ALARM,
-                    "Weather Alert Alarm",
+                    getString(R.string.channel_alert_alarm_name),
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "Sounds when a tracked weather alert expires or escalates"
+                    description = getString(R.string.channel_alert_alarm_description)
                     setBypassDnd(true)
                     setSound(
                         RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),

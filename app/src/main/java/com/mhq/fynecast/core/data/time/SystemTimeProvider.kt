@@ -1,4 +1,4 @@
-package com.mhq.fynecast.core.domain.data
+package com.mhq.fynecast.core.data.time
 
 import com.mhq.fynecast.core.domain.time.TimeProvider
 

@@ -79,18 +79,6 @@ class ImageStorageManager(private val context: Context) {
         }
 
     /**
-     * Deletes every sandboxed profile image except the one referenced by
-     * [keepUriString]. Call this only after the profile record has been
-     * durably saved with the new image's URI — deleting the old image any
-     * earlier risks leaving the profile pointing at a file that no longer
-     * exists if the save fails.
-     */
-    fun commitProfileImage(keepUriString: String) {
-        val keepFileName = keepUriString.toUri().path?.let { File(it).name }
-        clearOldProfileImages(excludeFileName = keepFileName)
-    }
-
-    /**
      * Deletes a single sandboxed profile image by its file:// URI. Used to
      * roll back a newly-created image when the profile update that was
      * supposed to reference it fails, so it isn't left orphaned.
@@ -98,26 +86,6 @@ class ImageStorageManager(private val context: Context) {
     fun deleteProfileImage(uriString: String) {
         runCatching {
             uriString.toUri().path?.let { File(it).delete() }
-        }
-    }
-
-    /**
-     * Purges previously generated files inside the profile_pics sandbox container directory,
-     * keeping [excludeFileName] (the file that was just written) if provided.
-     */
-    private fun clearOldProfileImages(excludeFileName: String? = null) {
-        try {
-            val profilePicturesDir = File(context.filesDir, "profile_pics")
-            if (profilePicturesDir.exists() && profilePicturesDir.isDirectory) {
-                val files = profilePicturesDir.listFiles()
-                files?.forEach { file ->
-                    if (file.isFile && file.name != excludeFileName) {
-                        file.delete()
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 

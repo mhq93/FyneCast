@@ -1,6 +1,5 @@
 package com.mhq.fynecast.home.data.api.weather.dto
 
-import com.mhq.fynecast.alerts.data.dto.AlertsDto
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

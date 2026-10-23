@@ -1,4 +1,4 @@
-package com.mhq.fynecast.core.domain.data.infra
+package com.mhq.fynecast.core.data.infra
 
 import com.google.firebase.auth.FirebaseAuth
 import com.mhq.fynecast.core.domain.infra.CurrentUserProvider

@@ -52,8 +52,8 @@ import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
 import com.mhq.fynecast.auth.data.storage.ImageStorageManager
 import com.mhq.fynecast.core.data.infra.AppInitializerImpl
-import com.mhq.fynecast.core.domain.data.SystemTimeProvider
-import com.mhq.fynecast.core.domain.data.infra.FirebaseCurrentUserProvider
+import com.mhq.fynecast.core.data.time.SystemTimeProvider
+import com.mhq.fynecast.core.data.infra.FirebaseCurrentUserProvider
 import com.mhq.fynecast.core.domain.infra.AppInitializer
 import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
 import com.mhq.fynecast.core.domain.time.TimeProvider

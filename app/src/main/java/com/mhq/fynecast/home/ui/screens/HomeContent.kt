@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
+import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.home.domain.models.CitySuggestionModel
 import com.mhq.fynecast.home.domain.models.WeatherDomainModel
@@ -75,10 +76,12 @@ fun HomeContent(
                     }.orEmpty()
                 ),
                 description = weatherDomainModel.conditionText,
-                temperature = if (isMetric)
-                    "${weatherDomainModel.currentTempC}°"
-                else
-                    "${weatherDomainModel.currentTempF}°",
+                temperature = TemperatureFormatter.format(
+                    if (isMetric)
+                        weatherDomainModel.currentTempC
+                    else
+                        weatherDomainModel.currentTempF
+                ),
                 isFavorite = isFavorite,
                 alertsNumber = weatherDomainModel.alerts.size,
                 onToggleFavorite = onToggleFavorite,

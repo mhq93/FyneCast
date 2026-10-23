@@ -27,8 +27,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import kotlin.math.roundToInt
 
 @Composable
 fun WeatherDailyRowItem(
@@ -96,7 +96,7 @@ fun WeatherDailyRowItem(
             modifier = Modifier.width(130.dp)
         ) {
             Text(
-                text = "${lowTemperature.roundToInt()}°",
+                text = TemperatureFormatter.format(lowTemperature),
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
                 textAlign = TextAlign.End,
@@ -128,7 +128,7 @@ fun WeatherDailyRowItem(
             }
 
             Text(
-                text = "${highTemperature.roundToInt()}°",
+                text = TemperatureFormatter.format(highTemperature),
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                 color = MaterialTheme.colorScheme.onBackground,
                 textAlign = TextAlign.End,

@@ -65,7 +65,7 @@ class UpdateUserProfileUseCase(
         }.onFailure {
              /**Only roll back if the profile never ended up pointing at this file.
               * If saveProfile already succeeded
-              * and a later step (refreshActiveUserSession, commitProfileImage)
+              * and a later step (refreshActiveUserSession)
               * is what threw, deleting the file now would leave
               * the saved profile pointing at a file that no longer exists
               * — the exact thing this rollback exists to prevent.*/

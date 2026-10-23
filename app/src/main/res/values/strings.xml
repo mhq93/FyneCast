@@ -172,4 +172,9 @@
     <string name="msg_profile_saved">Profile changes saved successfully!</string>
     <string name="msg_profile_saved_verify_email">Saved. Check your new email inbox to verify the change.</string>
     <string name="msg_reset_link_sent">Reset link successfully sent to %1$s</string>
+
+    <string name="channel_alert_tracking_name">Active Weather Alerts</string>
+    <string name="channel_alert_tracking_description">Shows while you are tracking a weather alert</string>
+    <string name="channel_alert_alarm_name">Weather Alert Alarm</string>
+    <string name="channel_alert_alarm_description">Sounds when a tracked weather alert expires or escalates</string>
 </resources>

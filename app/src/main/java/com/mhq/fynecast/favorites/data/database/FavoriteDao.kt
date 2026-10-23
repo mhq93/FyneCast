@@ -1,6 +1,5 @@
 package com.mhq.fynecast.favorites.data.database
 
-import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -36,7 +35,7 @@ abstract class FavoriteDao {
     )
 
     @Query("SELECT * FROM favorites WHERE userId = :userId ORDER BY cityName ASC, countryName ASC")
-    abstract fun getAllFavorites(userId: String): PagingSource<Int, FavoriteEntity>
+    abstract fun getAllFavorites(userId: String): Flow<List<FavoriteEntity>>
 
     @Query("SELECT * FROM favorites WHERE userId = :userId")
     abstract suspend fun getFavoritesOnce(userId: String): List<FavoriteEntity>

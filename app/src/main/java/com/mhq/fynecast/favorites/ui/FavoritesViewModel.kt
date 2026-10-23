@@ -6,8 +6,6 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import androidx.paging.PagingData
-import androidx.paging.cachedIn
 import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
@@ -18,22 +16,27 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class FavoritesViewModel(
-    private val getFavoritesUseCase: GetFavoritesUseCase,
+    getFavoritesUseCase: GetFavoritesUseCase,
     private val deleteFavoriteUseCase: DeleteFavoriteUseCase,
     private val restoreFavoriteUseCase: RestoreFavoriteUseCase,
     private val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase
 ) : ViewModel() {
 
-    private val _uiEventChannel = Channel<String>(Channel.BUFFERED)
-    val uiEvent = _uiEventChannel.receiveAsFlow()
-
-    val favoritesPageFlow: Flow<PagingData<FavoriteCityDomainModel>> =
-        getFavoritesUseCase().cachedIn(viewModelScope)
+    /** null = the first load has not finished yet; an empty list = the user has no favorites. */
+    val favorites: StateFlow<List<FavoriteCityDomainModel>?> =
+        getFavoritesUseCase().stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null
+        )
 
     private val _events = Channel<FavoritesEvent>(Channel.BUFFERED)
     val events: Flow<FavoritesEvent> = _events.receiveAsFlow()

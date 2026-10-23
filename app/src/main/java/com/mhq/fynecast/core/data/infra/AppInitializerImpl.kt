@@ -14,11 +14,6 @@ class AppInitializerImpl(
     private val application: Application
 ) : AppInitializer {
 
-    override fun initializeSdkComponents() {
-        // Handle standard global startup engines here if needed
-        // e.g., FirebaseApp.initializeApp(application)
-    }
-
     override fun initializeDebugFeatures() {
         FacebookSdk.setIsDebugEnabled(true)
         printFacebookKeyHash()

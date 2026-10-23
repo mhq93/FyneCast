@@ -9,7 +9,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -17,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
@@ -29,11 +29,11 @@ fun EditProfileContainer(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
-    val profileImageUri by editProfileViewModel.profileImageUri.collectAsState()
-    val username by editProfileViewModel.username.collectAsState()
-    val isUsernameValid by editProfileViewModel.isUsernameValid.collectAsState()
-    val userEmail by editProfileViewModel.userEmail.collectAsState()
-    val isEmailValid by editProfileViewModel.isEmailValid.collectAsState()
+    val profileImageUri by editProfileViewModel.profileImageUri.collectAsStateWithLifecycle()
+    val username by editProfileViewModel.username.collectAsStateWithLifecycle()
+    val isUsernameValid by editProfileViewModel.isUsernameValid.collectAsStateWithLifecycle()
+    val userEmail by editProfileViewModel.userEmail.collectAsStateWithLifecycle()
+    val isEmailValid by editProfileViewModel.isEmailValid.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
