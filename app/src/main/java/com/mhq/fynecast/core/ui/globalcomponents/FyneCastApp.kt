@@ -184,7 +184,7 @@ fun FyneCastApp(
                         HomeContainer(
                             homeViewModel = homeViewModel,
                             onNavigateToMap = { navController.navigate(AppDestination.MapPicker.route) },
-                            onAlertsBannerClick = { navController.navigate(AppDestination.Alerts.route) },
+                            onAlertsBannerClick = { navController.switchToTab(BottomNavTab.Alerts) },
                             onRequestPermission = onRequestPermission,
                             contentPadding = bottomContentPadding,
                             isMetric = isMetric,
@@ -198,14 +198,9 @@ fun FyneCastApp(
 
                         FavoritesContainer(
                             favoritesViewModel = favoritesViewModel,
-                            // Favorites destination
                             onCityRowSelected = { favoriteCity ->
                                 favoritesViewModel.onCitySelected(favoriteCity)
-                                navController.navigate(AppDestination.Home.route) {
-                                    popUpTo(AppDestination.Home.route) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
+                                navController.switchToTab(BottomNavTab.Home)
                             },
                             contentPadding = bottomContentPadding,
                             isMetric = isMetric
@@ -270,13 +265,7 @@ fun FyneCastApp(
             ) {
                 BottomNavigationBar(
                     currentRoute = currentRoute,
-                    onItemSelected = { tab ->
-                        navController.navigate(tab.destination.route) {
-                            popUpTo(AppDestination.Home.route) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }
+                    onItemSelected = { tab -> navController.switchToTab(tab) }
                 )
             }
         }
@@ -294,6 +283,22 @@ private fun NavController.goToAuthScreen(route: String) {
      * otherwise push it. Never stack duplicates. */
     if (!popBackStack(route, inclusive = false)) {
         navigate(route) { launchSingleTop = true }
+    }
+}
+
+/** Switches to a bottom-bar tab. Home is the base of the back stack, so "Home" just pops back to it. */
+private fun NavController.switchToTab(tab: BottomNavTab) {
+    val route = tab.destination.route
+    if (currentDestination?.route == route) return
+    if (tab == BottomNavTab.Home) {
+        if (!popBackStack(route, inclusive = false)) {
+            navigate(route) { launchSingleTop = true }
+        }
+    } else {
+        navigate(route) {
+            popUpTo(AppDestination.Home.route)
+            launchSingleTop = true
+        }
     }
 }
 
