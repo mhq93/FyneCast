@@ -34,10 +34,12 @@ fun EditProfileContainer(
     modifier: Modifier = Modifier,
 ) {
     val initialProfile by editProfileViewModel.initialProfile.collectAsStateWithLifecycle()
-
+    var profileImageUri by rememberSaveable { mutableStateOf<String?>(null) }
     var username by rememberSaveable { mutableStateOf("") }
     var userEmail by rememberSaveable { mutableStateOf("") }
-    var profileImageUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var newPassword by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
     var isSeeded by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -54,6 +56,12 @@ fun EditProfileContainer(
 
     val isUsernameValid = editProfileViewModel.isUsernameValid(username)
     val isEmailValid = editProfileViewModel.isEmailValid(userEmail)
+    // Social accounts have no password yet: switching the email needs one for the new email.
+    val showPasswordFields = initialProfile?.let {
+        !it.hasPasswordLogin && !userEmail.equals(it.email, ignoreCase = true)
+    } ?: false
+    val isNewPasswordValid = editProfileViewModel.isPasswordValid(newPassword)
+    val doPasswordsMatch = editProfileViewModel.doPasswordsMatch(newPassword, confirmPassword)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -83,9 +91,24 @@ fun EditProfileContainer(
             isEmailValid = isEmailValid,
             onUsernameChanged = { username = it },
             onUserEmailChanged = { userEmail = it.trim() },
+            showPasswordFields = showPasswordFields,
+            newPassword = newPassword,
+            isNewPasswordValid = isNewPasswordValid,
+            onNewPasswordChanged = { newPassword = it },
+            confirmPassword = confirmPassword,
+            doPasswordsMatch = doPasswordsMatch,
+            onConfirmPasswordChanged = { confirmPassword = it },
+            isPasswordVisible = isPasswordVisible,
+            onTogglePasswordVisibility = { isPasswordVisible = !isPasswordVisible },
             onBackClick = onBackClick,
             onSaveClick = {
-                editProfileViewModel.onSaveProfileAction(username, userEmail, profileImageUri)
+                editProfileViewModel.onSaveProfileAction(
+                    username,
+                    userEmail,
+                    profileImageUri,
+                    newPassword.takeIf { showPasswordFields },
+                    confirmPassword.takeIf { showPasswordFields }
+                )
             },
             contentPadding = contentPadding,
             modifier = modifier,

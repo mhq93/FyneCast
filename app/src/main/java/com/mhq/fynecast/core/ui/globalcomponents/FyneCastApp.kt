@@ -1,6 +1,7 @@
 package com.mhq.fynecast.core.ui.globalcomponents
 
 import android.os.Build
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
@@ -16,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -28,6 +30,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.mhq.fynecast.R
 import com.mhq.fynecast.alerts.ui.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.screens.AlertsContainer
 import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
@@ -65,12 +68,11 @@ fun FyneCastApp(
     sessionViewModel: SessionViewModel,
     onRequestPermission: (String) -> Unit
 ) {
-
-    val storedDarkMode by settingsViewModel.isDarkMode.collectAsStateWithLifecycle()
-    val isDarkMode = storedDarkMode ?: isSystemInDarkTheme()
     val isMetric by settingsViewModel.isMetric.collectAsStateWithLifecycle()
     val currentLanguage by settingsViewModel.currentLanguage.collectAsStateWithLifecycle()
     val appLangCode = currentLanguage.code
+    val storedDarkMode by settingsViewModel.isDarkMode.collectAsStateWithLifecycle()
+    val isDarkMode = storedDarkMode ?: isSystemInDarkTheme()
 
     LaunchedEffect(appLangCode) {
         homeViewModel.onLanguageChanged(appLangCode)
@@ -90,6 +92,20 @@ fun FyneCastApp(
         val navController = rememberNavController()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
+        val context = LocalContext.current
+        LaunchedEffect(sessionViewModel, navController) {
+            sessionViewModel.sessionExpired.collect {
+                Toast.makeText(
+                    context,
+                    R.string.session_expired_sign_in_again,
+                    Toast.LENGTH_LONG
+                ).show()
+                navController.navigate(AppDestination.Login.route) {
+                    popUpTo(0) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
         val homeUiState = homeViewModel.state.collectAsStateWithLifecycle().value.uiState
 
         val rootRoutes = BottomNavTab.entries.map { it.destination.route }
@@ -167,7 +183,7 @@ fun FyneCastApp(
                         val isMetric by settingsViewModel.isMetric.collectAsStateWithLifecycle()
                         HomeContainer(
                             homeViewModel = homeViewModel,
-                            onNavigateToMap = { navController.navigate("map_picker") },
+                            onNavigateToMap = { navController.navigate(AppDestination.MapPicker.route) },
                             onAlertsBannerClick = { navController.navigate(AppDestination.Alerts.route) },
                             onRequestPermission = onRequestPermission,
                             contentPadding = bottomContentPadding,
@@ -219,7 +235,7 @@ fun FyneCastApp(
                         )
                     }
 
-                    composable("map_picker") {
+                    composable(AppDestination.MapPicker.route) {
                         val mapLangCode = currentLanguage.code
                         val mapPickerViewModel: MapPickerViewModel =
                             viewModel(factory = AppViewModelFactory)
@@ -230,7 +246,6 @@ fun FyneCastApp(
                             langCode = mapLangCode,
                             initialLatitude = currentWeather?.latitude,
                             initialLongitude = currentWeather?.longitude,
-                            // map_picker destination
                             onLocationPicked = { location ->
                                 mapPickerViewModel.onLocationConfirmed(
                                     name = location.fullName,

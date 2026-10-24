@@ -71,7 +71,8 @@ val AppViewModelFactory: ViewModelProvider.Factory = viewModelFactory {
 
     initializer {
         SessionViewModel(
-            checkUserLoggedIn = container().checkUserLoggedInUseCase
+            checkUserLoggedIn = container().checkUserLoggedInUseCase,
+            refreshUserSession = container().refreshUserSessionUseCase
         )
     }
 

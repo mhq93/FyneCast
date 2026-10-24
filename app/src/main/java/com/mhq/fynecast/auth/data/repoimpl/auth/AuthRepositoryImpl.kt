@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
@@ -15,6 +16,7 @@ import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
 import com.mhq.fynecast.core.domain.util.suspendRunCatching
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
+import kotlin.coroutines.cancellation.CancellationException
 
 class AuthRepositoryImpl(
     private val firebaseAuth: FirebaseAuth,
@@ -82,6 +84,21 @@ class AuthRepositoryImpl(
             UserDomainModel(user.uid, user.displayName ?: "", user.email ?: "")
         }
 
+    override suspend fun addEmailPasswordLogin(email: String, password: String): Result<Unit> =
+        suspendRunCatching {
+            val user = firebaseAuth.currentUser
+                ?: throw Exception("No authenticated user active session found")
+            user.linkWithCredential(EmailAuthProvider.getCredential(email, password)).await()
+            user.reload().await()
+            val current = firebaseAuth.currentUser ?: user
+            if (current.email.equals(email, ignoreCase = true)) {
+                // Linking already made this the account's email; it only needs verifying.
+                current.sendEmailVerification().await()
+            } else {
+                current.verifyBeforeUpdateEmail(email).await()
+            }
+        }
+
     override suspend fun sendPasswordResetEmail(email: String): Result<Unit> =
         suspendRunCatching {
             firebaseAuth.sendPasswordResetEmail(email).await()
@@ -102,6 +119,30 @@ class AuthRepositoryImpl(
             } else {
                 prefs.remove(SessionKeys.PROFILE_IMAGE_URI)
             }
+        }
+    }
+
+    override suspend fun detachOutdatedSocialProviders() {
+        try {
+            val user = firebaseAuth.currentUser ?: return
+            val accountEmail = user.email ?: return
+            if (!user.isEmailVerified) return
+            val passwordWorksForAccountEmail = user.providerData.any {
+                it.providerId == EmailAuthProvider.PROVIDER_ID &&
+                        it.email.equals(accountEmail, ignoreCase = true)
+            }
+            if (!passwordWorksForAccountEmail) return
+            val outdated = user.providerData.filter {
+                (it.providerId == GoogleAuthProvider.PROVIDER_ID ||
+                        it.providerId == FacebookAuthProvider.PROVIDER_ID) &&
+                        it.email != null &&
+                        !it.email.equals(accountEmail, ignoreCase = true)
+            }
+            outdated.forEach { user.unlink(it.providerId).await() }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("AuthRepository", "Could not detach outdated social providers", e)
         }
     }
 

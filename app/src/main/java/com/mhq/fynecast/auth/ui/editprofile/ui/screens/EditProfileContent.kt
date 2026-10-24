@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
@@ -41,6 +43,15 @@ fun EditProfileContent(
     isEmailValid: Boolean,
     onUserEmailChanged: (String) -> Unit,
     profileImageUri: String?,
+    showPasswordFields: Boolean = false,
+    newPassword: String = "",
+    isNewPasswordValid: Boolean = true,
+    onNewPasswordChanged: (String) -> Unit = {},
+    confirmPassword: String = "",
+    doPasswordsMatch: Boolean = true,
+    onConfirmPasswordChanged: (String) -> Unit = {},
+    isPasswordVisible: Boolean = false,
+    onTogglePasswordVisibility: () -> Unit = {},
     onProfileImagePicked: (String) -> Unit,
     onSaveClick: () -> Unit,
     onBackClick: () -> Unit,
@@ -59,11 +70,12 @@ fun EditProfileContent(
             .fillMaxSize()
     ) {
         Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(bottom = contentPadding.calculateBottomPadding() + 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // 1. Customized Top Action Navigation Bar Header
             Row(
@@ -100,6 +112,15 @@ fun EditProfileContent(
                 isEmailValid = isEmailValid,
                 onUsernameChanged = onUsernameChanged,
                 onUserEmailChanged = onUserEmailChanged,
+                showPasswordFields = showPasswordFields,
+                newPassword = newPassword,
+                isNewPasswordValid = isNewPasswordValid,
+                onNewPasswordChanged = onNewPasswordChanged,
+                confirmPassword = confirmPassword,
+                doPasswordsMatch = doPasswordsMatch,
+                onConfirmPasswordChanged = onConfirmPasswordChanged,
+                isPasswordVisible = isPasswordVisible,
+                onTogglePasswordVisibility = onTogglePasswordVisibility,
                 usernameFocusRequester = usernameFocusRequester,
             )
             AuthActionButton(

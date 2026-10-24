@@ -3,13 +3,11 @@ package com.mhq.fynecast.auth.domain.usecases.auth
 import com.mhq.fynecast.auth.domain.models.ValidationError
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.validation.EmailFormatValidator
+import com.mhq.fynecast.auth.domain.validation.PasswordValidator
 
 class ValidateSignupFormUseCase {
     private val usernameRegex =
         Regex("^[a-zA-Z0-9_]{3,15}$")
-
-    private val passwordRegex =
-        Regex("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=])(?=\\S+$).{6,}$")
 
     fun validateUsername(username: String): Boolean =
         username.isEmpty() || username.matches(usernameRegex)
@@ -18,7 +16,7 @@ class ValidateSignupFormUseCase {
         EmailFormatValidator.isValidOrEmpty(email)
 
     fun validatePassword(password: String): Boolean =
-        password.isEmpty() || password.matches(passwordRegex)
+        PasswordValidator.isValidOrEmpty(password)
 
     fun validatePasswordMatch(password: String, confirmPassword: String): Boolean =
         confirmPassword.isEmpty() || password == confirmPassword
@@ -37,7 +35,7 @@ class ValidateSignupFormUseCase {
             !EmailFormatValidator.isValid(email) -> ValidationResult.Failure(ValidationError.EmailInvalid)
 
             password.isBlank() -> ValidationResult.Failure(ValidationError.PasswordEmpty)
-            !password.matches(passwordRegex) -> ValidationResult.Failure(ValidationError.PasswordWeak)
+            !PasswordValidator.isValid(password) -> ValidationResult.Failure(ValidationError.PasswordWeak)
 
             confirmPassword.isBlank() -> ValidationResult.Failure(ValidationError.ConfirmPasswordEmpty)
             password != confirmPassword -> ValidationResult.Failure(ValidationError.PasswordsMismatch)

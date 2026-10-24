@@ -23,6 +23,7 @@ import com.mhq.fynecast.auth.domain.usecases.auth.SendPasswordResetUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
+import com.mhq.fynecast.auth.domain.usecases.profile.RefreshUserSessionUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
@@ -72,6 +73,7 @@ interface AppContainer {
     val updateUserProfileUseCase: UpdateUserProfileUseCase
     val validateEditProfileUseCase: ValidateEditProfileUseCase
     val observeUserProfileUseCase: ObserveUserProfileUseCase
+    val refreshUserSessionUseCase: RefreshUserSessionUseCase
     val observeSignedInUserIdUseCase: ObserveSignedInUserIdUseCase
     val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase
     val logoutUserUseCase: LogoutUserUseCase

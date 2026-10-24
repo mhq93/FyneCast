@@ -997,17 +997,23 @@ import kotlinx.coroutines.flow.first
  * Use case that synchronizes notification preferences with actual system runtime permissions.
  */
 class SyncNotificationPermissionUseCase(
-    private val notificationPermissionChecker: NotificationPermissionChecker,
     private val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase,
+    private val cancelAllAlertTrackingUseCase: CancelAllAlertTrackingUseCase,
     private val setNotificationsEnabledUseCase: SetNotificationsEnabledUseCase,
-    private val cancelAllAlertTrackingUseCase: CancelAllAlertTrackingUseCase
+    private val notificationPermissionChecker: NotificationPermissionChecker
 ) {
     suspend operator fun invoke() {
         val current = observeUserPreferencesUseCase().first()
-        if (current.notificationsEnabled && !notificationPermissionChecker.isGranted()) {
-            // Permission was revoked in system settings: nothing can be shown, so stop tracking.
+        val systemGranted = notificationPermissionChecker.isGranted()
+
+        if (current.notificationsEnabled && !systemGranted) {
+            /** System permission was revoked: turn tracking off locally */
             cancelAllAlertTrackingUseCase()
             setNotificationsEnabledUseCase(false)
+        } else if (!current.notificationsEnabled && systemGranted) {
+            /** System permission was granted from Settings:
+             * sync the local preference toggle to on */
+            setNotificationsEnabledUseCase(true)
         }
     }
 }
@@ -1911,7 +1917,6 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -1925,7 +1930,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -1936,6 +1940,7 @@ import com.mhq.fynecast.alerts.ui.AlertsUiState
 import com.mhq.fynecast.alerts.ui.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.components.NotificationsDialog
 import com.mhq.fynecast.core.di.AppViewModelFactory
+import com.mhq.fynecast.core.ui.openNotificationSettings
 import kotlinx.coroutines.launch
 
 /**
@@ -2072,13 +2077,6 @@ fun AlertsContainer(
                 .padding(bottom = contentPadding.calculateBottomPadding())
         )
     }
-}
-
-private fun Context.openNotificationSettings() {
-    startActivity(
-        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-    )
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
@@ -2228,6 +2226,7 @@ import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FacebookAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
@@ -2239,6 +2238,7 @@ import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
 import com.mhq.fynecast.core.domain.util.suspendRunCatching
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.tasks.await
+import kotlin.coroutines.cancellation.CancellationException
 
 class AuthRepositoryImpl(
     private val firebaseAuth: FirebaseAuth,
@@ -2306,6 +2306,14 @@ class AuthRepositoryImpl(
             UserDomainModel(user.uid, user.displayName ?: "", user.email ?: "")
         }
 
+    override suspend fun addEmailPasswordLogin(email: String, password: String): Result<Unit> =
+        suspendRunCatching {
+            val user = firebaseAuth.currentUser
+                ?: throw Exception("No authenticated user active session found")
+            user.linkWithCredential(EmailAuthProvider.getCredential(email, password)).await()
+            user.verifyBeforeUpdateEmail(email).await()
+        }
+
     override suspend fun sendPasswordResetEmail(email: String): Result<Unit> =
         suspendRunCatching {
             firebaseAuth.sendPasswordResetEmail(email).await()
@@ -2326,6 +2334,29 @@ class AuthRepositoryImpl(
             } else {
                 prefs.remove(SessionKeys.PROFILE_IMAGE_URI)
             }
+        }
+    }
+
+    override suspend fun detachOutdatedSocialProviders() {
+        try {
+            val user = firebaseAuth.currentUser ?: return
+            val accountEmail = user.email ?: return
+            val passwordWorksForAccountEmail = user.providerData.any {
+                it.providerId == EmailAuthProvider.PROVIDER_ID &&
+                        it.email.equals(accountEmail, ignoreCase = true)
+            }
+            if (!passwordWorksForAccountEmail) return
+            val outdated = user.providerData.filter {
+                (it.providerId == GoogleAuthProvider.PROVIDER_ID ||
+                        it.providerId == FacebookAuthProvider.PROVIDER_ID) &&
+                        it.email != null &&
+                        !it.email.equals(accountEmail, ignoreCase = true)
+            }
+            outdated.forEach { user.unlink(it.providerId).await() }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w("AuthRepository", "Could not detach outdated social providers", e)
         }
     }
 
@@ -2426,7 +2457,9 @@ import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.userProfileChangeRequest
 import com.mhq.fynecast.auth.data.session.SessionKeys
 import com.mhq.fynecast.auth.domain.models.UserDomainModel
@@ -2481,7 +2514,14 @@ class UserProfileRepositoryImpl(
             ?: snapshot[SessionKeys.EMAIL]
             ?: "username@gmail.com"
         val img = snapshot[SessionKeys.PROFILE_IMAGE_URI]
-        UserDomainModel(user?.uid ?: snapshot[SessionKeys.USER_ID] ?: "", name, email, img)
+        UserDomainModel(
+            id = user?.uid ?: snapshot[SessionKeys.USER_ID] ?: "",
+            name = name,
+            email = email,
+            profileImageUri = img,
+            hasPasswordLogin = user?.providerData
+                ?.any { it.providerId == EmailAuthProvider.PROVIDER_ID } ?: true
+        )
     }
 
     override suspend fun saveProfile(profile: UserDomainModel) {
@@ -2497,7 +2537,7 @@ class UserProfileRepositoryImpl(
     }
 
     override suspend fun updateRemoteProfile(name: String, email: String): Result<Boolean> =
-        suspendRunCatching  {
+        suspendRunCatching {
             withContext(Dispatchers.IO) {
                 val user = firebaseAuth.currentUser
                     ?: throw Exception("No authenticated user active session found")
@@ -2513,16 +2553,22 @@ class UserProfileRepositoryImpl(
             }
         }
 
-    override suspend fun refreshActiveUserSession() {
-        /** Picks up an email change verified outside the app. (Best effort), offline is fine. */
+    override suspend fun refreshActiveUserSession(): Boolean {
+        var isSessionValid = true
         try {
             firebaseAuth.currentUser?.reload()?.await()
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
+        } catch (e: FirebaseAuthInvalidUserException) {
+            // Email/password changed elsewhere, or the account was disabled or deleted.
+            isSessionValid = false
+        } catch (e: Exception) {
+            Log.w("UserProfileRepository", "Session refresh failed", e)
         }
         _profileState.value = getProfile()
+        return isSessionValid
     }
+
 }
 ```
 
@@ -2688,7 +2734,8 @@ data class UserDomainModel(
     val id: String,
     val name: String,
     val email: String,
-    val profileImageUri: String? = null
+    val profileImageUri: String? = null,
+    val hasPasswordLogin: Boolean = true
 )
 ```
 
@@ -2762,6 +2809,8 @@ interface AuthRepository {
         accessToken: String
     ): Result<UserDomainModel>
 
+    /** Adds email/password sign-in for [email] to a social account and sends that email a verification link. */
+    suspend fun addEmailPasswordLogin(email: String, password: String): Result<Unit>
 
     // Password Reset
     suspend fun sendPasswordResetEmail(
@@ -2771,9 +2820,17 @@ interface AuthRepository {
 
     // Session Management persistence
     fun isUserLoggedIn(): Boolean
+
     suspend fun saveLocalSession(
         user: UserDomainModel
     )
+
+    /**
+     * After an email switch: detaches Google/Facebook links whose email is no longer the account's email.
+     * Only runs when email/password login already works for the account's current email.
+     */
+    suspend fun detachOutdatedSocialProviders()
+
     suspend fun clearSession()
 }
 ```
@@ -2803,7 +2860,8 @@ interface UserProfileRepository {
     suspend fun getProfile(): UserDomainModel
     suspend fun saveProfile(profile: UserDomainModel)
     suspend fun updateRemoteProfile(name: String, email: String): Result<Boolean>
-    suspend fun refreshActiveUserSession()
+    /** @return false when Firebase says the account changed and the user must sign in again. */
+    suspend fun refreshActiveUserSession(): Boolean
 }
 ```
 
@@ -2866,6 +2924,7 @@ class LoginWithEmailUseCase(
 ) {
     suspend operator fun invoke(email: String, pass: String): Result<UserDomainModel> {
         val result = authRepository.loginWithEmail(email, pass)
+        if (result.isSuccess) authRepository.detachOutdatedSocialProviders()
         return completeAuthSessionUseCase(result)
     }
 }
@@ -2952,13 +3011,11 @@ package com.mhq.fynecast.auth.domain.usecases.auth
 import com.mhq.fynecast.auth.domain.models.ValidationError
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.validation.EmailFormatValidator
+import com.mhq.fynecast.auth.domain.validation.PasswordValidator
 
 class ValidateSignupFormUseCase {
     private val usernameRegex =
         Regex("^[a-zA-Z0-9_]{3,15}$")
-
-    private val passwordRegex =
-        Regex("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=])(?=\\S+$).{6,}$")
 
     fun validateUsername(username: String): Boolean =
         username.isEmpty() || username.matches(usernameRegex)
@@ -2967,7 +3024,7 @@ class ValidateSignupFormUseCase {
         EmailFormatValidator.isValidOrEmpty(email)
 
     fun validatePassword(password: String): Boolean =
-        password.isEmpty() || password.matches(passwordRegex)
+        PasswordValidator.isValidOrEmpty(password)
 
     fun validatePasswordMatch(password: String, confirmPassword: String): Boolean =
         confirmPassword.isEmpty() || password == confirmPassword
@@ -2986,7 +3043,7 @@ class ValidateSignupFormUseCase {
             !EmailFormatValidator.isValid(email) -> ValidationResult.Failure(ValidationError.EmailInvalid)
 
             password.isBlank() -> ValidationResult.Failure(ValidationError.PasswordEmpty)
-            !password.matches(passwordRegex) -> ValidationResult.Failure(ValidationError.PasswordWeak)
+            !PasswordValidator.isValid(password) -> ValidationResult.Failure(ValidationError.PasswordWeak)
 
             confirmPassword.isBlank() -> ValidationResult.Failure(ValidationError.ConfirmPasswordEmpty)
             password != confirmPassword -> ValidationResult.Failure(ValidationError.PasswordsMismatch)
@@ -3015,24 +3072,55 @@ class ObserveUserProfileUseCase(
 }
 ```
 
+## auth\domain\usecases\profile\RefreshUserSessionUseCase.kt
+
+```kotlin
+package com.mhq.fynecast.auth.domain.usecases.profile
+
+import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
+import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
+import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
+
+class RefreshUserSessionUseCase(
+    private val profileRepository: UserProfileRepository,
+    private val authRepository: AuthRepository,
+    private val logoutUserUseCase: LogoutUserUseCase
+) {
+    /** @return false when the session had expired and the user was signed out. */
+    suspend operator fun invoke(): Boolean {
+        if (!profileRepository.refreshActiveUserSession()) {
+            logoutUserUseCase()
+            return false
+        }
+        authRepository.detachOutdatedSocialProviders()
+        return true
+    }
+}
+```
+
 ## auth\domain\usecases\profile\UpdateUserProfileUseCase.kt
 
 ```kotlin
 package com.mhq.fynecast.auth.domain.usecases.profile
 
+import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
 import com.mhq.fynecast.auth.domain.repository.profile.ImageStorageRepository
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
 
 class UpdateUserProfileUseCase(
     private val profileRepository: UserProfileRepository,
-    private val imageRepository: ImageStorageRepository
+    private val imageRepository: ImageStorageRepository,
+    private val authRepository: AuthRepository
 ) {
     suspend operator fun invoke(
         newName: String,
         newEmail: String,
+        newPassword: String? = null,
         localImageUriString: String?
     ): Result<Boolean> {
         val currentProfile = profileRepository.getProfile()
+        val switchesToPasswordLogin = !currentProfile.hasPasswordLogin &&
+                !newEmail.equals(currentProfile.email, ignoreCase = true)
         var finalImageUri = currentProfile.profileImageUri
         val previousImageUri = currentProfile.profileImageUri
         var createdImageUri: String? = null
@@ -3052,14 +3140,23 @@ class UpdateUserProfileUseCase(
         var profileSaved = false
 
         return runCatching {
-            val remoteUpdateVerification =
-                profileRepository.updateRemoteProfile(newName, newEmail).getOrThrow()
+            var remoteUpdateVerification = profileRepository.updateRemoteProfile(
+                newName,
+                if (switchesToPasswordLogin) currentProfile.email else newEmail
+            ).getOrThrow()
+            if (switchesToPasswordLogin) {
+                authRepository.addEmailPasswordLogin(
+                    newEmail,
+                    requireNotNull(newPassword)
+                ).getOrThrow()
+                remoteUpdateVerification = true
+            }
 
             profileRepository.saveProfile(
                 currentProfile.copy(
                     name = newName,
-                     /** A changed email only applies after the user clicks the verification link,
-                     so keep showing the current one until then.*/
+                    /** A changed email only applies after the user clicks the verification link,
+                    so keep showing the current one until then.*/
                     email = if (remoteUpdateVerification) currentProfile.email else newEmail,
                     profileImageUri = finalImageUri
                 )
@@ -3083,12 +3180,12 @@ class UpdateUserProfileUseCase(
 
             remoteUpdateVerification
         }.onFailure {
-             /**Only roll back if the profile never ended up pointing at this file.
-              * If saveProfile already succeeded
-              * and a later step (refreshActiveUserSession)
-              * is what threw, deleting the file now would leave
-              * the saved profile pointing at a file that no longer exists
-              * — the exact thing this rollback exists to prevent.*/
+            /**Only roll back if the profile never ended up pointing at this file.
+             * If saveProfile already succeeded
+             * and a later step (refreshActiveUserSession)
+             * is what threw, deleting the file now would leave
+             * the saved profile pointing at a file that no longer exists
+             * — the exact thing this rollback exists to prevent.*/
             if (!profileSaved) {
                 createdImageUri?.let { imageRepository.deleteProfileImage(it) }
             }
@@ -3105,6 +3202,7 @@ package com.mhq.fynecast.auth.domain.usecases.profile
 import com.mhq.fynecast.auth.domain.models.ValidationError
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.validation.EmailFormatValidator
+import com.mhq.fynecast.auth.domain.validation.PasswordValidator
 
 class ValidateEditProfileUseCase {
     private val usernameRegex = Regex("^[a-zA-Z0-9_ -]{3,30}$")
@@ -3117,12 +3215,31 @@ class ValidateEditProfileUseCase {
         return EmailFormatValidator.isValidOrEmpty(email)
     }
 
-    operator fun invoke(username: String, email: String): ValidationResult {
+    fun validatePassword(password: String): Boolean = PasswordValidator.isValidOrEmpty(password)
+
+    fun validatePasswordMatch(password: String, confirmPassword: String): Boolean =
+        confirmPassword.isEmpty() || password == confirmPassword
+
+    /** [newPassword] is non-null only when the email switch needs a password. */
+    operator fun invoke(
+        username: String,
+        email: String,
+        newPassword: String? = null,
+        confirmPassword: String? = null
+    ): ValidationResult {
         return when {
             username.isBlank() -> ValidationResult.Failure(ValidationError.NameEmpty)
             !username.matches(usernameRegex) -> ValidationResult.Failure(ValidationError.NameInvalidForProfile)
             email.isBlank() -> ValidationResult.Failure(ValidationError.EmailEmpty)
             !EmailFormatValidator.isValid(email) -> ValidationResult.Failure(ValidationError.EmailInvalid)
+            newPassword != null && newPassword.isBlank() ->
+                ValidationResult.Failure(ValidationError.PasswordEmpty)
+            newPassword != null && !PasswordValidator.isValid(newPassword) ->
+                ValidationResult.Failure(ValidationError.PasswordWeak)
+            newPassword != null && confirmPassword.isNullOrBlank() ->
+                ValidationResult.Failure(ValidationError.ConfirmPasswordEmpty)
+            newPassword != null && newPassword != confirmPassword ->
+                ValidationResult.Failure(ValidationError.PasswordsMismatch)
             else -> ValidationResult.Success
         }
     }
@@ -3187,6 +3304,20 @@ object EmailFormatValidator {
 }
 ```
 
+## auth\domain\validation\PasswordValidator.kt
+
+```kotlin
+package com.mhq.fynecast.auth.domain.validation
+
+object PasswordValidator {
+    private val regex =
+        Regex("^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=])(?=\\S+$).{6,}$")
+
+    fun isValid(password: String): Boolean = password.matches(regex)
+    fun isValidOrEmpty(password: String): Boolean = password.isEmpty() || isValid(password)
+}
+```
+
 ## auth\ui\AuthUiText.kt
 
 ```kotlin
@@ -3234,7 +3365,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -3245,6 +3383,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -3261,6 +3400,15 @@ fun EditProfileForm(
     userEmail: String,
     isEmailValid: Boolean,
     onUserEmailChanged: (String) -> Unit,
+    showPasswordFields: Boolean = false,
+    newPassword: String = "",
+    isNewPasswordValid: Boolean = true,
+    onNewPasswordChanged: (String) -> Unit = {},
+    confirmPassword: String = "",
+    doPasswordsMatch: Boolean = true,
+    onConfirmPasswordChanged: (String) -> Unit = {},
+    isPasswordVisible: Boolean = false,
+    onTogglePasswordVisibility: () -> Unit = {},
     usernameFocusRequester: FocusRequester = remember { FocusRequester() },
     modifier: Modifier = Modifier
 ) {
@@ -3312,6 +3460,62 @@ fun EditProfileForm(
                 )
             })
         )
+        if (showPasswordFields) {
+            Text(
+                text = stringResource(R.string.email_switch_password_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+            val visibilityToggle: @Composable () -> Unit = {
+                IconButton(onClick = onTogglePasswordVisibility) {
+                    Icon(
+                        imageVector = if (isPasswordVisible) Icons.Default.Visibility
+                        else Icons.Default.VisibilityOff,
+                        contentDescription = stringResource(
+                            if (isPasswordVisible) R.string.hide_password else R.string.show_password
+                        ),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            val passwordTransformation =
+                if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation()
+
+            AuthInputField(
+                value = newPassword,
+                label = stringResource(R.string.password),
+                placeholder = stringResource(R.string.enter_password),
+                leadingIcon = Icons.Default.Lock,
+                trailingIcon = visibilityToggle,
+                isError = !isNewPasswordValid,
+                onValueChange = onNewPasswordChanged,
+                visualTransformation = passwordTransformation,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(onNext = {
+                    focusManager.moveFocus(FocusDirection.Down)
+                })
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            AuthInputField(
+                value = confirmPassword,
+                label = stringResource(R.string.confirm_password),
+                placeholder = stringResource(R.string.confirm_password),
+                leadingIcon = Icons.Default.Lock,
+                trailingIcon = visibilityToggle,
+                isError = !doPasswordsMatch,
+                onValueChange = onConfirmPasswordChanged,
+                visualTransformation = passwordTransformation,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+            )
+        }
     }
 }
 
@@ -3518,8 +3722,22 @@ class EditProfileViewModel(
     fun isEmailValid(email: String): Boolean =
         validateEditProfileUseCase.validateEmailFormat(email)
 
-    fun onSaveProfileAction(username: String, email: String, profileImageUri: String?) {
-        when (val validation = validateEditProfileUseCase(username, email)) {
+    fun isPasswordValid(password: String): Boolean =
+        validateEditProfileUseCase.validatePassword(password)
+
+    fun doPasswordsMatch(password: String, confirmPassword: String): Boolean =
+        validateEditProfileUseCase.validatePasswordMatch(password, confirmPassword)
+
+
+    fun onSaveProfileAction(
+        username: String,
+        email: String,
+        profileImageUri: String?,
+        newPassword: String?,
+        confirmPassword: String?
+    ) {
+        when (val validation =
+            validateEditProfileUseCase(username, email, newPassword, confirmPassword)) {
             is ValidationResult.Success -> {
                 if (_editProfileUiState.value is EditProfileUiState.Loading) return
                 _editProfileUiState.value = EditProfileUiState.Loading
@@ -3530,7 +3748,8 @@ class EditProfileViewModel(
                     updateUserProfileUseCase(
                         newName = username,
                         newEmail = email,
-                        localImageUriString = profileImageUri
+                        localImageUriString = profileImageUri,
+                        newPassword = newPassword
                     )
                         .onSuccess { verificationSent ->
                             _editProfileUiState.value = EditProfileUiState.Success
@@ -3602,10 +3821,12 @@ fun EditProfileContainer(
     modifier: Modifier = Modifier,
 ) {
     val initialProfile by editProfileViewModel.initialProfile.collectAsStateWithLifecycle()
-
+    var profileImageUri by rememberSaveable { mutableStateOf<String?>(null) }
     var username by rememberSaveable { mutableStateOf("") }
     var userEmail by rememberSaveable { mutableStateOf("") }
-    var profileImageUri by rememberSaveable { mutableStateOf<String?>(null) }
+    var newPassword by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
     var isSeeded by rememberSaveable { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -3622,6 +3843,12 @@ fun EditProfileContainer(
 
     val isUsernameValid = editProfileViewModel.isUsernameValid(username)
     val isEmailValid = editProfileViewModel.isEmailValid(userEmail)
+    // Social accounts have no password yet: switching the email needs one for the new email.
+    val showPasswordFields = initialProfile?.let {
+        !it.hasPasswordLogin && !userEmail.equals(it.email, ignoreCase = true)
+    } ?: false
+    val isNewPasswordValid = editProfileViewModel.isPasswordValid(newPassword)
+    val doPasswordsMatch = editProfileViewModel.doPasswordsMatch(newPassword, confirmPassword)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -3651,9 +3878,24 @@ fun EditProfileContainer(
             isEmailValid = isEmailValid,
             onUsernameChanged = { username = it },
             onUserEmailChanged = { userEmail = it.trim() },
+            showPasswordFields = showPasswordFields,
+            newPassword = newPassword,
+            isNewPasswordValid = isNewPasswordValid,
+            onNewPasswordChanged = { newPassword = it },
+            confirmPassword = confirmPassword,
+            doPasswordsMatch = doPasswordsMatch,
+            onConfirmPasswordChanged = { confirmPassword = it },
+            isPasswordVisible = isPasswordVisible,
+            onTogglePasswordVisibility = { isPasswordVisible = !isPasswordVisible },
             onBackClick = onBackClick,
             onSaveClick = {
-                editProfileViewModel.onSaveProfileAction(username, userEmail, profileImageUri)
+                editProfileViewModel.onSaveProfileAction(
+                    username,
+                    userEmail,
+                    profileImageUri,
+                    newPassword.takeIf { showPasswordFields },
+                    confirmPassword.takeIf { showPasswordFields }
+                )
             },
             contentPadding = contentPadding,
             modifier = modifier,
@@ -3691,6 +3933,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
@@ -3721,6 +3965,15 @@ fun EditProfileContent(
     isEmailValid: Boolean,
     onUserEmailChanged: (String) -> Unit,
     profileImageUri: String?,
+    showPasswordFields: Boolean = false,
+    newPassword: String = "",
+    isNewPasswordValid: Boolean = true,
+    onNewPasswordChanged: (String) -> Unit = {},
+    confirmPassword: String = "",
+    doPasswordsMatch: Boolean = true,
+    onConfirmPasswordChanged: (String) -> Unit = {},
+    isPasswordVisible: Boolean = false,
+    onTogglePasswordVisibility: () -> Unit = {},
     onProfileImagePicked: (String) -> Unit,
     onSaveClick: () -> Unit,
     onBackClick: () -> Unit,
@@ -3739,11 +3992,12 @@ fun EditProfileContent(
             .fillMaxSize()
     ) {
         Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
                 .padding(bottom = contentPadding.calculateBottomPadding() + 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // 1. Customized Top Action Navigation Bar Header
             Row(
@@ -5542,6 +5796,7 @@ import com.mhq.fynecast.auth.domain.usecases.auth.SendPasswordResetUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
+import com.mhq.fynecast.auth.domain.usecases.profile.RefreshUserSessionUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
@@ -5591,6 +5846,7 @@ interface AppContainer {
     val updateUserProfileUseCase: UpdateUserProfileUseCase
     val validateEditProfileUseCase: ValidateEditProfileUseCase
     val observeUserProfileUseCase: ObserveUserProfileUseCase
+    val refreshUserSessionUseCase: RefreshUserSessionUseCase
     val observeSignedInUserIdUseCase: ObserveSignedInUserIdUseCase
     val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase
     val logoutUserUseCase: LogoutUserUseCase
@@ -5716,7 +5972,8 @@ val AppViewModelFactory: ViewModelProvider.Factory = viewModelFactory {
 
     initializer {
         SessionViewModel(
-            checkUserLoggedIn = container().checkUserLoggedInUseCase
+            checkUserLoggedIn = container().checkUserLoggedInUseCase,
+            refreshUserSession = container().refreshUserSessionUseCase
         )
     }
 
@@ -5826,6 +6083,7 @@ import com.mhq.fynecast.auth.domain.usecases.auth.SendPasswordResetUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
+import com.mhq.fynecast.auth.domain.usecases.profile.RefreshUserSessionUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
@@ -6075,16 +6333,16 @@ class DefaultAppContainer(
     override val observeUserProfileUseCase by lazy {
         ObserveUserProfileUseCase(userProfileRepository)
     }
+    override val refreshUserSessionUseCase: RefreshUserSessionUseCase by lazy {
+        RefreshUserSessionUseCase(userProfileRepository, authRepository, logoutUserUseCase)
+    }
     override val observeSignedInUserIdUseCase by lazy {
         ObserveSignedInUserIdUseCase(
             currentUserProvider
         )
     }
     override val updateUserProfileUseCase by lazy {
-        UpdateUserProfileUseCase(
-            userProfileRepository,
-            imageStorageRepository
-        )
+        UpdateUserProfileUseCase(userProfileRepository, imageStorageRepository, authRepository)
     }
     override val checkUserLoggedInUseCase: CheckUserLoggedInUseCase by lazy {
         CheckUserLoggedInUseCase(authRepository)
@@ -6734,16 +6992,33 @@ enum class BottomNavTab(
 package com.mhq.fynecast.core.navigation
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.mhq.fynecast.auth.domain.usecases.profile.RefreshUserSessionUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
 
 class SessionViewModel(
-    checkUserLoggedIn: CheckUserLoggedInUseCase
+    checkUserLoggedIn: CheckUserLoggedInUseCase,
+    private val refreshUserSession: RefreshUserSessionUseCase
 ) : ViewModel() {
+
     val startDestination: String =
         if (checkUserLoggedIn())
             AppDestination.Home.route
         else
             AppDestination.Signup.route
+
+    private val _sessionExpired = Channel<Unit>(Channel.BUFFERED)
+    val sessionExpired = _sessionExpired.receiveAsFlow()
+
+    /** Checks with Firebase that the account is still valid, e.g. after an email change. */
+    fun onAppResumed() {
+        viewModelScope.launch {
+            if (!refreshUserSession()) _sessionExpired.send(Unit)
+        }
+    }
 }
 ```
 
@@ -7511,6 +7786,7 @@ fun dynamicBackgroundGradient(): List<Color> {
 package com.mhq.fynecast.core.ui.globalcomponents
 
 import android.os.Build
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
@@ -7526,6 +7802,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -7538,6 +7815,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.mhq.fynecast.R
 import com.mhq.fynecast.alerts.ui.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.screens.AlertsContainer
 import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
@@ -7575,12 +7853,11 @@ fun FyneCastApp(
     sessionViewModel: SessionViewModel,
     onRequestPermission: (String) -> Unit
 ) {
-
-    val storedDarkMode by settingsViewModel.isDarkMode.collectAsStateWithLifecycle()
-    val isDarkMode = storedDarkMode ?: isSystemInDarkTheme()
     val isMetric by settingsViewModel.isMetric.collectAsStateWithLifecycle()
     val currentLanguage by settingsViewModel.currentLanguage.collectAsStateWithLifecycle()
     val appLangCode = currentLanguage.code
+    val storedDarkMode by settingsViewModel.isDarkMode.collectAsStateWithLifecycle()
+    val isDarkMode = storedDarkMode ?: isSystemInDarkTheme()
 
     LaunchedEffect(appLangCode) {
         homeViewModel.onLanguageChanged(appLangCode)
@@ -7600,6 +7877,20 @@ fun FyneCastApp(
         val navController = rememberNavController()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
+        val context = LocalContext.current
+        LaunchedEffect(sessionViewModel, navController) {
+            sessionViewModel.sessionExpired.collect {
+                Toast.makeText(
+                    context,
+                    R.string.session_expired_sign_in_again,
+                    Toast.LENGTH_LONG
+                ).show()
+                navController.navigate(AppDestination.Login.route) {
+                    popUpTo(0) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
         val homeUiState = homeViewModel.state.collectAsStateWithLifecycle().value.uiState
 
         val rootRoutes = BottomNavTab.entries.map { it.destination.route }
@@ -7677,7 +7968,7 @@ fun FyneCastApp(
                         val isMetric by settingsViewModel.isMetric.collectAsStateWithLifecycle()
                         HomeContainer(
                             homeViewModel = homeViewModel,
-                            onNavigateToMap = { navController.navigate("map_picker") },
+                            onNavigateToMap = { navController.navigate(AppDestination.MapPicker.route) },
                             onAlertsBannerClick = { navController.navigate(AppDestination.Alerts.route) },
                             onRequestPermission = onRequestPermission,
                             contentPadding = bottomContentPadding,
@@ -7729,7 +8020,7 @@ fun FyneCastApp(
                         )
                     }
 
-                    composable("map_picker") {
+                    composable(AppDestination.MapPicker.route) {
                         val mapLangCode = currentLanguage.code
                         val mapPickerViewModel: MapPickerViewModel =
                             viewModel(factory = AppViewModelFactory)
@@ -7740,7 +8031,6 @@ fun FyneCastApp(
                             langCode = mapLangCode,
                             initialLatitude = currentWeather?.latitude,
                             initialLongitude = currentWeather?.longitude,
-                            // map_picker destination
                             onLocationPicked = { location ->
                                 mapPickerViewModel.onLocationConfirmed(
                                     name = location.fullName,
@@ -7883,6 +8173,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -7931,10 +8222,15 @@ class MainActivity : AppCompatActivity() {
         settingsViewModel.requestNotificationPermissionOnFirstLaunch()
     }
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        settingsViewModel.onNotificationPermissionResult(granted)
+        val blockedForGood = !granted && !ActivityCompat.shouldShowRequestPermissionRationale(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS
+        )
+        settingsViewModel.onNotificationPermissionResult(granted, blockedForGood)
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -8014,7 +8310,25 @@ class MainActivity : AppCompatActivity() {
         val currentLangTag = AppCompatDelegate.getApplicationLocales().toLanguageTags().ifEmpty { "en" }
         homeViewModel.onRefreshRequested(langCode = currentLangTag)
         settingsViewModel.onAppResumed()
+        sessionViewModel.onAppResumed()
     }
+}
+```
+
+## core\ui\NotificationSettings.kt
+
+```kotlin
+package com.mhq.fynecast.core.ui
+
+import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+
+fun Context.openNotificationSettings() {
+    startActivity(
+        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+    )
 }
 ```
 
@@ -11444,13 +11758,25 @@ fun WeatherHourlyItemPreview() {
 package com.mhq.fynecast.home.ui.components
 
 import android.content.res.Configuration
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11460,6 +11786,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -11475,6 +11802,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
@@ -11484,9 +11813,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 
 @Composable
 fun WeatherSearchBar(
@@ -11501,37 +11830,75 @@ fun WeatherSearchBar(
     val isListVisible = showSuggestions && suggestions.isNotEmpty() && searchQuery.length > 2
     val focusManager = LocalFocusManager.current
 
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
     val onSurfaceColor = MaterialTheme.colorScheme.onBackground
+    val primaryAccent = MaterialTheme.colorScheme.onPrimary
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .zIndex(5f) // Increased to ensure dropdown sits beautifully above all carousel elements
+            .zIndex(10f)
     ) {
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = {
-                searchQuery = it
-                onQueryChange(it)
-                showSuggestions = it.isNotEmpty()
-            },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = {
-                Text(
-                    text = stringResource(R.string.enter_a_city_name),
-                    color = onSurfaceColor.copy(alpha = 0.4f),
-                    style = MaterialTheme.typography.bodyMedium
+        // Core horizontal capsule bar container
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .clip(RoundedCornerShape(32.dp))
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.15f))
+                .then(
+                    Modifier.background(
+                        brush = Brush.linearGradient(
+                            colors = if (isFocused) {
+                                listOf(primaryAccent.copy(alpha = 0.25f), Color.Transparent)
+                            } else {
+                                listOf(onSurfaceColor.copy(alpha = 0.08f), Color.Transparent)
+                            }
+                        )
+                    )
                 )
-            },
-            leadingIcon = {
+                .border(
+                    width = 1.2.dp,
+                    color = if (isFocused) primaryAccent.copy(alpha = 0.4f) else onSurfaceColor.copy(alpha = 0.1f),
+                    shape = RoundedCornerShape(32.dp)
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left Pill Wing: Search Icon Indicator (interactive if you want it to clear focus or request search)
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(64.dp),
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = stringResource(R.string.search_icon),
-                    tint = onSurfaceColor.copy(alpha = 0.6f)
+                    tint = if (isFocused) primaryAccent else onSurfaceColor.copy(alpha = 0.7f),
+                    modifier = Modifier.size(24.dp)
                 )
-            },
-            trailingIcon = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            }
+
+            // Central Capsule Area: Unbordered Fluid Input Field Engine
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = {
+                    searchQuery = it
+                    onQueryChange(it)
+                    showSuggestions = it.isNotEmpty()
+                },
+                interactionSource = interactionSource,
+                modifier = Modifier.weight(1f),
+                placeholder = {
+                    Text(
+                        text = stringResource(R.string.enter_a_city_name),
+                        color = onSurfaceColor.copy(alpha = 0.35f),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = {
                             searchQuery = ""
@@ -11541,85 +11908,110 @@ fun WeatherSearchBar(
                             Icon(
                                 imageVector = Icons.Default.Clear,
                                 contentDescription = stringResource(R.string.clear_input),
-                                tint = onSurfaceColor.copy(alpha = 0.6f)
+                                tint = onSurfaceColor.copy(alpha = 0.5f),
+                                modifier = Modifier.size(18.dp)
                             )
                         }
                     }
-                    IconButton(onClick = onMapClick) {
-                        Icon(
-                            imageVector = Icons.Default.LocationOn,
-                            contentDescription = stringResource(R.string.pick_from_map),
-                            tint = onSurfaceColor.copy(alpha = 0.7f)
-                        )
+                },
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = onSurfaceColor,
+                    unfocusedTextColor = onSurfaceColor,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    cursorColor = primaryAccent
+                ),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(
+                    onSearch = {
+                        if (isListVisible) {
+                            onSuggestionClick(suggestions[0])
+                            searchQuery = suggestions[0].fullName
+                            showSuggestions = false
+                            focusManager.clearFocus()
+                        }
                     }
-                }
-            },
-            singleLine = true,
-            shape = RoundedCornerShape(24.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = onSurfaceColor,
-                unfocusedTextColor = onSurfaceColor,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f),
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.08f),
-                focusedBorderColor = onSurfaceColor.copy(alpha = 0.25f),
-                unfocusedBorderColor = onSurfaceColor.copy(alpha = 0.1f),
-                cursorColor = onSurfaceColor
-            ),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(
-                onSearch = {
-                    if (isListVisible) {
-                        onSuggestionClick(suggestions[0])
-                        searchQuery = suggestions[0].fullName
-                        showSuggestions = false
-                        focusManager.clearFocus()
-                    }
-                }
+                )
             )
-        )
 
-        if (isListVisible) {
-            // Updated to leverage your premium GlassyCard framework wrapper natively
+            // Right Pill Wing: Vivid Map Action Discover Launch Endpoint
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(64.dp)
+                    .background(onSurfaceColor.copy(alpha = 0.05f))
+                    .clickable { onMapClick() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.LocationOn,
+                    contentDescription = stringResource(R.string.pick_from_map),
+                    tint = onSurfaceColor.copy(alpha = 0.7f),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        // Dropdown suggestions layout floating over underlying panels
+        AnimatedVisibility(
+            visible = isListVisible,
+            enter = fadeIn(animationSpec = tween(200)),
+            exit = fadeOut(animationSpec = tween(150))
+        ) {
             GlassyCard(
                 cornerRadius = 24.dp,
                 padding = 4.dp,
-                containerAlpha = 0.15f,
-                borderAlpha = 0.25f,
+                containerAlpha = 0.25f,
+                borderAlpha = 0.35f,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 6.dp)
+                    .padding(top = 8.dp)
+                    .zIndex(11f)
             ) {
                 LazyColumn(
                     modifier = Modifier.heightIn(max = 240.dp)
                 ) {
                     items(suggestions) { suggestion ->
-                        ListItem(
-                            headlineContent = {
-                                Text(
-                                    text = suggestion.fullName,
-                                    color = onSurfaceColor,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
+                        Column {
+                            ListItem(
+                                headlineContent = {
+                                    Text(
+                                        text = suggestion.fullName,
+                                        color = onSurfaceColor,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                },
+                                leadingContent = {
+                                    Icon(
+                                        imageVector = Icons.Default.LocationOn,
+                                        contentDescription = null,
+                                        tint = primaryAccent.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .clickable {
+                                        searchQuery = suggestion.fullName
+                                        showSuggestions = false
+                                        onSuggestionClick(suggestion)
+                                        focusManager.clearFocus()
+                                    }
+                                    .padding(vertical = 2.dp)
+                            )
+                            if (suggestion != suggestions.last()) {
+                                HorizontalDivider(
+                                    color = onSurfaceColor.copy(alpha = 0.06f),
+                                    modifier = Modifier.padding(horizontal = 16.dp)
                                 )
-                            },
-                            leadingContent = {
-                                Icon(
-                                    imageVector = Icons.Default.LocationOn,
-                                    contentDescription = null,
-                                    tint = onSurfaceColor.copy(alpha = 0.5f),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    searchQuery = suggestion.fullName
-                                    showSuggestions = false
-                                    onSuggestionClick(suggestion)
-                                    focusManager.clearFocus()
-                                }
-                        )
+                            }
+                        }
                     }
                 }
             }
@@ -13579,6 +13971,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -13596,10 +13989,12 @@ import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 @Composable
 fun SettingsLogoutButton(
     onLogoutClick: () -> Unit,
+    isLoggingOut: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Button(
         onClick = onLogoutClick,
+        enabled = !isLoggingOut,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
             1.dp,
@@ -13618,12 +14013,20 @@ fun SettingsLogoutButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.Logout,
-                tint = MaterialTheme.colorScheme.error,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
+            if (isLoggingOut) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.error
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    tint = MaterialTheme.colorScheme.error,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = stringResource(R.string.logout),
@@ -14086,19 +14489,23 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.di.AppViewModelFactory
+import com.mhq.fynecast.core.ui.openNotificationSettings
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 
 @Composable
@@ -14111,16 +14518,15 @@ fun SettingsContainer(
 ) {
     val resources = LocalResources.current
     val snackbarHostState = remember { SnackbarHostState() }
-
     val profileName by settingsViewModel.profileName.collectAsStateWithLifecycle()
     val profileEmail by settingsViewModel.profileEmail.collectAsStateWithLifecycle()
     val profileImageUri by settingsViewModel.profileImageUri.collectAsStateWithLifecycle()
-    val currentLanguage by settingsViewModel.currentLanguage.collectAsStateWithLifecycle()
-
     val isMetric by settingsViewModel.isMetric.collectAsStateWithLifecycle()
+    val notificationsEnabled by settingsViewModel.notificationsEnabled.collectAsStateWithLifecycle()
+    val currentLanguage by settingsViewModel.currentLanguage.collectAsStateWithLifecycle()
     val storedDarkMode by settingsViewModel.isDarkMode.collectAsStateWithLifecycle()
     val isDarkMode = storedDarkMode ?: isSystemInDarkTheme()
-    val notificationsEnabled by settingsViewModel.notificationsEnabled.collectAsStateWithLifecycle()
+    val isLoggingOut by settingsViewModel.isLoggingOut.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         settingsViewModel.logoutComplete.collect {
@@ -14135,20 +14541,34 @@ fun SettingsContainer(
         }
     }
 
+    val context = LocalContext.current
+    LaunchedEffect(settingsViewModel, resources, context) {
+        settingsViewModel.notificationsBlocked.collect {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val result = snackbarHostState.showSnackbar(
+                message = resources.getString(R.string.notifications_settings_message),
+                actionLabel = resources.getString(R.string.notifications_settings_confirm),
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) context.openNotificationSettings()
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         SettingsContent(
-            isMetric = isMetric,
-            onMetricToggle = settingsViewModel::onUnitSystemChanged,
-            isDarkMode = isDarkMode,
-            onDarkModeToggle = settingsViewModel::onThemeChanged,
-            notificationsEnabled = notificationsEnabled,
-            onNotificationsToggle = settingsViewModel::toggleNotifications,
             profileName = profileName,
             profileEmail = profileEmail,
             profileImageUri = profileImageUri,
+            onEditProfileClick = onEditProfileClick,
+            isMetric = isMetric,
+            onMetricToggle = settingsViewModel::onUnitSystemChanged,
+            notificationsEnabled = notificationsEnabled,
+            onNotificationsToggle = settingsViewModel::toggleNotifications,
             currentLanguage = currentLanguage,
             onLanguageChange = settingsViewModel::onLanguageChanged,
-            onEditProfileClick = onEditProfileClick,
+            isDarkMode = isDarkMode,
+            onDarkModeToggle = settingsViewModel::onThemeChanged,
+            isLoggingOut = isLoggingOut,
             onLogoutClick = { settingsViewModel.onLogoutAction() },
             contentPadding = contentPadding,
             modifier = modifier
@@ -14192,18 +14612,19 @@ import com.mhq.fynecast.settings.ui.components.SettingsProfileHeader
 
 @Composable
 fun SettingsContent(
-    notificationsEnabled: Boolean,
-    isDarkMode: Boolean,
-    isMetric: Boolean,
     profileName: String,
     profileEmail: String,
     profileImageUri: String?,
-    currentLanguage: AppLanguage,
-    onNotificationsToggle: (Boolean) -> Unit,
-    onDarkModeToggle: (Boolean) -> Unit,
-    onMetricToggle: (Boolean) -> Unit,
-    onLanguageChange: (AppLanguage) -> Unit,
     onEditProfileClick: () -> Unit,
+    isMetric: Boolean,
+    onMetricToggle: (Boolean) -> Unit,
+    notificationsEnabled: Boolean,
+    onNotificationsToggle: (Boolean) -> Unit,
+    currentLanguage: AppLanguage,
+    onLanguageChange: (AppLanguage) -> Unit,
+    isDarkMode: Boolean,
+    onDarkModeToggle: (Boolean) -> Unit,
+    isLoggingOut: Boolean = false,
     onLogoutClick: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier
@@ -14231,15 +14652,16 @@ fun SettingsContent(
             SettingsPanel(
                 isMetric = isMetric,
                 onMetricToggle = onMetricToggle,
-                isDarkMode = isDarkMode,
-                onDarkModeToggle = onDarkModeToggle,
+                notificationsEnabled = notificationsEnabled,
+                onNotificationsToggle = onNotificationsToggle,
                 currentLanguage = currentLanguage,
                 onLanguageChange = onLanguageChange,
-                notificationsEnabled = notificationsEnabled,
-                onNotificationsToggle = onNotificationsToggle
+                isDarkMode = isDarkMode,
+                onDarkModeToggle = onDarkModeToggle
             )
             SettingsLogoutButton(
-                onLogoutClick = onLogoutClick
+                isLoggingOut = isLoggingOut,
+                onLogoutClick = onLogoutClick,
             )
         }
     }
@@ -14263,20 +14685,20 @@ fun SettingsContent(
 fun SettingsScreenPreview() {
     FyneCastTheme() {
         SettingsContent(
-            notificationsEnabled = true,
-            isDarkMode = true,
-            isMetric = true,
             profileName = "name",
             profileEmail = "email",
-            onNotificationsToggle = {},
-            onDarkModeToggle = {},
-            onMetricToggle = {},
+            profileImageUri = null,
             onEditProfileClick = {},
-            onLogoutClick = {},
-            contentPadding = PaddingValues(0.dp),
+            isMetric = true,
+            onMetricToggle = {},
+            notificationsEnabled = true,
+            onNotificationsToggle = {},
             currentLanguage = AppLanguage.English,
             onLanguageChange = {},
-            profileImageUri = null
+            isDarkMode = true,
+            onDarkModeToggle = {},
+            onLogoutClick = {},
+            contentPadding = PaddingValues(0.dp)
         )
     }
 }
@@ -14317,6 +14739,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -14335,21 +14758,34 @@ class SettingsViewModel(
     private val logoutUserUseCase: LogoutUserUseCase
 ) : ViewModel() {
 
+    private val profileFlow = observeUserProfileUseCase().filter { it.id.isNotEmpty() }
+    private val preferencesFlow = observeUserPreferencesUseCase()
     private val _requestNotificationPermissionEvent = Channel<Unit>(Channel.BUFFERED)
     val requestNotificationPermissionEvent = _requestNotificationPermissionEvent.receiveAsFlow()
-    private val profileFlow = observeUserProfileUseCase()
-    private val preferencesFlow = observeUserPreferencesUseCase()
+    private var isAwaitingTogglePermission = false
+    private val _notificationsBlockedChannel = Channel<Unit>(Channel.BUFFERED)
+    val notificationsBlocked = _notificationsBlockedChannel.receiveAsFlow()
     private val _logoutCompleteChannel = Channel<Unit>(Channel.BUFFERED)
     val logoutComplete = _logoutCompleteChannel.receiveAsFlow()
     private val _logoutFailedChannel = Channel<Unit>(Channel.BUFFERED)
     val logoutFailed = _logoutFailedChannel.receiveAsFlow()
-    private var isLoggingOut = false
+    private val _isLoggingOut = MutableStateFlow(false)
+    val isLoggingOut: StateFlow<Boolean> = _isLoggingOut.asStateFlow()
+    private val _isMetric = MutableStateFlow(true)
+    val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
+    private val _currentLanguage = MutableStateFlow(AppLanguage.English)
+    val currentLanguage: StateFlow<AppLanguage> = _currentLanguage.asStateFlow()
+    private val _isDarkMode = MutableStateFlow<Boolean?>(null)
+    val isDarkMode: StateFlow<Boolean?> = _isDarkMode.asStateFlow()
+    private val _arePreferencesLoaded = MutableStateFlow(false)
+    /** True once the first preferences read has finished; the splash screen waits for it. */
+    val arePreferencesLoaded: StateFlow<Boolean> = _arePreferencesLoaded.asStateFlow()
 
     val profileName: StateFlow<String> =
         profileFlow.map { it.name }
             .stateIn(
                 viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
+                SharingStarted.Eagerly,
                 "Username"
             )
 
@@ -14357,7 +14793,7 @@ class SettingsViewModel(
         profileFlow.map { it.email }
             .stateIn(
                 viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
+                SharingStarted.Eagerly,
                 "username@gmail.com"
             )
 
@@ -14365,26 +14801,17 @@ class SettingsViewModel(
         profileFlow.map { it.profileImageUri }
             .stateIn(
                 viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
+                SharingStarted.Eagerly,
                 null
             )
 
-    private val _isMetric = MutableStateFlow(true)
-    val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
-
-    private val _currentLanguage = MutableStateFlow(AppLanguage.English)
-    val currentLanguage: StateFlow<AppLanguage> = _currentLanguage.asStateFlow()
-
-    private val _isDarkMode = MutableStateFlow<Boolean?>(null)
-    val isDarkMode: StateFlow<Boolean?> = _isDarkMode.asStateFlow()
-
-    private val _arePreferencesLoaded = MutableStateFlow(false)
-
-    /** True once the first preferences read has finished; the splash screen waits for it. */
-    val arePreferencesLoaded: StateFlow<Boolean> = _arePreferencesLoaded.asStateFlow()
-
     init {
         viewModelScope.launch {
+            viewModelScope.launch {
+                // A new signed-in profile means the previous logout is over.
+                profileFlow.collect { _isLoggingOut.value = false }
+            }
+
             preferencesFlow.collect { prefs ->
                 _isMetric.value = prefs.isMetric
                 _currentLanguage.value = prefs.currentLanguage
@@ -14416,16 +14843,23 @@ class SettingsViewModel(
     fun toggleNotifications(wantsEnabled: Boolean) {
         viewModelScope.launch {
             when (toggleNotifications.invoke(wantsEnabled)) {
-                ToggleNotificationsUseCase.Result.PermissionRequired ->
+                ToggleNotificationsUseCase.Result.PermissionRequired -> {
+                    isAwaitingTogglePermission = true
                     _requestNotificationPermissionEvent.trySend(Unit)
+                }
                 else -> Unit
             }
         }
     }
 
-    fun onNotificationPermissionResult(granted: Boolean) {
+    fun onNotificationPermissionResult(granted: Boolean, isBlockedForGood: Boolean) {
+        val fromToggle = isAwaitingTogglePermission
+        isAwaitingTogglePermission = false
         viewModelScope.launch {
             handleNotificationPermissionResult(granted)
+            if (!granted && isBlockedForGood && fromToggle) {
+                _notificationsBlockedChannel.send(Unit)
+            }
         }
     }
 
@@ -14435,7 +14869,7 @@ class SettingsViewModel(
         }
     }
 
-    fun onLanguageChanged(language: AppLanguage)  {
+    fun onLanguageChanged(language: AppLanguage) {
         viewModelScope.launch { setLanguage(language) }
     }
 
@@ -14444,17 +14878,16 @@ class SettingsViewModel(
     }
 
     fun onLogoutAction() {
-        if (isLoggingOut) return
-        isLoggingOut = true
+        if (_isLoggingOut.value) return
+        _isLoggingOut.value = true
         viewModelScope.launch {
-            try {
-                logoutUserUseCase().fold(
-                    onSuccess = { _logoutCompleteChannel.send(Unit) },
-                    onFailure = { _logoutFailedChannel.send(Unit) }
-                )
-            } finally {
-                isLoggingOut = false
-            }
+            logoutUserUseCase().fold(
+                onSuccess = { _logoutCompleteChannel.send(Unit) },
+                onFailure = {
+                    _isLoggingOut.value = false
+                    _logoutFailedChannel.send(Unit)
+                }
+            )
         }
     }
 }

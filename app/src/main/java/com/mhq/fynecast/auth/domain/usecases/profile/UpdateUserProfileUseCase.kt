@@ -1,18 +1,23 @@
 package com.mhq.fynecast.auth.domain.usecases.profile
 
+import com.mhq.fynecast.auth.domain.repository.auth.AuthRepository
 import com.mhq.fynecast.auth.domain.repository.profile.ImageStorageRepository
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
 
 class UpdateUserProfileUseCase(
     private val profileRepository: UserProfileRepository,
-    private val imageRepository: ImageStorageRepository
+    private val imageRepository: ImageStorageRepository,
+    private val authRepository: AuthRepository
 ) {
     suspend operator fun invoke(
         newName: String,
         newEmail: String,
+        newPassword: String? = null,
         localImageUriString: String?
     ): Result<Boolean> {
         val currentProfile = profileRepository.getProfile()
+        val switchesToPasswordLogin = !currentProfile.hasPasswordLogin &&
+                !newEmail.equals(currentProfile.email, ignoreCase = true)
         var finalImageUri = currentProfile.profileImageUri
         val previousImageUri = currentProfile.profileImageUri
         var createdImageUri: String? = null
@@ -32,14 +37,23 @@ class UpdateUserProfileUseCase(
         var profileSaved = false
 
         return runCatching {
-            val remoteUpdateVerification =
-                profileRepository.updateRemoteProfile(newName, newEmail).getOrThrow()
+            var remoteUpdateVerification = profileRepository.updateRemoteProfile(
+                newName,
+                if (switchesToPasswordLogin) currentProfile.email else newEmail
+            ).getOrThrow()
+            if (switchesToPasswordLogin) {
+                authRepository.addEmailPasswordLogin(
+                    newEmail,
+                    requireNotNull(newPassword)
+                ).getOrThrow()
+                remoteUpdateVerification = true
+            }
 
             profileRepository.saveProfile(
                 currentProfile.copy(
                     name = newName,
-                     /** A changed email only applies after the user clicks the verification link,
-                     so keep showing the current one until then.*/
+                    /** A changed email only applies after the user clicks the verification link,
+                    so keep showing the current one until then.*/
                     email = if (remoteUpdateVerification) currentProfile.email else newEmail,
                     profileImageUri = finalImageUri
                 )
@@ -63,12 +77,12 @@ class UpdateUserProfileUseCase(
 
             remoteUpdateVerification
         }.onFailure {
-             /**Only roll back if the profile never ended up pointing at this file.
-              * If saveProfile already succeeded
-              * and a later step (refreshActiveUserSession)
-              * is what threw, deleting the file now would leave
-              * the saved profile pointing at a file that no longer exists
-              * — the exact thing this rollback exists to prevent.*/
+            /**Only roll back if the profile never ended up pointing at this file.
+             * If saveProfile already succeeded
+             * and a later step (refreshActiveUserSession)
+             * is what threw, deleting the file now would leave
+             * the saved profile pointing at a file that no longer exists
+             * — the exact thing this rollback exists to prevent.*/
             if (!profileSaved) {
                 createdImageUri?.let { imageRepository.deleteProfileImage(it) }
             }

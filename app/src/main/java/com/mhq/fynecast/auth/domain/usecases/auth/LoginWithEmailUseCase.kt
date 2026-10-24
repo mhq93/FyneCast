@@ -10,6 +10,7 @@ class LoginWithEmailUseCase(
 ) {
     suspend operator fun invoke(email: String, pass: String): Result<UserDomainModel> {
         val result = authRepository.loginWithEmail(email, pass)
+        if (result.isSuccess) authRepository.detachOutdatedSocialProviders()
         return completeAuthSessionUseCase(result)
     }
 }

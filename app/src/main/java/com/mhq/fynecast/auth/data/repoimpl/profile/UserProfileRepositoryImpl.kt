@@ -4,7 +4,9 @@ import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.userProfileChangeRequest
 import com.mhq.fynecast.auth.data.session.SessionKeys
 import com.mhq.fynecast.auth.domain.models.UserDomainModel
@@ -59,7 +61,14 @@ class UserProfileRepositoryImpl(
             ?: snapshot[SessionKeys.EMAIL]
             ?: "username@gmail.com"
         val img = snapshot[SessionKeys.PROFILE_IMAGE_URI]
-        UserDomainModel(user?.uid ?: snapshot[SessionKeys.USER_ID] ?: "", name, email, img)
+        UserDomainModel(
+            id = user?.uid ?: snapshot[SessionKeys.USER_ID] ?: "",
+            name = name,
+            email = email,
+            profileImageUri = img,
+            hasPasswordLogin = user?.providerData
+                ?.any { it.providerId == EmailAuthProvider.PROVIDER_ID } ?: true
+        )
     }
 
     override suspend fun saveProfile(profile: UserDomainModel) {
@@ -75,7 +84,7 @@ class UserProfileRepositoryImpl(
     }
 
     override suspend fun updateRemoteProfile(name: String, email: String): Result<Boolean> =
-        suspendRunCatching  {
+        suspendRunCatching {
             withContext(Dispatchers.IO) {
                 val user = firebaseAuth.currentUser
                     ?: throw Exception("No authenticated user active session found")
@@ -91,14 +100,20 @@ class UserProfileRepositoryImpl(
             }
         }
 
-    override suspend fun refreshActiveUserSession() {
-        /** Picks up an email change verified outside the app. (Best effort), offline is fine. */
+    override suspend fun refreshActiveUserSession(): Boolean {
+        var isSessionValid = true
         try {
             firebaseAuth.currentUser?.reload()?.await()
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
+        } catch (e: FirebaseAuthInvalidUserException) {
+            // Email/password changed elsewhere, or the account was disabled or deleted.
+            isSessionValid = false
+        } catch (e: Exception) {
+            Log.w("UserProfileRepository", "Session refresh failed", e)
         }
         _profileState.value = getProfile()
+        return isSessionValid
     }
+
 }

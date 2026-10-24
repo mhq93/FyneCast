@@ -20,7 +20,6 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -34,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -45,6 +43,7 @@ import com.mhq.fynecast.alerts.ui.AlertsUiState
 import com.mhq.fynecast.alerts.ui.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.components.NotificationsDialog
 import com.mhq.fynecast.core.di.AppViewModelFactory
+import com.mhq.fynecast.core.ui.openNotificationSettings
 import kotlinx.coroutines.launch
 
 /**
@@ -181,13 +180,6 @@ fun AlertsContainer(
                 .padding(bottom = contentPadding.calculateBottomPadding())
         )
     }
-}
-
-private fun Context.openNotificationSettings() {
-    startActivity(
-        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-            .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
-    )
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {

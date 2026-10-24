@@ -23,18 +23,19 @@ import com.mhq.fynecast.settings.ui.components.SettingsProfileHeader
 
 @Composable
 fun SettingsContent(
-    notificationsEnabled: Boolean,
-    isDarkMode: Boolean,
-    isMetric: Boolean,
     profileName: String,
     profileEmail: String,
     profileImageUri: String?,
-    currentLanguage: AppLanguage,
-    onNotificationsToggle: (Boolean) -> Unit,
-    onDarkModeToggle: (Boolean) -> Unit,
-    onMetricToggle: (Boolean) -> Unit,
-    onLanguageChange: (AppLanguage) -> Unit,
     onEditProfileClick: () -> Unit,
+    isMetric: Boolean,
+    onMetricToggle: (Boolean) -> Unit,
+    notificationsEnabled: Boolean,
+    onNotificationsToggle: (Boolean) -> Unit,
+    currentLanguage: AppLanguage,
+    onLanguageChange: (AppLanguage) -> Unit,
+    isDarkMode: Boolean,
+    onDarkModeToggle: (Boolean) -> Unit,
+    isLoggingOut: Boolean = false,
     onLogoutClick: () -> Unit,
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier
@@ -62,15 +63,16 @@ fun SettingsContent(
             SettingsPanel(
                 isMetric = isMetric,
                 onMetricToggle = onMetricToggle,
-                isDarkMode = isDarkMode,
-                onDarkModeToggle = onDarkModeToggle,
+                notificationsEnabled = notificationsEnabled,
+                onNotificationsToggle = onNotificationsToggle,
                 currentLanguage = currentLanguage,
                 onLanguageChange = onLanguageChange,
-                notificationsEnabled = notificationsEnabled,
-                onNotificationsToggle = onNotificationsToggle
+                isDarkMode = isDarkMode,
+                onDarkModeToggle = onDarkModeToggle
             )
             SettingsLogoutButton(
-                onLogoutClick = onLogoutClick
+                isLoggingOut = isLoggingOut,
+                onLogoutClick = onLogoutClick,
             )
         }
     }
@@ -94,20 +96,20 @@ fun SettingsContent(
 fun SettingsScreenPreview() {
     FyneCastTheme() {
         SettingsContent(
-            notificationsEnabled = true,
-            isDarkMode = true,
-            isMetric = true,
             profileName = "name",
             profileEmail = "email",
-            onNotificationsToggle = {},
-            onDarkModeToggle = {},
-            onMetricToggle = {},
+            profileImageUri = null,
             onEditProfileClick = {},
-            onLogoutClick = {},
-            contentPadding = PaddingValues(0.dp),
+            isMetric = true,
+            onMetricToggle = {},
+            notificationsEnabled = true,
+            onNotificationsToggle = {},
             currentLanguage = AppLanguage.English,
             onLanguageChange = {},
-            profileImageUri = null
+            isDarkMode = true,
+            onDarkModeToggle = {},
+            onLogoutClick = {},
+            contentPadding = PaddingValues(0.dp)
         )
     }
 }

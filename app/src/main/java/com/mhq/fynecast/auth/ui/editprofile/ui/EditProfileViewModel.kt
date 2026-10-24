@@ -53,8 +53,22 @@ class EditProfileViewModel(
     fun isEmailValid(email: String): Boolean =
         validateEditProfileUseCase.validateEmailFormat(email)
 
-    fun onSaveProfileAction(username: String, email: String, profileImageUri: String?) {
-        when (val validation = validateEditProfileUseCase(username, email)) {
+    fun isPasswordValid(password: String): Boolean =
+        validateEditProfileUseCase.validatePassword(password)
+
+    fun doPasswordsMatch(password: String, confirmPassword: String): Boolean =
+        validateEditProfileUseCase.validatePasswordMatch(password, confirmPassword)
+
+
+    fun onSaveProfileAction(
+        username: String,
+        email: String,
+        profileImageUri: String?,
+        newPassword: String?,
+        confirmPassword: String?
+    ) {
+        when (val validation =
+            validateEditProfileUseCase(username, email, newPassword, confirmPassword)) {
             is ValidationResult.Success -> {
                 if (_editProfileUiState.value is EditProfileUiState.Loading) return
                 _editProfileUiState.value = EditProfileUiState.Loading
@@ -65,7 +79,8 @@ class EditProfileViewModel(
                     updateUserProfileUseCase(
                         newName = username,
                         newEmail = email,
-                        localImageUriString = profileImageUri
+                        localImageUriString = profileImageUri,
+                        newPassword = newPassword
                     )
                         .onSuccess { verificationSent ->
                             _editProfileUiState.value = EditProfileUiState.Success

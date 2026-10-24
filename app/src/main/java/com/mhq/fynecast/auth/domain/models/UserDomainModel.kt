@@ -4,5 +4,6 @@ data class UserDomainModel(
     val id: String,
     val name: String,
     val email: String,
-    val profileImageUri: String? = null
+    val profileImageUri: String? = null,
+    val hasPasswordLogin: Boolean = true
 )

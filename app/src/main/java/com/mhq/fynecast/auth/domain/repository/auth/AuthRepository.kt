@@ -26,6 +26,8 @@ interface AuthRepository {
         accessToken: String
     ): Result<UserDomainModel>
 
+    /** Adds email/password sign-in for [email] to a social account and sends that email a verification link. */
+    suspend fun addEmailPasswordLogin(email: String, password: String): Result<Unit>
 
     // Password Reset
     suspend fun sendPasswordResetEmail(
@@ -35,8 +37,16 @@ interface AuthRepository {
 
     // Session Management persistence
     fun isUserLoggedIn(): Boolean
+
     suspend fun saveLocalSession(
         user: UserDomainModel
     )
+
+    /**
+     * After an email switch: detaches Google/Facebook links whose email is no longer the account's email.
+     * Only runs when email/password login already works for the account's current email.
+     */
+    suspend fun detachOutdatedSocialProviders()
+
     suspend fun clearSession()
 }

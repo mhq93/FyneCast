@@ -10,17 +10,23 @@ import kotlinx.coroutines.flow.first
  * Use case that synchronizes notification preferences with actual system runtime permissions.
  */
 class SyncNotificationPermissionUseCase(
-    private val notificationPermissionChecker: NotificationPermissionChecker,
     private val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase,
+    private val cancelAllAlertTrackingUseCase: CancelAllAlertTrackingUseCase,
     private val setNotificationsEnabledUseCase: SetNotificationsEnabledUseCase,
-    private val cancelAllAlertTrackingUseCase: CancelAllAlertTrackingUseCase
+    private val notificationPermissionChecker: NotificationPermissionChecker
 ) {
     suspend operator fun invoke() {
         val current = observeUserPreferencesUseCase().first()
-        if (current.notificationsEnabled && !notificationPermissionChecker.isGranted()) {
-            // Permission was revoked in system settings: nothing can be shown, so stop tracking.
+        val systemGranted = notificationPermissionChecker.isGranted()
+
+        if (current.notificationsEnabled && !systemGranted) {
+            /** System permission was revoked: turn tracking off locally */
             cancelAllAlertTrackingUseCase()
             setNotificationsEnabledUseCase(false)
+        } else if (!current.notificationsEnabled && systemGranted) {
+            /** System permission was granted from Settings:
+             * sync the local preference toggle to on */
+            setNotificationsEnabledUseCase(true)
         }
     }
 }

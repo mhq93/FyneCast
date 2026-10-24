@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,10 +32,12 @@ import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 @Composable
 fun SettingsLogoutButton(
     onLogoutClick: () -> Unit,
+    isLoggingOut: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Button(
         onClick = onLogoutClick,
+        enabled = !isLoggingOut,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(
             1.dp,
@@ -53,12 +56,20 @@ fun SettingsLogoutButton(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.Logout,
-                tint = MaterialTheme.colorScheme.error,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
+            if (isLoggingOut) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.error
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    tint = MaterialTheme.colorScheme.error,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = stringResource(R.string.logout),

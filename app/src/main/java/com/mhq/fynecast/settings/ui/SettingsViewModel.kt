@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -36,21 +37,34 @@ class SettingsViewModel(
     private val logoutUserUseCase: LogoutUserUseCase
 ) : ViewModel() {
 
+    private val profileFlow = observeUserProfileUseCase().filter { it.id.isNotEmpty() }
+    private val preferencesFlow = observeUserPreferencesUseCase()
     private val _requestNotificationPermissionEvent = Channel<Unit>(Channel.BUFFERED)
     val requestNotificationPermissionEvent = _requestNotificationPermissionEvent.receiveAsFlow()
-    private val profileFlow = observeUserProfileUseCase()
-    private val preferencesFlow = observeUserPreferencesUseCase()
+    private var isAwaitingTogglePermission = false
+    private val _notificationsBlockedChannel = Channel<Unit>(Channel.BUFFERED)
+    val notificationsBlocked = _notificationsBlockedChannel.receiveAsFlow()
     private val _logoutCompleteChannel = Channel<Unit>(Channel.BUFFERED)
     val logoutComplete = _logoutCompleteChannel.receiveAsFlow()
     private val _logoutFailedChannel = Channel<Unit>(Channel.BUFFERED)
     val logoutFailed = _logoutFailedChannel.receiveAsFlow()
-    private var isLoggingOut = false
+    private val _isLoggingOut = MutableStateFlow(false)
+    val isLoggingOut: StateFlow<Boolean> = _isLoggingOut.asStateFlow()
+    private val _isMetric = MutableStateFlow(true)
+    val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
+    private val _currentLanguage = MutableStateFlow(AppLanguage.English)
+    val currentLanguage: StateFlow<AppLanguage> = _currentLanguage.asStateFlow()
+    private val _isDarkMode = MutableStateFlow<Boolean?>(null)
+    val isDarkMode: StateFlow<Boolean?> = _isDarkMode.asStateFlow()
+    private val _arePreferencesLoaded = MutableStateFlow(false)
+    /** True once the first preferences read has finished; the splash screen waits for it. */
+    val arePreferencesLoaded: StateFlow<Boolean> = _arePreferencesLoaded.asStateFlow()
 
     val profileName: StateFlow<String> =
         profileFlow.map { it.name }
             .stateIn(
                 viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
+                SharingStarted.Eagerly,
                 "Username"
             )
 
@@ -58,7 +72,7 @@ class SettingsViewModel(
         profileFlow.map { it.email }
             .stateIn(
                 viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
+                SharingStarted.Eagerly,
                 "username@gmail.com"
             )
 
@@ -66,26 +80,17 @@ class SettingsViewModel(
         profileFlow.map { it.profileImageUri }
             .stateIn(
                 viewModelScope,
-                SharingStarted.WhileSubscribed(5000),
+                SharingStarted.Eagerly,
                 null
             )
 
-    private val _isMetric = MutableStateFlow(true)
-    val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
-
-    private val _currentLanguage = MutableStateFlow(AppLanguage.English)
-    val currentLanguage: StateFlow<AppLanguage> = _currentLanguage.asStateFlow()
-
-    private val _isDarkMode = MutableStateFlow<Boolean?>(null)
-    val isDarkMode: StateFlow<Boolean?> = _isDarkMode.asStateFlow()
-
-    private val _arePreferencesLoaded = MutableStateFlow(false)
-
-    /** True once the first preferences read has finished; the splash screen waits for it. */
-    val arePreferencesLoaded: StateFlow<Boolean> = _arePreferencesLoaded.asStateFlow()
-
     init {
         viewModelScope.launch {
+            viewModelScope.launch {
+                // A new signed-in profile means the previous logout is over.
+                profileFlow.collect { _isLoggingOut.value = false }
+            }
+
             preferencesFlow.collect { prefs ->
                 _isMetric.value = prefs.isMetric
                 _currentLanguage.value = prefs.currentLanguage
@@ -117,16 +122,23 @@ class SettingsViewModel(
     fun toggleNotifications(wantsEnabled: Boolean) {
         viewModelScope.launch {
             when (toggleNotifications.invoke(wantsEnabled)) {
-                ToggleNotificationsUseCase.Result.PermissionRequired ->
+                ToggleNotificationsUseCase.Result.PermissionRequired -> {
+                    isAwaitingTogglePermission = true
                     _requestNotificationPermissionEvent.trySend(Unit)
+                }
                 else -> Unit
             }
         }
     }
 
-    fun onNotificationPermissionResult(granted: Boolean) {
+    fun onNotificationPermissionResult(granted: Boolean, isBlockedForGood: Boolean) {
+        val fromToggle = isAwaitingTogglePermission
+        isAwaitingTogglePermission = false
         viewModelScope.launch {
             handleNotificationPermissionResult(granted)
+            if (!granted && isBlockedForGood && fromToggle) {
+                _notificationsBlockedChannel.send(Unit)
+            }
         }
     }
 
@@ -136,7 +148,7 @@ class SettingsViewModel(
         }
     }
 
-    fun onLanguageChanged(language: AppLanguage)  {
+    fun onLanguageChanged(language: AppLanguage) {
         viewModelScope.launch { setLanguage(language) }
     }
 
@@ -145,17 +157,16 @@ class SettingsViewModel(
     }
 
     fun onLogoutAction() {
-        if (isLoggingOut) return
-        isLoggingOut = true
+        if (_isLoggingOut.value) return
+        _isLoggingOut.value = true
         viewModelScope.launch {
-            try {
-                logoutUserUseCase().fold(
-                    onSuccess = { _logoutCompleteChannel.send(Unit) },
-                    onFailure = { _logoutFailedChannel.send(Unit) }
-                )
-            } finally {
-                isLoggingOut = false
-            }
+            logoutUserUseCase().fold(
+                onSuccess = { _logoutCompleteChannel.send(Unit) },
+                onFailure = {
+                    _isLoggingOut.value = false
+                    _logoutFailedChannel.send(Unit)
+                }
+            )
         }
     }
 }

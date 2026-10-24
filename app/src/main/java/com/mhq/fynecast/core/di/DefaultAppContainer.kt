@@ -47,6 +47,7 @@ import com.mhq.fynecast.auth.domain.usecases.auth.SendPasswordResetUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
+import com.mhq.fynecast.auth.domain.usecases.profile.RefreshUserSessionUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
@@ -296,16 +297,16 @@ class DefaultAppContainer(
     override val observeUserProfileUseCase by lazy {
         ObserveUserProfileUseCase(userProfileRepository)
     }
+    override val refreshUserSessionUseCase: RefreshUserSessionUseCase by lazy {
+        RefreshUserSessionUseCase(userProfileRepository, authRepository, logoutUserUseCase)
+    }
     override val observeSignedInUserIdUseCase by lazy {
         ObserveSignedInUserIdUseCase(
             currentUserProvider
         )
     }
     override val updateUserProfileUseCase by lazy {
-        UpdateUserProfileUseCase(
-            userProfileRepository,
-            imageStorageRepository
-        )
+        UpdateUserProfileUseCase(userProfileRepository, imageStorageRepository, authRepository)
     }
     override val checkUserLoggedInUseCase: CheckUserLoggedInUseCase by lazy {
         CheckUserLoggedInUseCase(authRepository)

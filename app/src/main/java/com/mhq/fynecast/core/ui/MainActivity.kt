@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -57,10 +58,15 @@ class MainActivity : AppCompatActivity() {
         settingsViewModel.requestNotificationPermissionOnFirstLaunch()
     }
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        settingsViewModel.onNotificationPermissionResult(granted)
+        val blockedForGood = !granted && !ActivityCompat.shouldShowRequestPermissionRationale(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS
+        )
+        settingsViewModel.onNotificationPermissionResult(granted, blockedForGood)
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -140,5 +146,6 @@ class MainActivity : AppCompatActivity() {
         val currentLangTag = AppCompatDelegate.getApplicationLocales().toLanguageTags().ifEmpty { "en" }
         homeViewModel.onRefreshRequested(langCode = currentLangTag)
         settingsViewModel.onAppResumed()
+        sessionViewModel.onAppResumed()
     }
 }

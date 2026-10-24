@@ -181,4 +181,8 @@
     <string name="channel_alert_tracking_description">يظهر أثناء تتبّع تنبيه طقس</string>
     <string name="channel_alert_alarm_name">منبّه تنبيه الطقس</string>
     <string name="channel_alert_alarm_description">يرنّ عند انتهاء تنبيه طقس تتتبّعه أو زواله</string>
+
+    <string name="email_managed_by_provider">بريدك الإلكتروني تتم إدارته من حساب Google أو Facebook الخاص بك</string>
+    <string name="session_expired_sign_in_again">تم تحديث حسابك. يرجى تسجيل الدخول مرة أخرى.</string>
+    <string name="email_switch_password_hint">للتحويل إلى هذا البريد، اختر كلمة مرور له. ستسجّل الدخول بالبريد الجديد وكلمة المرور هذه.</string>
 </resources>
