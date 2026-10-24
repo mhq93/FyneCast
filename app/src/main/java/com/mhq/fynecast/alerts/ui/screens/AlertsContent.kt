@@ -15,22 +15,17 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.mhq.fynecast.core.domain.weather.AlertDomainModel
+import com.mhq.fynecast.alerts.presentation.model.AlertPresentationModel
 import com.mhq.fynecast.alerts.ui.components.AlertCard
-
-private val ExpandedAlertIdsSaver = listSaver<SnapshotStateList<String>, String>(
-    save = { it.toList() },
-    restore = { it.toMutableStateList() }
-)
 
 /**
  * Composable list content displaying the lazy column of available weather alert cards.
  */
 @Composable
 fun AlertsContent(
-    alerts: List<AlertDomainModel>,
+    alerts: List<AlertPresentationModel>,
     trackedAlertIds: List<String>,
-    onTrackToggle: (AlertDomainModel) -> Unit,
+    onTrackToggle: (String) -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     modifier: Modifier = Modifier
 ) {
@@ -66,9 +61,14 @@ fun AlertsContent(
                             expandedAlertIds.add(alert.id)
                         }
                     },
-                    onTrackToggle = { onTrackToggle(alert) }
+                    onTrackToggle = { onTrackToggle(alert.id) }
                 )
             }
         }
     }
 }
+
+private val ExpandedAlertIdsSaver = listSaver<SnapshotStateList<String>, String>(
+    save = { it.toList() },
+    restore = { it.toMutableStateList() }
+)

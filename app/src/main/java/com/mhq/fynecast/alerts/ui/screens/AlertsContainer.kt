@@ -38,9 +38,9 @@ import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.R
-import com.mhq.fynecast.alerts.ui.AlertsEvent
-import com.mhq.fynecast.alerts.ui.AlertsUiState
-import com.mhq.fynecast.alerts.ui.AlertsViewModel
+import com.mhq.fynecast.alerts.presentation.AlertsEvent
+import com.mhq.fynecast.alerts.presentation.AlertsUiState
+import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.components.NotificationsDialog
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.openNotificationSettings
@@ -166,7 +166,7 @@ fun AlertsContainer(
                     AlertsContent(
                         alerts = state.alerts,
                         trackedAlertIds = trackedAlertIds,
-                        onTrackToggle = { alertsViewModel.onAlertTrackToggled(it) },
+                        onTrackToggle = alertsViewModel::onAlertTrackToggled,
                         contentPadding = contentPadding
                     )
                 }

@@ -1,12 +1,7 @@
-package com.mhq.fynecast.favorites.ui
+package com.mhq.fynecast.favorites.presentation
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import com.mhq.fynecast.core.di.FyneCastApplication
 import com.mhq.fynecast.core.domain.location.SelectCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectedCity
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
@@ -14,12 +9,14 @@ import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
+import com.mhq.fynecast.favorites.presentation.mapper.toPresentation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -33,12 +30,27 @@ class FavoritesViewModel(
     private val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase
 ) : ViewModel() {
 
-    /** null = the first load has not finished yet; an empty list = the user has no favorites. */
-    val favorites: StateFlow<List<FavoriteCityDomainModel>?> =
+    /** The domain favorites, kept privately: null = the first load has not finished yet. */
+    private val domainFavorites: StateFlow<List<FavoriteCityDomainModel>?> =
         getFavoritesUseCase().stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = null
+        )
+
+    /** The screen only ever sees presentation models. */
+    val uiState: StateFlow<FavoritesUiState> = domainFavorites
+        .map { favorites ->
+            when {
+                favorites == null -> FavoritesUiState.Loading
+                favorites.isEmpty() -> FavoritesUiState.Empty
+                else -> FavoritesUiState.Success(favorites.map { it.toPresentation() })
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = FavoritesUiState.Loading
         )
 
     private val _events = Channel<FavoritesEvent>(Channel.BUFFERED)
@@ -46,7 +58,9 @@ class FavoritesViewModel(
 
     private var lastRemoved: FavoriteCityDomainModel? = null
 
-    fun onCitySelected(city: FavoriteCityDomainModel) {
+    /** The user tapped a favorite row: make that city the one Home shows. */
+    fun onFavoriteSelected(favoriteId: String) {
+        val city = findFavorite(favoriteId) ?: return
         viewModelScope.launch {
             selectCityUseCase(
                 SelectedCity(
@@ -58,7 +72,8 @@ class FavoritesViewModel(
         }
     }
 
-    fun onDeleteFavorite(city: FavoriteCityDomainModel) {
+    fun onDeleteFavorite(favoriteId: String) {
+        val city = findFavorite(favoriteId) ?: return
         viewModelScope.launch {
             try {
                 withContext(NonCancellable) { deleteFavoriteUseCase(city.id) }
@@ -90,4 +105,7 @@ class FavoritesViewModel(
             }
         }
     }
+
+    private fun findFavorite(favoriteId: String): FavoriteCityDomainModel? =
+        domainFavorites.value?.firstOrNull { it.id == favoriteId }
 }

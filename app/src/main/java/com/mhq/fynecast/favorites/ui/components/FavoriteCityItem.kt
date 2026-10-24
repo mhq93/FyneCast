@@ -25,11 +25,11 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
+import com.mhq.fynecast.favorites.presentation.model.FavoriteCityPresentationModel
 
 @Composable
 fun FavoriteCityItem(
-    favoriteCityDomainModel: FavoriteCityDomainModel,
+    favorite: FavoriteCityPresentationModel,
     isMetric: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -51,7 +51,7 @@ fun FavoriteCityItem(
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = favoriteCityDomainModel.cityName,
+                    text = favorite.cityName,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.Cursive,
@@ -60,7 +60,7 @@ fun FavoriteCityItem(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = favoriteCityDomainModel.countryName,
+                    text = favorite.countryName,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     maxLines = 1,
@@ -74,7 +74,7 @@ fun FavoriteCityItem(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 AsyncImage(
-                    model = "https:${favoriteCityDomainModel.weatherIconUrl}",
+                    model = "https:${favorite.weatherIconUrl}",
                     placeholder = painterResource(R.drawable.ic_launcher_foreground),
                     error = painterResource(R.drawable.ic_launcher_foreground),
                     contentDescription = stringResource(R.string.weather_icon),
@@ -83,10 +83,7 @@ fun FavoriteCityItem(
                 )
                 Text(
                     text = TemperatureFormatter.format(
-                        if (isMetric)
-                            favoriteCityDomainModel.temperatureC
-                        else
-                            favoriteCityDomainModel.temperatureF
+                        if (isMetric) favorite.temperatureC else favorite.temperatureF
                     ),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
@@ -102,26 +99,22 @@ fun FavoriteCityItem(
     showBackground = true,
     backgroundColor = 0xFFE0F7FA
 )
-
 @Preview(
     name = "Dark Mode",
     uiMode = Configuration.UI_MODE_NIGHT_YES,
     showBackground = true,
     backgroundColor = 0xFF000000
 )
-
-@Preview
 @Composable
 private fun FavoriteCityItemPreview() {
-    FyneCastTheme() {
+    FyneCastTheme {
         FavoriteCityItem(
-            FavoriteCityDomainModel(
+            favorite = FavoriteCityPresentationModel(
+                id = "31.2,29.92",
                 cityName = "Alexandria",
                 countryName = "Egypt",
-                latitude = 100.0,
-                longitude = 100.0,
-                temperatureC = 100.0,
-                temperatureF = 100.0,
+                temperatureC = 24.0,
+                temperatureF = 75.2,
                 weatherIconUrl = "Url"
             ),
             isMetric = true

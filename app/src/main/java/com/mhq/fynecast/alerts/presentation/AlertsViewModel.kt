@@ -1,19 +1,15 @@
-package com.mhq.fynecast.alerts.ui
+package com.mhq.fynecast.alerts.presentation
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import com.mhq.fynecast.core.domain.weather.AlertDomainModel
-import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.usecases.GetAlertsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.GetTrackedAlertIdsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.ToggleAlertsUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.HandleNotificationPermissionResultUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
-import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.alerts.presentation.mapper.toPresentation
+import com.mhq.fynecast.core.domain.location.TrackedLocation
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -34,19 +30,23 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 class AlertsViewModel(
     private val getAlertsUseCase: GetAlertsUseCase,
+    private val toggleAlertsUseCase: ToggleAlertsUseCase,
     private val getTrackedAlertIdsUseCase: GetTrackedAlertIdsUseCase,
     private val observeCurrentLocationUseCase: ObserveCurrentLocationUseCase,
-    private val toggleAlertsUseCase: ToggleAlertsUseCase,
     private val toggleNotificationsUseCase: ToggleNotificationsUseCase,
     private val handleNotificationPermissionResultUseCase: HandleNotificationPermissionResultUseCase
 ) : ViewModel() {
 
+    /** The domain alerts, kept privately: the screen only ever sees presentation models. */
+    private val domainAlerts: StateFlow<List<AlertDomainModel>?> = getAlertsUseCase()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     /** Exposes reactive UI state for alerts, transitioning between loading and success states. */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val uiState: StateFlow<AlertsUiState> = getAlertsUseCase()
+    val uiState: StateFlow<AlertsUiState> = domainAlerts
         .transformLatest { alerts ->
             if (alerts != null) {
-                emit(AlertsUiState.Success(alerts))
+                emit(AlertsUiState.Success(alerts.map { it.toPresentation() }))
             } else {
                 emit(AlertsUiState.Loading)
                 delay(LOAD_TIMEOUT_MILLIS.milliseconds)
@@ -87,13 +87,14 @@ class AlertsViewModel(
     /**
      * Triggered when the user clicks the tracking toggle on an alert card.
      */
-    fun onAlertTrackToggled(alert: AlertDomainModel) {
+    fun onAlertTrackToggled(alertId: String) {
+        val alert = domainAlerts.value?.firstOrNull { it.id == alertId } ?: return
         viewModelScope.launch { toggle(alert) }
     }
 
     /**
      * Called when the user confirms the notification prompt dialog.
-     * 
+     *
      * Attempts to enable notifications; if system permission is required, emits an event to request it.
      */
     fun onNotificationsPromptConfirmed() {
@@ -119,7 +120,7 @@ class AlertsViewModel(
 
     /**
      * Processes the runtime permission result for notifications.
-     * 
+     *
      * If granted, resumes tracking the pending alert; if denied, emits a denial event.
      */
     fun onNotificationPermissionResult(granted: Boolean) {
@@ -148,7 +149,11 @@ class AlertsViewModel(
             ToggleAlertsUseCase.Result.Tracked -> _events.send(AlertsEvent.AlertTrackingStarted(alert.event))
             ToggleAlertsUseCase.Result.AlreadyExpired -> _events.send(AlertsEvent.AlertAlreadyExpired)
             ToggleAlertsUseCase.Result.ExpiryUnknown -> _events.send(AlertsEvent.AlertExpiryUnknown)
-            ToggleAlertsUseCase.Result.NotificationsRequired -> { pendingAlert = alert; _showNotificationsPrompt.value = true }
+            ToggleAlertsUseCase.Result.NotificationsRequired -> {
+                pendingAlert = alert
+                _showNotificationsPrompt.value = true
+            }
+
             ToggleAlertsUseCase.Result.Untracked -> Unit
         }
     }

@@ -31,7 +31,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.mhq.fynecast.R
-import com.mhq.fynecast.alerts.ui.AlertsViewModel
+import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.screens.AlertsContainer
 import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
 import com.mhq.fynecast.auth.ui.editprofile.ui.screens.EditProfileContainer
@@ -45,12 +45,12 @@ import com.mhq.fynecast.core.navigation.BottomNavTab
 import com.mhq.fynecast.core.navigation.BottomNavigationBar
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.favorites.ui.FavoritesViewModel
+import com.mhq.fynecast.favorites.presentation.FavoritesViewModel
 import com.mhq.fynecast.favorites.ui.screens.FavoritesContainer
 import com.mhq.fynecast.home.ui.HomeUiState
 import com.mhq.fynecast.home.ui.HomeViewModel
 import com.mhq.fynecast.home.ui.screens.HomeContainer
-import com.mhq.fynecast.map.ui.MapPickerViewModel
+import com.mhq.fynecast.map.presentation.MapPickerViewModel
 import com.mhq.fynecast.map.ui.screens.MapPickerScreen
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 import com.mhq.fynecast.settings.ui.screens.SettingsContainer
@@ -198,8 +198,8 @@ fun FyneCastApp(
 
                         FavoritesContainer(
                             favoritesViewModel = favoritesViewModel,
-                            onCityRowSelected = { favoriteCity ->
-                                favoritesViewModel.onCitySelected(favoriteCity)
+                            onFavoriteSelected = { favoriteId ->
+                                favoritesViewModel.onFavoriteSelected(favoriteId)
                                 navController.switchToTab(BottomNavTab.Home)
                             },
                             contentPadding = bottomContentPadding,
@@ -241,12 +241,8 @@ fun FyneCastApp(
                             langCode = mapLangCode,
                             initialLatitude = currentWeather?.latitude,
                             initialLongitude = currentWeather?.longitude,
-                            onLocationPicked = { location ->
-                                mapPickerViewModel.onLocationConfirmed(
-                                    name = location.fullName,
-                                    latitude = location.latitude,
-                                    longitude = location.longitude
-                                )
+                            onLocationConfirmed = {
+                                mapPickerViewModel.onLocationConfirmed()
                                 if (navController.currentBackStackEntry?.destination?.route == AppDestination.MapPicker.route) {
                                     navController.popBackStack()
                                 }

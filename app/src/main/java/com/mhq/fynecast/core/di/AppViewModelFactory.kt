@@ -5,15 +5,15 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.mhq.fynecast.alerts.ui.AlertsViewModel
+import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
 import com.mhq.fynecast.auth.ui.forgotpassword.ui.ForgotPasswordViewModel
 import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
 import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
 import com.mhq.fynecast.core.navigation.SessionViewModel
-import com.mhq.fynecast.favorites.ui.FavoritesViewModel
+import com.mhq.fynecast.favorites.presentation.FavoritesViewModel
 import com.mhq.fynecast.home.ui.HomeViewModel
-import com.mhq.fynecast.map.ui.MapPickerViewModel
+import com.mhq.fynecast.map.presentation.MapPickerViewModel
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 
 private fun CreationExtras.container(): AppContainer =

@@ -1266,10 +1266,10 @@ class WeatherRefreshWorker(context: Context, params: WorkerParameters) :
 }
 ```
 
-## alerts\ui\AlertsEvent.kt
+## alerts\presentation\AlertsEvent.kt
 
 ```kotlin
-package com.mhq.fynecast.alerts.ui
+package com.mhq.fynecast.alerts.presentation
 
 /**
  * One-off UI events emitted by [AlertsViewModel] for handling side effects like snackbars or permissions.
@@ -1283,12 +1283,12 @@ sealed interface AlertsEvent {
 }
 ```
 
-## alerts\ui\AlertsUiState.kt
+## alerts\presentation\AlertsUiState.kt
 
 ```kotlin
-package com.mhq.fynecast.alerts.ui
+package com.mhq.fynecast.alerts.presentation
 
-import com.mhq.fynecast.core.domain.weather.AlertDomainModel
+import com.mhq.fynecast.alerts.presentation.model.AlertPresentationModel
 
 /**
  * Represents the UI state of the alerts screen.
@@ -1296,29 +1296,25 @@ import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 sealed interface AlertsUiState {
     object Loading : AlertsUiState
     object Unavailable : AlertsUiState
-    data class Success(val alerts: List<AlertDomainModel>) : AlertsUiState
+    data class Success(val alerts: List<AlertPresentationModel>) : AlertsUiState
 }
 ```
 
-## alerts\ui\AlertsViewModel.kt
+## alerts\presentation\AlertsViewModel.kt
 
 ```kotlin
-package com.mhq.fynecast.alerts.ui
+package com.mhq.fynecast.alerts.presentation
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import com.mhq.fynecast.core.domain.weather.AlertDomainModel
-import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.usecases.GetAlertsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.GetTrackedAlertIdsUseCase
 import com.mhq.fynecast.alerts.domain.usecases.ToggleAlertsUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.HandleNotificationPermissionResultUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
-import com.mhq.fynecast.core.di.FyneCastApplication
+import com.mhq.fynecast.alerts.presentation.mapper.toPresentation
+import com.mhq.fynecast.core.domain.location.TrackedLocation
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 import com.mhq.fynecast.home.domain.usecases.ObserveCurrentLocationUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -1339,19 +1335,23 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 class AlertsViewModel(
     private val getAlertsUseCase: GetAlertsUseCase,
+    private val toggleAlertsUseCase: ToggleAlertsUseCase,
     private val getTrackedAlertIdsUseCase: GetTrackedAlertIdsUseCase,
     private val observeCurrentLocationUseCase: ObserveCurrentLocationUseCase,
-    private val toggleAlertsUseCase: ToggleAlertsUseCase,
     private val toggleNotificationsUseCase: ToggleNotificationsUseCase,
     private val handleNotificationPermissionResultUseCase: HandleNotificationPermissionResultUseCase
 ) : ViewModel() {
 
+    /** The domain alerts, kept privately: the screen only ever sees presentation models. */
+    private val domainAlerts: StateFlow<List<AlertDomainModel>?> = getAlertsUseCase()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     /** Exposes reactive UI state for alerts, transitioning between loading and success states. */
     @OptIn(ExperimentalCoroutinesApi::class)
-    val uiState: StateFlow<AlertsUiState> = getAlertsUseCase()
+    val uiState: StateFlow<AlertsUiState> = domainAlerts
         .transformLatest { alerts ->
             if (alerts != null) {
-                emit(AlertsUiState.Success(alerts))
+                emit(AlertsUiState.Success(alerts.map { it.toPresentation() }))
             } else {
                 emit(AlertsUiState.Loading)
                 delay(LOAD_TIMEOUT_MILLIS.milliseconds)
@@ -1392,13 +1392,14 @@ class AlertsViewModel(
     /**
      * Triggered when the user clicks the tracking toggle on an alert card.
      */
-    fun onAlertTrackToggled(alert: AlertDomainModel) {
+    fun onAlertTrackToggled(alertId: String) {
+        val alert = domainAlerts.value?.firstOrNull { it.id == alertId } ?: return
         viewModelScope.launch { toggle(alert) }
     }
 
     /**
      * Called when the user confirms the notification prompt dialog.
-     * 
+     *
      * Attempts to enable notifications; if system permission is required, emits an event to request it.
      */
     fun onNotificationsPromptConfirmed() {
@@ -1424,7 +1425,7 @@ class AlertsViewModel(
 
     /**
      * Processes the runtime permission result for notifications.
-     * 
+     *
      * If granted, resumes tracking the pending alert; if denied, emits a denial event.
      */
     fun onNotificationPermissionResult(granted: Boolean) {
@@ -1453,7 +1454,11 @@ class AlertsViewModel(
             ToggleAlertsUseCase.Result.Tracked -> _events.send(AlertsEvent.AlertTrackingStarted(alert.event))
             ToggleAlertsUseCase.Result.AlreadyExpired -> _events.send(AlertsEvent.AlertAlreadyExpired)
             ToggleAlertsUseCase.Result.ExpiryUnknown -> _events.send(AlertsEvent.AlertExpiryUnknown)
-            ToggleAlertsUseCase.Result.NotificationsRequired -> { pendingAlert = alert; _showNotificationsPrompt.value = true }
+            ToggleAlertsUseCase.Result.NotificationsRequired -> {
+                pendingAlert = alert
+                _showNotificationsPrompt.value = true
+            }
+
             ToggleAlertsUseCase.Result.Untracked -> Unit
         }
     }
@@ -1461,6 +1466,60 @@ class AlertsViewModel(
     companion object {
         private const val LOAD_TIMEOUT_MILLIS = 20_000L
     }
+}
+```
+
+## alerts\presentation\mapper\AlertPresentationMapper.kt
+
+```kotlin
+package com.mhq.fynecast.alerts.presentation.mapper
+
+import com.mhq.fynecast.alerts.presentation.model.AlertPresentationModel
+import com.mhq.fynecast.alerts.presentation.model.AlertSeverity
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
+
+fun AlertDomainModel.toPresentation(): AlertPresentationModel = AlertPresentationModel(
+    id = id,
+    event = event,
+    headline = headline,
+    description = description,
+    instruction = instruction,
+    severity = severity.toAlertSeverity(),
+    severityLabel = severity
+)
+
+internal fun String.toAlertSeverity(): AlertSeverity = when (trim().lowercase()) {
+    "extreme" -> AlertSeverity.Extreme
+    "severe" -> AlertSeverity.Severe
+    "moderate" -> AlertSeverity.Moderate
+    else -> AlertSeverity.Other
+}
+```
+
+## alerts\presentation\model\AlertPresentationModel.kt
+
+```kotlin
+package com.mhq.fynecast.alerts.presentation.model
+
+/** What the Alerts screen needs to show one alert. The UI never sees the domain model. */
+data class AlertPresentationModel(
+    val id: String,
+    val event: String,
+    val headline: String,
+    val description: String,
+    val instruction: String,
+    val severity: AlertSeverity,
+    /** The severity text as reported, for the badge. */
+    val severityLabel: String
+)
+
+enum class AlertSeverity {
+    Extreme,
+    Severe,
+    Moderate,
+
+    /** Minor, unknown or anything not recognised. */
+    Other
 }
 ```
 
@@ -1515,12 +1574,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.domain.weather.AlertDomainModel
-import com.mhq.fynecast.core.ui.theme.AppleRed
-import com.mhq.fynecast.core.ui.theme.EditorialRoyalBlue
+import com.mhq.fynecast.alerts.presentation.model.AlertPresentationModel
+import com.mhq.fynecast.alerts.presentation.model.AlertSeverity
+import com.mhq.fynecast.alerts.ui.mapper.toColor
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.core.ui.theme.Tangerine
-import com.mhq.fynecast.core.ui.theme.VividAmber
 
 /**
  * Premium, modern, sleek, and space-efficient weather card implementation.
@@ -1528,21 +1585,14 @@ import com.mhq.fynecast.core.ui.theme.VividAmber
  */
 @Composable
 fun AlertCard(
-    alert: AlertDomainModel,
+    alert: AlertPresentationModel,
     isTracked: Boolean,
     isExpanded: Boolean,
     onTrackToggle: () -> Unit,
     onExpandToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val severityColor = remember(alert.severity) {
-        when (alert.severity.lowercase()) {
-            "extreme" -> AppleRed
-            "severe" -> Tangerine
-            "moderate" -> VividAmber
-            else -> EditorialRoyalBlue
-        }
-    }
+    val severityColor = remember(alert.severity) { alert.severity.toColor() }
 
     Card(
         shape = RoundedCornerShape(22.dp),
@@ -1560,7 +1610,7 @@ fun AlertCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // Premium multi-layered glassmorphic background effect
+                // Premium multi-layered glass-morphic background effect
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
@@ -1624,7 +1674,7 @@ fun AlertCard(
                         .padding(horizontal = 10.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = alert.severity.uppercase(),
+                        text = alert.severityLabel.uppercase(),
                         color = severityColor,
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
@@ -1738,28 +1788,25 @@ fun AlertCard(
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 private fun AlertCardPreview() {
-    FyneCastTheme {
-        Box(modifier = Modifier.padding(16.dp)) {
-            AlertCard(
-                alert = AlertDomainModel(
-                    id = "1",
-                    headline = "Severe Flash Flood Warning across coastal metropolitan sectors expected tonight.",
-                    severity = "Severe",
-                    event = "Flash Flood Warning",
-                    effectiveMillis = 10L,
-                    expiresMillis = 10L,
-                    description = "Heavy torrential rainfall will cause localized flash flooding in low-lying areas and urban drainage channels.",
-                    instruction = "Move to higher ground immediately. Avoid walking or driving through flood waters."
-                ),
-                isTracked = false,
-                isExpanded = false,
-                onTrackToggle = {},
-                onExpandToggle = {}
-            )
-        }
+    FyneCastTheme() {
+        AlertCard(
+            alert = AlertPresentationModel(
+                id = "1",
+                event = "Flood",
+                headline = "Flood warning for the coast",
+                description = "Water levels are rising.",
+                instruction = "Move to higher ground.",
+                severity = AlertSeverity.Severe,
+                severityLabel = "Severe"
+            ),
+            isTracked = true,
+            isExpanded = true,
+            onTrackToggle = {},
+            onExpandToggle = {}
+        )
     }
 }
 ```
@@ -1887,6 +1934,26 @@ fun NotificationsDialog(
 }
 ```
 
+## alerts\ui\mapper\AlertSeverityColors.kt
+
+```kotlin
+package com.mhq.fynecast.alerts.ui.mapper
+
+import androidx.compose.ui.graphics.Color
+import com.mhq.fynecast.alerts.presentation.model.AlertSeverity
+import com.mhq.fynecast.core.ui.theme.AppleRed
+import com.mhq.fynecast.core.ui.theme.EditorialRoyalBlue
+import com.mhq.fynecast.core.ui.theme.Tangerine
+import com.mhq.fynecast.core.ui.theme.VividAmber
+
+fun AlertSeverity.toColor(): Color = when (this) {
+    AlertSeverity.Extreme -> AppleRed
+    AlertSeverity.Severe -> Tangerine
+    AlertSeverity.Moderate -> VividAmber
+    AlertSeverity.Other -> EditorialRoyalBlue
+}
+```
+
 ## alerts\ui\screens\AlertsBlank.kt
 
 ```kotlin
@@ -1978,9 +2045,9 @@ import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.R
-import com.mhq.fynecast.alerts.ui.AlertsEvent
-import com.mhq.fynecast.alerts.ui.AlertsUiState
-import com.mhq.fynecast.alerts.ui.AlertsViewModel
+import com.mhq.fynecast.alerts.presentation.AlertsEvent
+import com.mhq.fynecast.alerts.presentation.AlertsUiState
+import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.components.NotificationsDialog
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.openNotificationSettings
@@ -2106,7 +2173,7 @@ fun AlertsContainer(
                     AlertsContent(
                         alerts = state.alerts,
                         trackedAlertIds = trackedAlertIds,
-                        onTrackToggle = { alertsViewModel.onAlertTrackToggled(it) },
+                        onTrackToggle = alertsViewModel::onAlertTrackToggled,
                         contentPadding = contentPadding
                     )
                 }
@@ -2149,22 +2216,17 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.mhq.fynecast.core.domain.weather.AlertDomainModel
+import com.mhq.fynecast.alerts.presentation.model.AlertPresentationModel
 import com.mhq.fynecast.alerts.ui.components.AlertCard
-
-private val ExpandedAlertIdsSaver = listSaver<SnapshotStateList<String>, String>(
-    save = { it.toList() },
-    restore = { it.toMutableStateList() }
-)
 
 /**
  * Composable list content displaying the lazy column of available weather alert cards.
  */
 @Composable
 fun AlertsContent(
-    alerts: List<AlertDomainModel>,
+    alerts: List<AlertPresentationModel>,
     trackedAlertIds: List<String>,
-    onTrackToggle: (AlertDomainModel) -> Unit,
+    onTrackToggle: (String) -> Unit,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     modifier: Modifier = Modifier
 ) {
@@ -2200,12 +2262,17 @@ fun AlertsContent(
                             expandedAlertIds.add(alert.id)
                         }
                     },
-                    onTrackToggle = { onTrackToggle(alert) }
+                    onTrackToggle = { onTrackToggle(alert.id) }
                 )
             }
         }
     }
 }
+
+private val ExpandedAlertIdsSaver = listSaver<SnapshotStateList<String>, String>(
+    save = { it.toList() },
+    restore = { it.toMutableStateList() }
+)
 ```
 
 ## alerts\ui\screens\AlertsUnavailable.kt
@@ -5966,7 +6033,7 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.mhq.fynecast.alerts.ui.AlertsViewModel
+import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
 import com.mhq.fynecast.auth.ui.forgotpassword.ui.ForgotPasswordViewModel
 import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
@@ -7876,7 +7943,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.mhq.fynecast.R
-import com.mhq.fynecast.alerts.ui.AlertsViewModel
+import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.screens.AlertsContainer
 import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
 import com.mhq.fynecast.auth.ui.editprofile.ui.screens.EditProfileContainer
@@ -8246,7 +8313,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import com.mhq.fynecast.alerts.ui.AlertsViewModel
+import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.FyneCastApp

@@ -20,15 +20,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.core.ui.theme.AbyssalVoid
 import com.mhq.fynecast.core.ui.theme.ElectricLimeGreen
-import com.mhq.fynecast.core.domain.location.CitySuggestionModel
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
+import com.mhq.fynecast.map.presentation.model.MapPlacePresentationModel
 
 @Composable
 fun LocationConfirmCard(
-    location: CitySuggestionModel,
-    onLocationPicked: (CitySuggestionModel) -> Unit,
+    place: MapPlacePresentationModel,
+    onConfirm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -45,7 +45,7 @@ fun LocationConfirmCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = location.fullName,
+                text = place.name,
                 color = Color.White,
                 fontWeight = FontWeight.Bold
             )
@@ -53,7 +53,7 @@ fun LocationConfirmCard(
                 modifier = Modifier.height(12.dp)
             )
             Button(
-                onClick = { onLocationPicked(location) },
+                onClick = onConfirm,
                 colors = ButtonDefaults.buttonColors(containerColor = ElectricLimeGreen),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -69,14 +69,10 @@ fun LocationConfirmCard(
 @Preview
 @Composable
 private fun LocationConfirmCardPreview() {
-    FyneCastTheme(){
+    FyneCastTheme {
         LocationConfirmCard(
-            location = CitySuggestionModel(
-                fullName = "City Name",
-                latitude = 100.0,
-                longitude = 100.0
-            ),
-            onLocationPicked = {}
+            place = MapPlacePresentationModel(name = "City Name"),
+            onConfirm = {}
         )
     }
 }

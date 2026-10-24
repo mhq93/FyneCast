@@ -46,12 +46,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.domain.weather.AlertDomainModel
-import com.mhq.fynecast.core.ui.theme.AppleRed
-import com.mhq.fynecast.core.ui.theme.EditorialRoyalBlue
+import com.mhq.fynecast.alerts.presentation.model.AlertPresentationModel
+import com.mhq.fynecast.alerts.presentation.model.AlertSeverity
+import com.mhq.fynecast.alerts.ui.mapper.toColor
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.core.ui.theme.Tangerine
-import com.mhq.fynecast.core.ui.theme.VividAmber
 
 /**
  * Premium, modern, sleek, and space-efficient weather card implementation.
@@ -59,21 +57,14 @@ import com.mhq.fynecast.core.ui.theme.VividAmber
  */
 @Composable
 fun AlertCard(
-    alert: AlertDomainModel,
+    alert: AlertPresentationModel,
     isTracked: Boolean,
     isExpanded: Boolean,
     onTrackToggle: () -> Unit,
     onExpandToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val severityColor = remember(alert.severity) {
-        when (alert.severity.lowercase()) {
-            "extreme" -> AppleRed
-            "severe" -> Tangerine
-            "moderate" -> VividAmber
-            else -> EditorialRoyalBlue
-        }
-    }
+    val severityColor = remember(alert.severity) { alert.severity.toColor() }
 
     Card(
         shape = RoundedCornerShape(22.dp),
@@ -91,7 +82,7 @@ fun AlertCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                // Premium multi-layered glassmorphic background effect
+                // Premium multi-layered glass-morphic background effect
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
@@ -155,7 +146,7 @@ fun AlertCard(
                         .padding(horizontal = 10.dp, vertical = 3.dp)
                 ) {
                     Text(
-                        text = alert.severity.uppercase(),
+                        text = alert.severityLabel.uppercase(),
                         color = severityColor,
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
@@ -269,27 +260,24 @@ fun AlertCard(
     }
 }
 
-@Preview(showBackground = true)
+@Preview
 @Composable
 private fun AlertCardPreview() {
-    FyneCastTheme {
-        Box(modifier = Modifier.padding(16.dp)) {
-            AlertCard(
-                alert = AlertDomainModel(
-                    id = "1",
-                    headline = "Severe Flash Flood Warning across coastal metropolitan sectors expected tonight.",
-                    severity = "Severe",
-                    event = "Flash Flood Warning",
-                    effectiveMillis = 10L,
-                    expiresMillis = 10L,
-                    description = "Heavy torrential rainfall will cause localized flash flooding in low-lying areas and urban drainage channels.",
-                    instruction = "Move to higher ground immediately. Avoid walking or driving through flood waters."
-                ),
-                isTracked = false,
-                isExpanded = false,
-                onTrackToggle = {},
-                onExpandToggle = {}
-            )
-        }
+    FyneCastTheme() {
+        AlertCard(
+            alert = AlertPresentationModel(
+                id = "1",
+                event = "Flood",
+                headline = "Flood warning for the coast",
+                description = "Water levels are rising.",
+                instruction = "Move to higher ground.",
+                severity = AlertSeverity.Severe,
+                severityLabel = "Severe"
+            ),
+            isTracked = true,
+            isExpanded = true,
+            onTrackToggle = {},
+            onExpandToggle = {}
+        )
     }
 }

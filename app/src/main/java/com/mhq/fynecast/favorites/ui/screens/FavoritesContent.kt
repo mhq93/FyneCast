@@ -18,15 +18,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
+import com.mhq.fynecast.favorites.presentation.model.FavoriteCityPresentationModel
 import com.mhq.fynecast.favorites.ui.components.FavoriteCityItem
 import com.mhq.fynecast.favorites.ui.components.SwipeBackground
 
 @Composable
 fun FavoritesContent(
-    favoriteCities: List<FavoriteCityDomainModel>,
-    onCityRowSelected: (FavoriteCityDomainModel) -> Unit,
-    onDeleteFavorite: (FavoriteCityDomainModel) -> Unit,
+    favorites: List<FavoriteCityPresentationModel>,
+    onFavoriteClick: (favoriteId: String) -> Unit,
+    onFavoriteDelete: (favoriteId: String) -> Unit,
     isMetric: Boolean,
     contentPadding: PaddingValues = PaddingValues(8.dp),
     modifier: Modifier = Modifier
@@ -41,17 +41,17 @@ fun FavoritesContent(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(
-                items = favoriteCities,
+                items = favorites,
                 key = { it.id }
             ) { favorite ->
                 val currentFavorite by rememberUpdatedState(favorite)
-                val currentOnDelete by rememberUpdatedState(onDeleteFavorite)
+                val currentOnDelete by rememberUpdatedState(onFavoriteDelete)
 
                 val dismissState = rememberSwipeToDismissBoxState(
                     confirmValueChange = { value ->
                         if (value == SwipeToDismissBoxValue.EndToStart) {
                             /** Runs once, when the user finishes the swipe. */
-                            currentOnDelete(currentFavorite)
+                            currentOnDelete(currentFavorite.id)
                         }
                         /**
                          * Never keep a row in the "swiped away" state.
@@ -69,9 +69,9 @@ fun FavoritesContent(
                     enableDismissFromStartToEnd = false
                 ) {
                     FavoriteCityItem(
-                        favoriteCityDomainModel = favorite,
+                        favorite = favorite,
                         isMetric = isMetric,
-                        modifier = Modifier.clickable { onCityRowSelected(favorite) }
+                        modifier = Modifier.clickable { onFavoriteClick(favorite.id) }
                     )
                 }
             }
@@ -84,9 +84,9 @@ fun FavoritesContent(
 private fun FavoritesContentPreview() {
     FyneCastTheme {
         FavoritesContent(
-            favoriteCities = emptyList(),
-            onCityRowSelected = {},
-            onDeleteFavorite = {},
+            favorites = emptyList(),
+            onFavoriteClick = {},
+            onFavoriteDelete = {},
             isMetric = true
         )
     }

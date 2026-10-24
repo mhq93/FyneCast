@@ -1,4 +1,4 @@
-package com.mhq.fynecast.alerts.ui
+package com.mhq.fynecast.alerts.presentation
 
 /**
  * One-off UI events emitted by [AlertsViewModel] for handling side effects like snackbars or permissions.

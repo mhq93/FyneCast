@@ -37,8 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.theme.AbyssalVoid
 import com.mhq.fynecast.core.ui.theme.ElectricLimeGreen
-import com.mhq.fynecast.core.domain.location.CitySuggestionModel
-import com.mhq.fynecast.map.ui.MapPickerViewModel
+import com.mhq.fynecast.map.presentation.MapPickerViewModel
 import com.mhq.fynecast.map.ui.components.ErrorCard
 import com.mhq.fynecast.map.ui.components.LoadingCard
 import com.mhq.fynecast.map.ui.components.LocationConfirmCard
@@ -70,7 +69,7 @@ fun MapPickerScreen(
     langCode: String,
     initialLatitude: Double?,
     initialLongitude: Double?,
-    onLocationPicked: (CitySuggestionModel) -> Unit,
+    onLocationConfirmed: () -> Unit,
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -209,10 +208,10 @@ fun MapPickerScreen(
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
                 )
-            } ?: uiState.selectedLocation?.let { location ->
+            } ?: uiState.selectedPlace?.let { place ->
                 LocationConfirmCard(
-                    location = location,
-                    onLocationPicked = onLocationPicked,
+                    place = place,
+                    onConfirm = onLocationConfirmed,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()

@@ -24,23 +24,23 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
-import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
-import com.mhq.fynecast.favorites.ui.FavoritesEvent
-import com.mhq.fynecast.favorites.ui.FavoritesViewModel
+import com.mhq.fynecast.favorites.presentation.FavoritesEvent
+import com.mhq.fynecast.favorites.presentation.FavoritesUiState
+import com.mhq.fynecast.favorites.presentation.FavoritesViewModel
 import com.mhq.fynecast.favorites.ui.components.UndoDeleteSnackbar
 import kotlinx.coroutines.launch
 
 @Composable
 fun FavoritesContainer(
     favoritesViewModel: FavoritesViewModel = viewModel(factory = AppViewModelFactory),
-    onCityRowSelected: (FavoriteCityDomainModel) -> Unit,
+    onFavoriteSelected: (favoriteId: String) -> Unit,
     isMetric: Boolean,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     modifier: Modifier = Modifier
 ) {
     val resources = LocalResources.current
     val undoLabel = stringResource(R.string.undo)
-    val favorites by favoritesViewModel.favorites.collectAsStateWithLifecycle()
+    val uiState by favoritesViewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val langCode = currentLocale().language
 
@@ -76,21 +76,22 @@ fun FavoritesContainer(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        val currentFavorites = favorites
-        when {
-            currentFavorites == null -> {
+        when (val state = uiState) {
+            FavoritesUiState.Loading -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
-            currentFavorites.isEmpty() -> {
+
+            FavoritesUiState.Empty -> {
                 FavoritesBlank(contentPadding = contentPadding)
             }
-            else -> {
+
+            is FavoritesUiState.Success -> {
                 FavoritesContent(
-                    favoriteCities = currentFavorites,
-                    onCityRowSelected = onCityRowSelected,
-                    onDeleteFavorite = favoritesViewModel::onDeleteFavorite,
+                    favorites = state.favorites,
+                    onFavoriteClick = onFavoriteSelected,
+                    onFavoriteDelete = favoritesViewModel::onDeleteFavorite,
                     contentPadding = contentPadding,
                     isMetric = isMetric
                 )
