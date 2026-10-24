@@ -2311,7 +2311,14 @@ class AuthRepositoryImpl(
             val user = firebaseAuth.currentUser
                 ?: throw Exception("No authenticated user active session found")
             user.linkWithCredential(EmailAuthProvider.getCredential(email, password)).await()
-            user.verifyBeforeUpdateEmail(email).await()
+            user.reload().await()
+            val current = firebaseAuth.currentUser ?: user
+            if (current.email.equals(email, ignoreCase = true)) {
+                // Linking already made this the account's email; it only needs verifying.
+                current.sendEmailVerification().await()
+            } else {
+                current.verifyBeforeUpdateEmail(email).await()
+            }
         }
 
     override suspend fun sendPasswordResetEmail(email: String): Result<Unit> =
@@ -2341,6 +2348,7 @@ class AuthRepositoryImpl(
         try {
             val user = firebaseAuth.currentUser ?: return
             val accountEmail = user.email ?: return
+            if (!user.isEmailVerified) return
             val passwordWorksForAccountEmail = user.providerData.any {
                 it.providerId == EmailAuthProvider.PROVIDER_ID &&
                         it.email.equals(accountEmail, ignoreCase = true)
@@ -4034,6 +4042,15 @@ fun EditProfileContent(
                 isEmailValid = isEmailValid,
                 onUsernameChanged = onUsernameChanged,
                 onUserEmailChanged = onUserEmailChanged,
+                showPasswordFields = showPasswordFields,
+                newPassword = newPassword,
+                isNewPasswordValid = isNewPasswordValid,
+                onNewPasswordChanged = onNewPasswordChanged,
+                confirmPassword = confirmPassword,
+                doPasswordsMatch = doPasswordsMatch,
+                onConfirmPasswordChanged = onConfirmPasswordChanged,
+                isPasswordVisible = isPasswordVisible,
+                onTogglePasswordVisibility = onTogglePasswordVisibility,
                 usernameFocusRequester = usernameFocusRequester,
             )
             AuthActionButton(

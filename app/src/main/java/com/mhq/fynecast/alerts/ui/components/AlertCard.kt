@@ -10,6 +10,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -52,7 +54,8 @@ import com.mhq.fynecast.core.ui.theme.Tangerine
 import com.mhq.fynecast.core.ui.theme.VividAmber
 
 /**
- * Composable card displaying a weather alert item with expandable details and tracking controls.
+ * Premium, modern, sleek, and space-efficient weather card implementation.
+ * Maintains full architectural compatibility, existing callbacks, and domain models.
  */
 @Composable
 fun AlertCard(
@@ -73,44 +76,47 @@ fun AlertCard(
     }
 
     Card(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier
             .fillMaxWidth()
             .animateContentSize(
                 animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
                     stiffness = Spring.StiffnessLow
                 )
             )
     ) {
         Column(
             modifier = Modifier
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                .fillMaxWidth()
+                // Premium multi-layered glassmorphic background effect
                 .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.White.copy(alpha = 0.03f),
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.20f)
+                        )
+                    ),
+                    shape = RoundedCornerShape(22.dp)
+                )
+                .border(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.25f),
+                            severityColor.copy(alpha = 0.15f),
                             Color.Transparent
                         )
-                    )
+                    ),
+                    shape = RoundedCornerShape(22.dp)
                 )
-                .then(
-                    Modifier.background(
-                        brush = Brush.linearGradient(
-                            colors = listOf(
-                                Color.White.copy(alpha = 0.15f),
-                                severityColor.copy(alpha = 0.05f)
-                            )
-                        ),
-                        shape = RoundedCornerShape(24.dp)
-                    )
-                )
-                .clip(RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(22.dp))
                 .clickable { onExpandToggle() }
-                .padding(20.dp)
+                .padding(16.dp) // Optimized space efficiency (reduced from 20dp)
         ) {
-            // Upper Header Layer
+            // Header Layer: Status Indicator, Event Title, and Severity Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -118,55 +124,60 @@ fun AlertCard(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
-                            .background(
-                                color = severityColor,
-                                shape = RoundedCornerShape(50)
-                            )
+                            .size(10.dp)
+                            .background(color = severityColor, shape = CircleShape)
                     )
                     Text(
                         text = alert.event.uppercase(),
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            letterSpacing = 1.2.sp,
-                            fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            letterSpacing = 1.1.sp,
+                            fontWeight = FontWeight.Bold
                         ),
-                        color = severityColor
+                        color = severityColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
+
+                Spacer(modifier = Modifier.width(8.dp))
 
                 Box(
                     modifier = Modifier
                         .background(
-                            color = severityColor.copy(alpha = 0.12f),
-                            shape = RoundedCornerShape(100.dp)
+                            color = severityColor.copy(alpha = 0.14f),
+                            shape = CircleShape
                         )
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                        .padding(horizontal = 10.dp, vertical = 3.dp)
                 ) {
                     Text(
                         text = alert.severity.uppercase(),
                         color = severityColor,
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 0.5.sp
+                        )
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Body Headline Layer
+            // Headline & Expand Toggle Icon Layer
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top,
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = alert.headline,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Medium,
-                        lineHeight = 22.sp
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        lineHeight = 20.sp
                     ),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = if (isExpanded) Int.MAX_VALUE else 2,
@@ -174,31 +185,58 @@ fun AlertCard(
                     modifier = Modifier.weight(1f)
                 )
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
-                Icon(
-                    imageVector = if (isExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.size(24.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
 
-            // Smooth Expanded Metadata Area
+            // Smooth Expandable Metadata Area (Description & Instructions)
             AnimatedVisibility(
                 visible = isExpanded,
-                enter = expandVertically(animationSpec = tween(300)) + fadeIn(),
-                exit = shrinkVertically(animationSpec = tween(300)) + fadeOut()
+                enter = expandVertically(animationSpec = tween(250)) + fadeIn(animationSpec = tween(250)),
+                exit = shrinkVertically(animationSpec = tween(250)) + fadeOut(animationSpec = tween(250))
             ) {
-                Column(modifier = Modifier.padding(top = 14.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp)
+                ) {
+                    // Divider line for sleek visual separation
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     Text(
                         text = alert.description,
-                        style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            lineHeight = 20.sp,
+                            fontWeight = FontWeight.Normal
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                     )
 
                     if (alert.instruction.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             text = stringResource(R.string.instructions).uppercase(),
                             style = MaterialTheme.typography.labelSmall.copy(
@@ -210,15 +248,18 @@ fun AlertCard(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = alert.instruction,
-                            style = MaterialTheme.typography.bodySmall.copy(lineHeight = 18.sp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                lineHeight = 18.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
+            // Tracking Control Button Action Layer
             AlertTrackingButton(
                 isTracked = isTracked,
                 severityColor = severityColor,
@@ -228,25 +269,27 @@ fun AlertCard(
     }
 }
 
-@Preview
+@Preview(showBackground = true)
 @Composable
 private fun AlertCardPreview() {
-    FyneCastTheme() {
-        AlertCard(
-            alert = AlertDomainModel(
-                id = "",
-                headline = "",
-                severity = "",
-                event = "",
-                effectiveMillis = 10L,
-                expiresMillis = 10L,
-                description = "",
-                instruction = ""
-            ),
-            isTracked = true,
-            isExpanded = true,
-            onTrackToggle = {},
-            onExpandToggle = {}
-        )
+    FyneCastTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            AlertCard(
+                alert = AlertDomainModel(
+                    id = "1",
+                    headline = "Severe Flash Flood Warning across coastal metropolitan sectors expected tonight.",
+                    severity = "Severe",
+                    event = "Flash Flood Warning",
+                    effectiveMillis = 10L,
+                    expiresMillis = 10L,
+                    description = "Heavy torrential rainfall will cause localized flash flooding in low-lying areas and urban drainage channels.",
+                    instruction = "Move to higher ground immediately. Avoid walking or driving through flood waters."
+                ),
+                isTracked = false,
+                isExpanded = false,
+                onTrackToggle = {},
+                onExpandToggle = {}
+            )
+        }
     }
 }
