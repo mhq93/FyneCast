@@ -10,6 +10,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.mhq.fynecast.BuildConfig
 import com.mhq.fynecast.alerts.data.database.AlertsDatabase
+import com.mhq.fynecast.alerts.data.datasource.AlertsLocalDataSource
+import com.mhq.fynecast.alerts.data.datasource.AlertsRoomDataSource
 import com.mhq.fynecast.alerts.data.repoimpl.AlertTrackingControllerImpl
 import com.mhq.fynecast.alerts.data.repoimpl.AlertsRepoImpl
 import com.mhq.fynecast.alerts.domain.repository.AlertTrackingController
@@ -83,6 +85,8 @@ import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectedCityRepository
 import com.mhq.fynecast.core.domain.weather.WeatherRepository
+import com.mhq.fynecast.favorites.data.datasource.FavoritesLocalDataSource
+import com.mhq.fynecast.favorites.data.datasource.FavoritesRoomDataSource
 import com.mhq.fynecast.home.data.datasource.location.AndroidPlaceNameSource
 import com.mhq.fynecast.home.data.datasource.location.DeviceLocationDataSource
 import com.mhq.fynecast.home.data.datasource.location.FusedDeviceLocationDataSource
@@ -359,8 +363,11 @@ class DefaultAppContainer(
 
 
     // Favorites Use Cases
+    private val favoritesLocalDataSource: FavoritesLocalDataSource by lazy {
+        FavoritesRoomDataSource(favoritesDatabase.favoriteDao())
+    }
     private val favoritesRepository: FavoritesRepository by lazy {
-        FavoritesRepoImpl(favoritesDatabase.favoriteDao(), currentUserProvider)
+        FavoritesRepoImpl(favoritesLocalDataSource, currentUserProvider)
     }
     private val favoritesDatabase: FavoritesDatabase by lazy {
         Room.databaseBuilder(
@@ -405,8 +412,11 @@ class DefaultAppContainer(
             "alerts_db"
         ).build()
     }
+    private val alertsLocalDataSource: AlertsLocalDataSource by lazy {
+        AlertsRoomDataSource(alertsDatabase.alertDao())
+    }
     private val alertsRepository: AlertsRepository by lazy {
-        AlertsRepoImpl(alertDao = alertsDatabase.alertDao())
+        AlertsRepoImpl(localDataSource = alertsLocalDataSource)
     }
     override val getAlertsUseCase: GetAlertsUseCase by lazy {
         GetAlertsUseCase(currentWeatherStore)

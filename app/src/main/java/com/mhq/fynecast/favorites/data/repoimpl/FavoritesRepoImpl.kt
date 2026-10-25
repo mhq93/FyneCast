@@ -1,7 +1,7 @@
 package com.mhq.fynecast.favorites.data.repoimpl
 
 import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
-import com.mhq.fynecast.favorites.data.database.FavoriteDao
+import com.mhq.fynecast.favorites.data.datasource.FavoritesLocalDataSource
 import com.mhq.fynecast.favorites.data.mapper.toDomain
 import com.mhq.fynecast.favorites.data.mapper.toEntity
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.map
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FavoritesRepoImpl(
-    private val favoriteDao: FavoriteDao,
+    private val localDataSource: FavoritesLocalDataSource,
     private val currentUserProvider: CurrentUserProvider
 ) : FavoritesRepository {
 
@@ -23,27 +23,27 @@ class FavoritesRepoImpl(
             if (userId == null)
                 flowOf(false)
             else
-                favoriteDao.observeIsFavorite(userId, id)
+                localDataSource.observeIsFavorite(userId, id)
         }
 
     override suspend fun toggleFavorite(city: FavoriteCityDomainModel) {
         val userId = currentUserProvider.currentUserId() ?: return
-        favoriteDao.toggle(city.toEntity(userId))
+        localDataSource.toggle(city.toEntity(userId))
     }
 
     override suspend fun saveFavorite(city: FavoriteCityDomainModel) {
         val userId = currentUserProvider.currentUserId() ?: return
-        favoriteDao.insertFavorite(city.toEntity(userId))
+        localDataSource.insert(city.toEntity(userId))
     }
 
     override suspend fun deleteFavorite(id: String) {
         val userId = currentUserProvider.currentUserId() ?: return
-        favoriteDao.deleteFavorite(userId, id)
+        localDataSource.delete(userId, id)
     }
 
     override suspend fun refreshSnapshot(city: FavoriteCityDomainModel) {
         val userId = currentUserProvider.currentUserId() ?: return
-        favoriteDao.updateSnapshot(
+        localDataSource.updateSnapshot(
             userId,
             city.id,
             city.temperatureC,
@@ -54,7 +54,7 @@ class FavoritesRepoImpl(
 
     override suspend fun getFavoritesList(): List<FavoriteCityDomainModel> {
         val userId = currentUserProvider.currentUserId() ?: return emptyList()
-        return favoriteDao.getFavoritesOnce(userId).map { it.toDomain() }
+        return localDataSource.getAllOnce(userId).map { it.toDomain() }
     }
 
     override fun getAllFavorites(): Flow<List<FavoriteCityDomainModel>> =
@@ -62,7 +62,7 @@ class FavoritesRepoImpl(
             if (userId == null) {
                 flowOf(emptyList())
             } else {
-                favoriteDao.getAllFavorites(userId)
+                localDataSource.observeAll(userId)
                     .map { entities -> entities.map { it.toDomain() } }
             }
         }
