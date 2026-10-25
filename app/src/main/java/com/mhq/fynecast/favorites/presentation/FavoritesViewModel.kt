@@ -8,6 +8,7 @@ import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RelocalizeFavoriteNamesUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
 import com.mhq.fynecast.favorites.presentation.mapper.toPresentation
 import kotlinx.coroutines.CancellationException
@@ -27,7 +28,8 @@ class FavoritesViewModel(
     private val getFavoritesUseCase: GetFavoritesUseCase,
     private val deleteFavoriteUseCase: DeleteFavoriteUseCase,
     private val restoreFavoriteUseCase: RestoreFavoriteUseCase,
-    private val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase
+    private val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase,
+    private val relocalizeFavoriteNamesUseCase: RelocalizeFavoriteNamesUseCase
 ) : ViewModel() {
 
     /** The domain favorites, kept privately: null = the first load has not finished yet. */
@@ -93,8 +95,20 @@ class FavoritesViewModel(
         viewModelScope.launch { withContext(NonCancellable) { restoreFavoriteUseCase(city) } }
     }
 
-    /** Called when the Favorites tab is shown; the use case skips the call if it ran recently. */
+    /**
+     * Called when the Favorites tab is shown (and again if the app language changes).
+     * Both use cases skip the work if they already ran recently.
+     */
     fun onScreenShown(langCode: String) {
+        viewModelScope.launch {
+            try {
+                relocalizeFavoriteNamesUseCase(langCode)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Old names stay; nothing else to do.
+            }
+        }
         viewModelScope.launch {
             try {
                 refreshAllFavoritesUseCase(langCode)

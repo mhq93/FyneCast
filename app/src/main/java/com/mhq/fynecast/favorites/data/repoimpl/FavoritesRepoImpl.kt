@@ -52,6 +52,11 @@ class FavoritesRepoImpl(
         )
     }
 
+    override suspend fun updateNames(id: String, cityName: String, countryName: String) {
+        val userId = currentUserProvider.currentUserId() ?: return
+        localDataSource.updateNames(userId, id, cityName, countryName)
+    }
+
     override suspend fun getFavoritesList(): List<FavoriteCityDomainModel> {
         val userId = currentUserProvider.currentUserId() ?: return emptyList()
         return localDataSource.getAllOnce(userId).map { it.toDomain() }

@@ -34,6 +34,17 @@ abstract class FavoriteDao {
         icon: String
     )
 
+    @Query(
+        """UPDATE favorites SET cityName = :cityName, countryName = :countryName
+              WHERE userId = :userId AND locationKey = :key"""
+    )
+    abstract suspend fun updateNames(
+        userId: String,
+        key: String,
+        cityName: String,
+        countryName: String
+    )
+
     @Query("SELECT * FROM favorites WHERE userId = :userId ORDER BY cityName ASC, countryName ASC")
     abstract fun getAllFavorites(userId: String): Flow<List<FavoriteEntity>>
 

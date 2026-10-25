@@ -14,18 +14,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.TemperatureFormatter
+import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
+/** One compact hour chip. The current hour gets the accent colour on its label and border. */
 @Composable
 fun WeatherHourlyItem(
     header: String,
@@ -34,51 +36,35 @@ fun WeatherHourlyItem(
     isCurrentHour: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val capsuleBackground = if (isCurrentHour) {
-        Brush.verticalGradient(
-            colors = listOf(
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-            )
-        )
-    } else {
-        Brush.verticalGradient(
-            colors = listOf(
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.05f)
-            )
-        )
-    }
-
-    val borderStrokeColor = if (isCurrentHour) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-    } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
-    }
-
-    val contentColor = if (isCurrentHour) {
-        MaterialTheme.colorScheme.onPrimary
-    } else {
-        MaterialTheme.colorScheme.onBackground
-    }
+    val onBackground = MaterialTheme.colorScheme.onBackground
+    val accent = MaterialTheme.colorScheme.onPrimary
+    val shape = RoundedCornerShape(20.dp)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = modifier
-            .width(68.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(capsuleBackground)
-            .border(width = 1.dp, brush = Brush.verticalGradient(listOf(borderStrokeColor, borderStrokeColor.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
-            .padding(vertical = 16.dp, horizontal = 8.dp)
+            .width(48.dp)
+            .clip(shape)
+            .background(
+                if (isCurrentHour) accent.copy(alpha = 0.10f) else onBackground.copy(alpha = 0.05f)
+            )
+            .border(
+                width = 1.dp,
+                color = if (isCurrentHour) accent.copy(alpha = 0.55f) else onBackground.copy(alpha = 0.08f),
+                shape = shape
+            )
+            .padding(vertical = 10.dp, horizontal = 4.dp)
     ) {
         Text(
             text = header,
-            color = contentColor.copy(alpha = if (isCurrentHour) 0.9f else 0.6f),
+            color = if (isCurrentHour) accent else onBackground.copy(alpha = 0.55f),
             style = MaterialTheme.typography.labelSmall.copy(
                 fontWeight = if (isCurrentHour) FontWeight.Bold else FontWeight.Medium,
-                letterSpacing = 0.5.sp
-            )
+                letterSpacing = 0.3.sp.unlessArabic()
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
 
         AsyncImage(
@@ -86,29 +72,28 @@ fun WeatherHourlyItem(
             contentDescription = stringResource(R.string.hourly_condition),
             contentScale = ContentScale.Fit,
             modifier = Modifier
-                .padding(vertical = 8.dp)
-                .size(38.dp)
+                .padding(vertical = 2.dp)
+                .size(30.dp)
         )
 
         Text(
             text = TemperatureFormatter.format(temperature),
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.titleMedium,
-            color = contentColor
+            color = onBackground,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
         )
     }
 }
 
-
-@Preview(showBackground = true)
+@Preview(showBackground = true, backgroundColor = 0xFF0F172A)
 @Composable
-fun WeatherHourlyItemPreview() {
-    FyneCastTheme() {
-        WeatherHourlyItem(
-            header = "12:00",
-            weatherIconUrl = "",
-            temperature = 10.0,
-            isCurrentHour = true,
-        )
+private fun WeatherHourlyItemPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            WeatherHourlyItem("Now", "", 26.0, isCurrentHour = true)
+            WeatherHourlyItem("4 PM", "", 25.0, isCurrentHour = false)
+        }
     }
 }

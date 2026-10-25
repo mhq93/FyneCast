@@ -16,6 +16,8 @@ interface FavoritesRepository {
     suspend fun deleteFavorite(id: String)
     /** updates temperature and icon. */
     suspend fun refreshSnapshot(city: FavoriteCityDomainModel)
+    /** rewrites the saved city and country names, e.g. after the app language changed. */
+    suspend fun updateNames(id: String, cityName: String, countryName: String)
     /** one-off read, not observed. */
     suspend fun getFavoritesList(): List<FavoriteCityDomainModel>
 }

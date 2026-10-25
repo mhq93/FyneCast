@@ -181,4 +181,7 @@
     <string name="email_managed_by_provider">Email managed by provider</string>
     <string name="session_expired_sign_in_again">Session expired, sign in again</string>
     <string name="email_switch_password_hint">To switch to this email, choose a password for it. You will sign in with the new email and this password.</string>
+    <string name="stat_high">High</string>
+    <string name="stat_low">Low</string>
+    <string name="hourly_now">Now</string>
 </resources>

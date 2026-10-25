@@ -48,7 +48,7 @@ fun FavoritesContainer(
      * Brings every favorite's temperature up to date when the tab is shown
      * (the use case skips the call if it ran in the last 10 minutes).
      * */
-    LaunchedEffect(Unit) {
+    LaunchedEffect(langCode) {
         favoritesViewModel.onScreenShown(langCode)
     }
 

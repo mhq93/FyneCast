@@ -87,6 +87,7 @@ import com.mhq.fynecast.core.domain.location.SelectedCityRepository
 import com.mhq.fynecast.core.domain.weather.WeatherRepository
 import com.mhq.fynecast.favorites.data.datasource.FavoritesLocalDataSource
 import com.mhq.fynecast.favorites.data.datasource.FavoritesRoomDataSource
+import com.mhq.fynecast.favorites.domain.usecases.RelocalizeFavoriteNamesUseCase
 import com.mhq.fynecast.home.data.datasource.location.AndroidPlaceNameSource
 import com.mhq.fynecast.home.data.datasource.location.DeviceLocationDataSource
 import com.mhq.fynecast.home.data.datasource.location.FusedDeviceLocationDataSource
@@ -396,6 +397,9 @@ class DefaultAppContainer(
     }
     override val restoreFavoriteUseCase: RestoreFavoriteUseCase by lazy {
         RestoreFavoriteUseCase(favoritesRepository)
+    }
+    override val relocalizeFavoriteNamesUseCase: RelocalizeFavoriteNamesUseCase by lazy {
+        RelocalizeFavoriteNamesUseCase(favoritesRepository, locationRepository)
     }
 
     // Time

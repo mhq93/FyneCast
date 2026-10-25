@@ -24,6 +24,13 @@ class FavoritesRoomDataSource(
     override suspend fun delete(userId: String, key: String) =
         favoriteDao.deleteFavorite(userId, key)
 
+    override suspend fun updateNames(
+        userId: String,
+        key: String,
+        cityName: String,
+        countryName: String
+    ) = favoriteDao.updateNames(userId, key, cityName, countryName)
+
     override suspend fun updateSnapshot(
         userId: String,
         key: String,

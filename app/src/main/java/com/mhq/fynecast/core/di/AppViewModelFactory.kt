@@ -83,7 +83,8 @@ val AppViewModelFactory: ViewModelProvider.Factory = viewModelFactory {
             deleteFavoriteUseCase = container.deleteFavoriteUseCase,
             restoreFavoriteUseCase = container.restoreFavoriteUseCase,
             refreshAllFavoritesUseCase = container.refreshAllFavoritesUseCase,
-            selectCityUseCase = container.selectCityUseCase
+            selectCityUseCase = container.selectCityUseCase,
+            relocalizeFavoriteNamesUseCase = container.relocalizeFavoriteNamesUseCase
         )
     }
 
@@ -98,6 +99,7 @@ val AppViewModelFactory: ViewModelProvider.Factory = viewModelFactory {
             resolveStartupLocationUseCase = container.resolveStartupLocationUseCase,
             refreshFavoriteSnapshotUseCase = container.refreshFavoriteSnapshotUseCase,
             toggleFavoriteUseCase = container.toggleFavoriteUseCase,
+            deleteFavoriteUseCase = container.deleteFavoriteUseCase,
             saveLastSearchedCityUseCase = container.saveLastSearchedCityUseCase,
             reverseGeocodeLocationUseCase = container.reverseGeocodeLocationUseCase,
             localizePlaceNameUseCase = container.localizePlaceNameUseCase

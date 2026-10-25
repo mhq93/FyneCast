@@ -35,6 +35,7 @@ import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RelocalizeFavoriteNamesUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
 import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
@@ -85,14 +86,15 @@ interface AppContainer {
 
     // Location Use Cases
     val getCurrentLocationUseCase: GetCurrentLocationUseCase
-    val getLocationSuggestionsUseCase: GetLocationSuggestionsUseCase
     val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase
+    val getLocationSuggestionsUseCase: GetLocationSuggestionsUseCase
     val getLastSearchedCityUseCase: GetLastSearchedCityUseCase
     val resolveStartupLocationUseCase: ResolveStartupLocationUseCase
     val selectCityUseCase: SelectCityUseCase
     val observeSelectedCityUseCase: ObserveSelectedCityUseCase
     val localizePlaceNameUseCase: LocalizePlaceNameUseCase
     val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase
+    val relocalizeFavoriteNamesUseCase: RelocalizeFavoriteNamesUseCase
 
     // Favorites Use Cases
     val getFavoritesUseCase: GetFavoritesUseCase

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
 import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
 import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
 import com.mhq.fynecast.home.domain.mapper.toFavoriteCity
@@ -43,6 +44,7 @@ class HomeViewModel(
     private val observeFavoriteStatusUseCase: ObserveFavoriteStatusUseCase,
     private val refreshFavoriteSnapshotUseCase: RefreshFavoriteSnapshotUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
+    private val deleteFavoriteUseCase: DeleteFavoriteUseCase,
     private val saveLastSearchedCityUseCase: SaveLastSearchedCityUseCase,
     private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase,
     private val localizePlaceNameUseCase: LocalizePlaceNameUseCase,
@@ -65,6 +67,9 @@ class HomeViewModel(
     private var loadJob: Job? = null
     private var searchJob: Job? = null
     private var favoriteJob: Job? = null
+
+    /** The id the saved favorite for the city on screen has, or null when it is not a favorite. */
+    private var savedFavoriteId: String? = null
     private var lastRefreshTime = 0L
     private val refreshCooldownMillis = 60 * 1000L
     private var loadedLangCode: String? = null
@@ -309,6 +314,7 @@ class HomeViewModel(
         loadJob?.cancel()
         searchJob?.cancel()
         favoriteJob?.cancel()
+        savedFavoriteId = null
         _state.value = HomeStateContainer()
         domainWeather = null
         domainSuggestions = emptyList()
@@ -337,14 +343,30 @@ class HomeViewModel(
 
     fun onToggleFavorite() {
         val weather = domainWeather ?: return
-        val favorite = weather.toFavoriteCity(_state.value.selectedCityName)
-        viewModelScope.launch { toggleFavoriteUseCase(favorite) }
+        val savedId = savedFavoriteId
+        viewModelScope.launch {
+            if (savedId != null) {
+                // Remove the favorite that is actually saved, whichever coordinates it was saved under.
+                deleteFavoriteUseCase(savedId)
+            } else {
+                toggleFavoriteUseCase(weather.toFavoriteCity(_state.value.selectedCityName))
+            }
+        }
     }
 
     private fun onWeatherShown(weather: WeatherDomainModel) {
         favoriteJob?.cancel()
-        favoriteJob = observeFavoriteStatusUseCase(weather.latitude, weather.longitude)
-            .onEach { isFav -> _state.update { it.copy(isFavorite = isFav) } }
+        // The point the weather service reports and the point we asked about can differ,
+        // so a favorite saved under either one is this city.
+        val places = buildList {
+            add(weather.latitude to weather.longitude)
+            shownSpot?.let { add(it.latitude to it.longitude) }
+        }
+        favoriteJob = observeFavoriteStatusUseCase(places)
+            .onEach { savedId ->
+                savedFavoriteId = savedId
+                _state.update { it.copy(isFavorite = savedId != null) }
+            }
             .launchIn(viewModelScope)
 
         viewModelScope.launch { refreshFavoriteSnapshotUseCase(weather.toFavoriteCity()) }

@@ -10,33 +10,32 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -46,8 +45,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -59,8 +58,10 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.home.presentation.model.CitySuggestionPresentationModel
-import kotlin.collections.isNotEmpty
 
+private val SearchBarHeight = 44.dp
+
+/** A slim glass pill: search icon, the field, a clear button and a map button. */
 @Composable
 fun WeatherSearchBar(
     suggestions: List<CitySuggestionPresentationModel>,
@@ -78,135 +79,127 @@ fun WeatherSearchBar(
     val isFocused by interactionSource.collectIsFocusedAsState()
 
     val onSurfaceColor = MaterialTheme.colorScheme.onBackground
-    val primaryAccent = MaterialTheme.colorScheme.onPrimary
+    val accent = MaterialTheme.colorScheme.onPrimary
+    val pillShape = RoundedCornerShape(SearchBarHeight / 2)
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .zIndex(10f)
     ) {
-        // Core horizontal capsule bar container
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
-                .clip(RoundedCornerShape(32.dp))
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.15f))
-                .then(
-                    Modifier.background(
-                        brush = Brush.linearGradient(
-                            colors = if (isFocused) {
-                                listOf(primaryAccent.copy(alpha = 0.25f), Color.Transparent)
-                            } else {
-                                listOf(onSurfaceColor.copy(alpha = 0.08f), Color.Transparent)
-                            }
-                        )
-                    )
-                )
+                .height(SearchBarHeight)
+                .clip(pillShape)
+                .background(onSurfaceColor.copy(alpha = if (isFocused) 0.10f else 0.06f))
                 .border(
-                    width = 1.2.dp,
-                    color = if (isFocused) primaryAccent.copy(alpha = 0.4f) else onSurfaceColor.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(32.dp)
-                ),
-            verticalAlignment = Alignment.CenterVertically
+                    width = 1.dp,
+                    color = if (isFocused) accent.copy(alpha = 0.5f) else onSurfaceColor.copy(alpha = 0.12f),
+                    shape = pillShape
+                )
+                .padding(start = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Left Pill Wing: Search Icon Indicator (interactive if you want it to clear focus or request search)
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = stringResource(R.string.search_icon),
+                tint = if (isFocused) accent else onSurfaceColor.copy(alpha = 0.55f),
+                modifier = Modifier.size(18.dp)
+            )
+
             Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(64.dp),
-                contentAlignment = Alignment.Center
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.CenterStart
             ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = stringResource(R.string.search_icon),
-                    tint = if (isFocused) primaryAccent else onSurfaceColor.copy(alpha = 0.7f),
-                    modifier = Modifier.size(24.dp)
+                if (searchQuery.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.enter_a_city_name),
+                        color = onSurfaceColor.copy(alpha = 0.4f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1
+                    )
+                }
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = {
+                        searchQuery = it
+                        onQueryChange(it)
+                        showSuggestions = it.isNotEmpty()
+                    },
+                    singleLine = true,
+                    interactionSource = interactionSource,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = onSurfaceColor),
+                    cursorBrush = SolidColor(accent),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            if (isListVisible) {
+                                onSuggestionClick(suggestions[0])
+                                searchQuery = suggestions[0].name
+                                showSuggestions = false
+                                focusManager.clearFocus()
+                            }
+                        }
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            // Central Capsule Area: Unbordered Fluid Input Field Engine
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = {
-                    searchQuery = it
-                    onQueryChange(it)
-                    showSuggestions = it.isNotEmpty()
-                },
-                interactionSource = interactionSource,
-                modifier = Modifier.weight(1f),
-                placeholder = {
-                    Text(
-                        text = stringResource(R.string.enter_a_city_name),
-                        color = onSurfaceColor.copy(alpha = 0.35f),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = {
+            if (searchQuery.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .size(SearchBarHeight)
+                        .clip(CircleShape)
+                        .clickable {
                             searchQuery = ""
                             onQueryChange("")
                             showSuggestions = false
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = stringResource(R.string.clear_input),
-                                tint = onSurfaceColor.copy(alpha = 0.5f),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = onSurfaceColor,
-                    unfocusedTextColor = onSurfaceColor,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    cursorColor = primaryAccent
-                ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(
-                    onSearch = {
-                        if (isListVisible) {
-                            onSuggestionClick(suggestions[0])
-                            searchQuery = suggestions[0].name
-                            showSuggestions = false
-                            focusManager.clearFocus()
-                        }
-                    }
-                )
-            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = stringResource(R.string.clear_input),
+                        tint = onSurfaceColor.copy(alpha = 0.5f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
 
-            // Right Pill Wing: Vivid Map Action Discover Launch Endpoint
+            // The whole 44 dp square is the tap target; the visible circle is smaller.
             Box(
                 modifier = Modifier
-                    .fillMaxHeight()
-                    .width(64.dp)
-                    .background(onSurfaceColor.copy(alpha = 0.05f))
+                    .size(SearchBarHeight)
+                    .clip(CircleShape)
                     .clickable { onMapClick() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = stringResource(R.string.pick_from_map),
-                    tint = onSurfaceColor.copy(alpha = 0.7f),
-                    modifier = Modifier.size(24.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(onSurfaceColor.copy(alpha = 0.08f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Map,
+                        contentDescription = stringResource(R.string.pick_from_map),
+                        tint = onSurfaceColor.copy(alpha = 0.75f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
 
-        // Dropdown suggestions layout floating over underlying panels
         AnimatedVisibility(
             visible = isListVisible,
             enter = fadeIn(animationSpec = tween(200)),
             exit = fadeOut(animationSpec = tween(150))
         ) {
             GlassyCard(
-                cornerRadius = 24.dp,
+                cornerRadius = 22.dp,
                 padding = 4.dp,
                 containerAlpha = 0.25f,
                 borderAlpha = 0.35f,
@@ -233,7 +226,7 @@ fun WeatherSearchBar(
                                     Icon(
                                         imageVector = Icons.Default.LocationOn,
                                         contentDescription = null,
-                                        tint = primaryAccent.copy(alpha = 0.7f),
+                                        tint = accent.copy(alpha = 0.7f),
                                         modifier = Modifier.size(18.dp)
                                     )
                                 },
@@ -263,28 +256,35 @@ fun WeatherSearchBar(
     }
 }
 
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview(showBackground = true)
+@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE)
 @Composable
-fun WeatherSearchBarPreview() {
-    FyneCastTheme() {
+private fun WeatherSearchBarLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
         WeatherSearchBar(
             suggestions = emptyList(),
             onQueryChange = {},
             onSuggestionClick = {},
-            onMapClick = {}
+            onMapClick = {},
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+
+@Preview(
+    name = "Dark",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+private fun WeatherSearchBarDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        WeatherSearchBar(
+            suggestions = emptyList(),
+            onQueryChange = {},
+            onSuggestionClick = {},
+            onMapClick = {},
+            modifier = Modifier.padding(16.dp)
         )
     }
 }

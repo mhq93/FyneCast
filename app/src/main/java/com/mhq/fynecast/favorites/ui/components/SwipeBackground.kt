@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.runtime.Composable
@@ -22,22 +23,24 @@ import com.mhq.fynecast.R
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SwipeBackground(dismissState: SwipeToDismissBoxState) {
-    val color = when (dismissState.dismissDirection) {
-        SwipeToDismissBoxValue.EndToStart -> Color.Red.copy(alpha = 0.8f)
-        else -> Color.Transparent
+    val isSwipingToDelete = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
+    val color = if (isSwipingToDelete) {
+        MaterialTheme.colorScheme.error.copy(alpha = 0.85f)
+    } else {
+        Color.Transparent
     }
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(color, shape = RoundedCornerShape(16.dp))
+            .background(color, shape = RoundedCornerShape(FavoriteCardCornerRadius))
             .padding(horizontal = 24.dp),
         contentAlignment = Alignment.CenterEnd
     ) {
-        if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+        if (isSwipingToDelete) {
             Icon(
                 imageVector = Icons.Default.Delete,
                 contentDescription = stringResource(R.string.delete),
-                tint = Color.White
+                tint = MaterialTheme.colorScheme.onError
             )
         }
     }

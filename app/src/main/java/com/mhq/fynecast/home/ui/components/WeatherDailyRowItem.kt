@@ -26,10 +26,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
+/** One day, about 30 dp tall: day and date, icon with description, then low, range bar, high. */
 @Composable
 fun WeatherDailyRowItem(
     day: String,
@@ -47,36 +49,41 @@ fun WeatherDailyRowItem(
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = modifier.fillMaxWidth()
     ) {
-        // Left Column: Day Descriptor Bounds
-        Column(
-            modifier = Modifier.width(70.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
+        Column(modifier = Modifier.width(64.dp)) {
             Text(
                 text = day,
                 color = MaterialTheme.colorScheme.onBackground,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 13.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                maxLines = 1
             )
             Text(
                 text = date,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium)
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    lineHeight = 12.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                maxLines = 1
             )
         }
 
-        // Center Content Element: Weather state icon representation map
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 8.dp)
+                .padding(horizontal = 6.dp)
         ) {
             AsyncImage(
                 model = "https:$weatherIconUrl",
                 contentDescription = weatherDescription,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(28.dp)
             )
             Text(
                 text = weatherDescription,
@@ -89,11 +96,10 @@ fun WeatherDailyRowItem(
             )
         }
 
-        // Right Content Block: High/Low relative tracking balance parameters
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.End,
-            modifier = Modifier.width(130.dp)
+            modifier = Modifier.width(124.dp)
         ) {
             Text(
                 text = TemperatureFormatter.format(lowTemperature),
@@ -139,31 +145,24 @@ fun WeatherDailyRowItem(
 }
 
 @Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
+    name = "Dark",
     uiMode = Configuration.UI_MODE_NIGHT_YES,
     showBackground = true,
-    backgroundColor = 0xFF000000
+    backgroundColor = 0xFF0F172A
 )
-
-@Preview
 @Composable
 private fun WeatherDailyRowItemPreview() {
-    FyneCastTheme() {
+    FyneCastTheme(isDarkMode = true) {
         WeatherDailyRowItem(
-            day = "",
-            date = "",
-            weekMin = 10.0,
-            weekMax = 10.0,
+            day = "Mon",
+            date = "Oct 26",
+            weekMin = 14.0,
+            weekMax = 30.0,
             weatherIconUrl = "",
-            weatherDescription = "",
-            highTemperature = 10.0,
-            lowTemperature = 10.0,
+            weatherDescription = "Sunny",
+            highTemperature = 28.0,
+            lowTemperature = 17.0,
+            modifier = Modifier.padding(16.dp)
         )
     }
 }

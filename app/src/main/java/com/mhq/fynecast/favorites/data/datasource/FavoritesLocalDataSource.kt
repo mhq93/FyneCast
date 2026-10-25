@@ -13,6 +13,7 @@ interface FavoritesLocalDataSource {
     suspend fun toggle(entity: FavoriteEntity)
     suspend fun insert(entity: FavoriteEntity)
     suspend fun delete(userId: String, key: String)
+    suspend fun updateNames(userId: String, key: String, cityName: String, countryName: String)
     suspend fun updateSnapshot(
         userId: String,
         key: String,
