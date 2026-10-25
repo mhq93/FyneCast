@@ -1,6 +1,6 @@
 package com.mhq.fynecast.map.presentation
 
-import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.core.presentation.text.UiText
 import com.mhq.fynecast.map.presentation.model.MapPlacePresentationModel
 
 /**

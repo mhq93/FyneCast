@@ -12,18 +12,18 @@ import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.settings.domain.models.AppLanguage
+import com.mhq.fynecast.settings.presentation.model.LanguageOption
 
 @Composable
 fun SettingsPanel(
     notificationsEnabled: Boolean,
     isDarkMode: Boolean,
     isMetric: Boolean,
-    currentLanguage: AppLanguage,
+    currentLanguage: LanguageOption,
     onNotificationsToggle: (Boolean) -> Unit,
     onDarkModeToggle: (Boolean) -> Unit,
     onMetricToggle: (Boolean) -> Unit,
-    onLanguageChange: (AppLanguage) -> Unit,
+    onLanguageChange: (LanguageOption) -> Unit,
     modifier: Modifier = Modifier
 ) {
     GlassyCard(
@@ -56,11 +56,11 @@ fun SettingsPanel(
             SettingsPanelDivider()
             SettingsToggleRow(
                 label = stringResource(R.string.language),
-                isFirstOptionSelected = currentLanguage == AppLanguage.English,
+                isFirstOptionSelected = currentLanguage == LanguageOption.English,
                 firstOptionLabel = stringResource(R.string.english),
                 secondOptionLabel = "العربية",
-                onFirstOptionSelected = { onLanguageChange(AppLanguage.English) },
-                onSecondOptionSelected = { onLanguageChange(AppLanguage.Arabic) }
+                onFirstOptionSelected = { onLanguageChange(LanguageOption.English) },
+                onSecondOptionSelected = { onLanguageChange(LanguageOption.Arabic) }
             )
             SettingsPanelDivider()
             SettingsToggleRow(
@@ -96,7 +96,7 @@ private fun SettingsPanelPreview() {
             notificationsEnabled = true,
             isDarkMode = true,
             isMetric = true,
-            currentLanguage = AppLanguage.English,
+            currentLanguage = LanguageOption.English,
             onNotificationsToggle = {},
             onDarkModeToggle = {},
             onMetricToggle = {},

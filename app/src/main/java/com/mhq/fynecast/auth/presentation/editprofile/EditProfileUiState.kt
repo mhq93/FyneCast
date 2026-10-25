@@ -1,6 +1,6 @@
-package com.mhq.fynecast.auth.ui.editprofile.ui
+package com.mhq.fynecast.auth.presentation.editprofile
 
-import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.core.presentation.text.UiText
 
 sealed interface EditProfileUiState {
     object Idle : EditProfileUiState

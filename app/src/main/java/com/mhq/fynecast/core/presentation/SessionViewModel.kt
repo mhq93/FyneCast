@@ -1,9 +1,10 @@
-package com.mhq.fynecast.core.navigation
+package com.mhq.fynecast.core.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mhq.fynecast.auth.domain.usecases.profile.RefreshUserSessionUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
+import com.mhq.fynecast.core.navigation.AppDestination
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch

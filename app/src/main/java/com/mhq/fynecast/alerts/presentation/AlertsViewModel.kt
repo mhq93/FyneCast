@@ -68,7 +68,7 @@ class AlertsViewModel(
         )
 
     /** Stream tracking the user's current location context. */
-    val currentLocation: StateFlow<TrackedLocation?> =
+    private val currentLocation: StateFlow<TrackedLocation?> =
         observeCurrentLocationUseCase()
             .stateIn(
                 viewModelScope,

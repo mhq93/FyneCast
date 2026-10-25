@@ -20,7 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
+import com.mhq.fynecast.auth.presentation.signup.SignupViewModel
 import com.mhq.fynecast.auth.ui.social.SocialTokenFetcher
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar

@@ -6,7 +6,7 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 import com.mhq.fynecast.core.domain.location.SelectCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectedCity
-import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.core.presentation.text.UiText
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.map.presentation.mapper.toPresentation
 import kotlinx.coroutines.CancellationException

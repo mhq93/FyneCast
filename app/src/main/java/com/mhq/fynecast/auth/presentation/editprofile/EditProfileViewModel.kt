@@ -1,15 +1,16 @@
-package com.mhq.fynecast.auth.ui.editprofile.ui
+package com.mhq.fynecast.auth.presentation.editprofile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mhq.fynecast.R
-import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
-import com.mhq.fynecast.auth.ui.toUiText
-import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.auth.presentation.mapper.toEditProfilePresentation
+import com.mhq.fynecast.auth.presentation.mapper.toUiText
+import com.mhq.fynecast.auth.presentation.model.EditProfilePresentationModel
+import com.mhq.fynecast.core.presentation.text.UiText
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,8 +43,8 @@ class EditProfileViewModel(
      * The UI copies it into its own fields one time; later refreshes of the profile
      * never overwrite what the user is typing.
      */
-    val initialProfile: StateFlow<UserDomainModel?> = flow {
-        emit(observeUserProfileUseCase().first { it.id.isNotEmpty() })
+    val initialProfile: StateFlow<EditProfilePresentationModel?> = flow {
+        emit(observeUserProfileUseCase().first { it.id.isNotEmpty() }.toEditProfilePresentation())
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Pure checks used by the UI to show field errors while typing. */

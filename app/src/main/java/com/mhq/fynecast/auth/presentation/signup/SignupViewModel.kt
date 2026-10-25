@@ -1,4 +1,4 @@
-package com.mhq.fynecast.auth.ui.signup.ui
+package com.mhq.fynecast.auth.presentation.signup
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -7,8 +7,8 @@ import com.mhq.fynecast.auth.domain.models.ValidationResult
 import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.RegisterWithEmailUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
-import com.mhq.fynecast.auth.ui.toUiText
-import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.auth.presentation.mapper.toUiText
+import com.mhq.fynecast.core.presentation.text.UiText
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow

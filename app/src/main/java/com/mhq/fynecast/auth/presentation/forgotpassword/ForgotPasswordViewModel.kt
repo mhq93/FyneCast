@@ -1,12 +1,12 @@
-package com.mhq.fynecast.auth.ui.forgotpassword.ui
+package com.mhq.fynecast.auth.presentation.forgotpassword
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.domain.usecases.auth.SendPasswordResetUseCase
 import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
-import com.mhq.fynecast.auth.ui.toUiText
-import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.auth.presentation.mapper.toUiText
+import com.mhq.fynecast.core.presentation.text.UiText
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow

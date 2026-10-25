@@ -1,4 +1,4 @@
-package com.mhq.fynecast.core.ui.text
+package com.mhq.fynecast.core.presentation.text
 
 import android.content.Context
 import androidx.annotation.StringRes

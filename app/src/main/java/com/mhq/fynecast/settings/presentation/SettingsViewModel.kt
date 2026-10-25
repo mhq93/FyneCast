@@ -1,4 +1,4 @@
-package com.mhq.fynecast.settings.ui
+package com.mhq.fynecast.settings.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,11 +8,13 @@ import com.mhq.fynecast.alerts.notifications.domain.usecases.SyncNotificationPer
 import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
-import com.mhq.fynecast.settings.domain.models.AppLanguage
 import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.SetDarkModeUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.SetLanguageUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.SetUnitSystemUseCase
+import com.mhq.fynecast.settings.presentation.mapper.toDomain
+import com.mhq.fynecast.settings.presentation.mapper.toPresentation
+import com.mhq.fynecast.settings.presentation.model.LanguageOption
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -52,8 +54,8 @@ class SettingsViewModel(
     val isLoggingOut: StateFlow<Boolean> = _isLoggingOut.asStateFlow()
     private val _isMetric = MutableStateFlow(true)
     val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
-    private val _currentLanguage = MutableStateFlow(AppLanguage.English)
-    val currentLanguage: StateFlow<AppLanguage> = _currentLanguage.asStateFlow()
+    private val _currentLanguage = MutableStateFlow(LanguageOption.English)
+    val currentLanguage: StateFlow<LanguageOption> = _currentLanguage.asStateFlow()
     private val _isDarkMode = MutableStateFlow<Boolean?>(null)
     val isDarkMode: StateFlow<Boolean?> = _isDarkMode.asStateFlow()
     private val _arePreferencesLoaded = MutableStateFlow(false)
@@ -93,7 +95,7 @@ class SettingsViewModel(
 
             preferencesFlow.collect { prefs ->
                 _isMetric.value = prefs.isMetric
-                _currentLanguage.value = prefs.currentLanguage
+                _currentLanguage.value = prefs.currentLanguage.toPresentation()
                 _isDarkMode.value = prefs.isDarkMode
                 // Last, so the splash only lifts once every value above is set.
                 _arePreferencesLoaded.value = true
@@ -148,8 +150,8 @@ class SettingsViewModel(
         }
     }
 
-    fun onLanguageChanged(language: AppLanguage) {
-        viewModelScope.launch { setLanguage(language) }
+    fun onLanguageChanged(language: LanguageOption) {
+        viewModelScope.launch { setLanguage(language.toDomain()) }
     }
 
     fun onThemeChanged(enabled: Boolean) {

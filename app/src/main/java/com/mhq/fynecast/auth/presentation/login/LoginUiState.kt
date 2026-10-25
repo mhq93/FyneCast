@@ -1,6 +1,6 @@
-package com.mhq.fynecast.auth.ui.login.ui
+package com.mhq.fynecast.auth.presentation.login
 
-import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.core.presentation.text.UiText
 
 sealed interface LoginUiState {
     object Idle : LoginUiState

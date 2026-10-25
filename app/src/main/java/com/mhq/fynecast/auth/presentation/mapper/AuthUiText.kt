@@ -1,10 +1,10 @@
-package com.mhq.fynecast.auth.ui
+package com.mhq.fynecast.auth.presentation.mapper
 
 import androidx.annotation.StringRes
 import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.domain.models.ValidationError
 import com.mhq.fynecast.auth.domain.models.ValidationException
-import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.core.presentation.text.UiText
 
 fun ValidationError.toUiText(): UiText = UiText.res(
     when (this) {

@@ -89,7 +89,7 @@ fun WeatherSearchBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
+                .height(48.dp)
                 .clip(RoundedCornerShape(32.dp))
                 .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.15f))
                 .then(

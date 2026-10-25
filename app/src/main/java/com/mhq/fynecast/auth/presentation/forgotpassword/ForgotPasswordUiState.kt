@@ -1,6 +1,6 @@
-package com.mhq.fynecast.auth.ui.forgotpassword.ui
+package com.mhq.fynecast.auth.presentation.forgotpassword
 
-import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.core.presentation.text.UiText
 
 sealed interface ForgotPasswordUiState {
     object Idle : ForgotPasswordUiState

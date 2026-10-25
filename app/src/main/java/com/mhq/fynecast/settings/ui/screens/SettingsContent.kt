@@ -16,7 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.settings.domain.models.AppLanguage
+import com.mhq.fynecast.settings.presentation.model.LanguageOption
 import com.mhq.fynecast.settings.ui.components.SettingsLogoutButton
 import com.mhq.fynecast.settings.ui.components.SettingsPanel
 import com.mhq.fynecast.settings.ui.components.SettingsProfileHeader
@@ -31,8 +31,8 @@ fun SettingsContent(
     onMetricToggle: (Boolean) -> Unit,
     notificationsEnabled: Boolean,
     onNotificationsToggle: (Boolean) -> Unit,
-    currentLanguage: AppLanguage,
-    onLanguageChange: (AppLanguage) -> Unit,
+    currentLanguage: LanguageOption,
+    onLanguageChange: (LanguageOption) -> Unit,
     isDarkMode: Boolean,
     onDarkModeToggle: (Boolean) -> Unit,
     isLoggingOut: Boolean = false,
@@ -104,7 +104,7 @@ fun SettingsScreenPreview() {
             onMetricToggle = {},
             notificationsEnabled = true,
             onNotificationsToggle = {},
-            currentLanguage = AppLanguage.English,
+            currentLanguage = LanguageOption.English,
             onLanguageChange = {},
             isDarkMode = true,
             onDarkModeToggle = {},

@@ -6040,7 +6040,7 @@ import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
 import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.favorites.presentation.FavoritesViewModel
-import com.mhq.fynecast.home.ui.HomeViewModel
+import com.mhq.fynecast.home.presentation.HomeViewModel
 import com.mhq.fynecast.map.presentation.MapPickerViewModel
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 
@@ -7959,8 +7959,8 @@ import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.favorites.presentation.FavoritesViewModel
 import com.mhq.fynecast.favorites.ui.screens.FavoritesContainer
-import com.mhq.fynecast.home.ui.HomeUiState
-import com.mhq.fynecast.home.ui.HomeViewModel
+import com.mhq.fynecast.home.presentation.HomeUiState
+import com.mhq.fynecast.home.presentation.HomeViewModel
 import com.mhq.fynecast.home.ui.screens.HomeContainer
 import com.mhq.fynecast.map.presentation.MapPickerViewModel
 import com.mhq.fynecast.map.ui.screens.MapPickerScreen
@@ -8313,7 +8313,7 @@ import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.FyneCastApp
-import com.mhq.fynecast.home.ui.HomeViewModel
+import com.mhq.fynecast.home.presentation.HomeViewModel
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
@@ -11056,6 +11056,590 @@ class ResolveStartupLocationUseCase(
 }
 ```
 
+## home\presentation\HomeRetryAction.kt
+
+```kotlin
+package com.mhq.fynecast.home.presentation
+
+enum class HomeRetryAction {
+    RequestLocation,
+    ReloadPlace
+}
+```
+
+## home\presentation\HomeStateContainer.kt
+
+```kotlin
+package com.mhq.fynecast.home.presentation
+
+import com.mhq.fynecast.home.presentation.model.CitySuggestionPresentationModel
+
+data class HomeStateContainer(
+    val uiState: HomeUiState = HomeUiState.Loading,
+    val selectedCityName: String = "",
+    val citySuggestions: List<CitySuggestionPresentationModel> = emptyList(),
+    val isFavorite: Boolean = false,
+    /** True while a new city loads and the previous weather is still on screen. */
+    val isRefreshing: Boolean = false
+)
+```
+
+## home\presentation\HomeUiState.kt
+
+```kotlin
+package com.mhq.fynecast.home.presentation
+
+import com.mhq.fynecast.home.presentation.model.WeatherPresentationModel
+
+sealed interface HomeUiState {
+    data object Loading : HomeUiState
+    data class Success(val weather: WeatherPresentationModel) : HomeUiState
+    data class Error(val retry: HomeRetryAction) : HomeUiState
+}
+```
+
+## home\presentation\HomeViewModel.kt
+
+```kotlin
+package com.mhq.fynecast.home.presentation
+
+import android.util.Log
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
+import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
+import com.mhq.fynecast.home.domain.mapper.toFavoriteCity
+import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
+import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
+import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
+import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
+import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
+import com.mhq.fynecast.home.domain.usecases.ResolveStartupLocationUseCase
+import com.mhq.fynecast.home.presentation.mapper.toPresentation
+import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SaveLastSearchedCityUseCase
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.milliseconds
+
+class HomeViewModel(
+    private val loadCurrentWeatherUseCase: LoadCurrentWeatherUseCase,
+    private val resolveStartupLocationUseCase : ResolveStartupLocationUseCase,
+    private val observeSelectedCityUseCase: ObserveSelectedCityUseCase,
+    private val getLocationSuggestionsUseCase: GetLocationSuggestionsUseCase,
+    private val observeSignedInUserIdUseCase: ObserveSignedInUserIdUseCase,
+    private val observeFavoriteStatusUseCase: ObserveFavoriteStatusUseCase,
+    private val refreshFavoriteSnapshotUseCase: RefreshFavoriteSnapshotUseCase,
+    private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
+    private val saveLastSearchedCityUseCase: SaveLastSearchedCityUseCase,
+    private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase,
+    private val localizePlaceNameUseCase: LocalizePlaceNameUseCase,
+    private val defaultCityFallback: String = "Cairo"
+) : ViewModel() {
+
+    private val _state = MutableStateFlow(HomeStateContainer())
+    val state: StateFlow<HomeStateContainer> = _state.asStateFlow()
+
+    /**
+     * The domain weather behind the Success state, kept privately: the screen only ever sees
+     * presentation models. It is null whenever the state is not Success.
+     */
+    private var domainWeather: WeatherDomainModel? = null
+
+    /** The domain suggestions behind the search dropdown; the screen sends back an id. */
+    private var domainSuggestions: List<CitySuggestionModel> = emptyList()
+
+    private var loadTarget: LoadTarget = LoadTarget.Startup(useDeviceLocation = false)
+    private var loadJob: Job? = null
+    private var searchJob: Job? = null
+    private var favoriteJob: Job? = null
+    private var lastRefreshTime = 0L
+    private val refreshCooldownMillis = 60 * 1000L
+    private var loadedLangCode: String? = null
+    private var latestLangCode: String? = null
+
+    /** The place we queried (not the weather service's snapped station) & how its name was made. */
+    private var shownSpot: ShownSpot? = null
+
+    /** True once any load has been requested; the UI uses it to ask for location only once. */
+    var isInitialLaunchPerformed = false
+        private set
+
+    private sealed interface LoadTarget {
+        val retry: HomeRetryAction
+
+        data class Startup(val useDeviceLocation: Boolean) : LoadTarget {
+            override val retry = HomeRetryAction.RequestLocation
+        }
+
+        data class Place(
+            val name: String,
+            val latitude: Double,
+            val longitude: Double,
+            val relocalizeName: Boolean = false,
+            val nameFromDevice: Boolean = false
+        ) : LoadTarget {
+            override val retry = HomeRetryAction.ReloadPlace
+        }
+    }
+
+    private class ShownSpot(
+        val latitude: Double,
+        val longitude: Double,
+        val fromDevice: Boolean
+    )
+
+    private class LoadedCity(
+        val weather: WeatherDomainModel,
+        val name: String,
+        val spot: ShownSpot
+    )
+
+    init {
+        observeSignedInUserIdUseCase()
+            .drop(1)
+            .onEach { resetForNewSession() }
+            .launchIn(viewModelScope)
+
+        observeSelectedCityUseCase()
+            .onEach { city ->
+                selectCity(city.name, city.latitude, city.longitude, latestLangCode ?: "en")
+            }
+            .launchIn(viewModelScope)
+    }
+
+    fun onLocationPermissionResult(isGranted: Boolean, langCode: String) {
+        load(LoadTarget.Startup(useDeviceLocation = isGranted), langCode)
+    }
+
+    /** The user picked a row of the search dropdown. */
+    fun onSuggestionSelected(suggestionId: String, langCode: String) {
+        val suggestion = domainSuggestions.firstOrNull { it.toPresentation().id == suggestionId }
+            ?: return
+        selectCity(suggestion.fullName, suggestion.latitude, suggestion.longitude, langCode)
+    }
+
+    private fun selectCity(
+        suggestionName: String,
+        lat: Double,
+        lon: Double,
+        langCode: String
+    ) {
+        viewModelScope.launch {
+            saveLastSearchedCityUseCase(
+                name = suggestionName,
+                lat = lat,
+                lon = lon
+            )
+        }
+        load(
+            /**
+             * Search results only come in English, German or French;
+             * other languages get the name rewritten in the app language once the weather is in.
+             * */
+            LoadTarget.Place(
+                suggestionName,
+                lat,
+                lon,
+                relocalizeName = langCode != "en"
+            ),
+            langCode
+        )
+    }
+
+    /** Reloads the place that failed. Startup failures retry through the location flow instead. */
+    fun onRetryClicked(langCode: String) = load(loadTarget, langCode)
+
+    private fun load(target: LoadTarget, langCode: String) {
+        loadTarget = target
+        isInitialLaunchPerformed = true
+
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            _state.update {
+                if (it.uiState is HomeUiState.Success) it.copy(isRefreshing = true)
+                else it.copy(uiState = HomeUiState.Loading)
+            }
+            try {
+                val loaded = withTimeout(LOAD_TIMEOUT_MILLIS.milliseconds) {
+                    fetchCity(target, langCode)
+                }
+                domainWeather = loaded.weather
+                _state.update {
+                    it.copy(
+                        uiState = HomeUiState.Success(loaded.weather.toPresentation()),
+                        selectedCityName = loaded.name,
+                        isRefreshing = false
+                    )
+                }
+                shownSpot = loaded.spot
+                loadedLangCode = langCode
+                onWeatherShown(loaded.weather)
+                if (target is LoadTarget.Place && target.relocalizeName && !target.nameFromDevice) {
+                    viewModelScope.launch {
+                        saveLastSearchedCityUseCase(
+                            name = loaded.name,
+                            lat = target.latitude,
+                            lon = target.longitude
+                        )
+                    }
+                }
+                latestLangCode?.takeIf { it != langCode }?.let { onLanguageChanged(it) }
+            } catch (e: TimeoutCancellationException) {
+                showError(target.retry)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w("HomeViewModel", "Load failed", e)
+                showError(target.retry)
+            }
+        }
+    }
+
+    private fun showError(retry: HomeRetryAction) {
+        domainWeather = null
+        _state.update {
+            it.copy(
+                uiState = HomeUiState.Error(retry),
+                isRefreshing = false
+            )
+        }
+    }
+
+    private suspend fun fetchCity(target: LoadTarget, langCode: String): LoadedCity =
+        when (target) {
+            is LoadTarget.Place -> {
+                val weather = loadCurrentWeatherUseCase(
+                    "${target.latitude},${target.longitude}",
+                    langCode
+                )
+                val name = when {
+                    !target.relocalizeName -> target.name
+                    target.nameFromDevice ->
+                        lookupCityName(target.latitude, target.longitude, langCode) ?: target.name
+
+                    else ->
+                        localizePlaceName(target.name, target.latitude, target.longitude, langCode)
+                            ?: target.name
+                }
+                LoadedCity(
+                    weather,
+                    name,
+                    ShownSpot(target.latitude, target.longitude, target.nameFromDevice)
+                )
+            }
+
+            is LoadTarget.Startup -> {
+                delay(300.milliseconds)
+                val spot = resolveStartupLocationUseCase(target.useDeviceLocation)
+                val weather = loadCurrentWeatherUseCase(spot.query, langCode)
+                val deviceName = if (spot.fromDevice) {
+                    lookupCityName(spot.latitude, spot.longitude, langCode)
+                } else {
+                    null
+                }
+                val name = spot.name
+                    ?: deviceName
+                    ?: "${weather.cityName}, ${weather.country}"
+                LoadedCity(
+                    weather,
+                    name,
+                    ShownSpot(
+                        latitude = spot.latitude ?: weather.latitude,
+                        longitude = spot.longitude ?: weather.longitude,
+                        fromDevice = spot.fromDevice
+                    )
+                )
+            }
+        }
+
+    fun onRefreshRequested(langCode: String) {
+        val now = System.currentTimeMillis()
+        if (now - lastRefreshTime < refreshCooldownMillis) return
+        if (loadJob?.isActive == true) return
+        val weather = domainWeather ?: return
+
+        loadJob = viewModelScope.launch {
+            try {
+                val fresh =
+                    loadCurrentWeatherUseCase("${weather.latitude},${weather.longitude}", langCode)
+                domainWeather = fresh
+                _state.update { it.copy(uiState = HomeUiState.Success(fresh.toPresentation())) }
+                loadedLangCode = langCode
+                onWeatherShown(fresh)
+                lastRefreshTime = System.currentTimeMillis()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to refresh weather", e)
+            }
+        }
+    }
+
+    fun onLanguageChanged(langCode: String) {
+        latestLangCode = langCode
+        if (langCode == loadedLangCode) return
+        val weather = domainWeather ?: return
+        val spot = shownSpot
+        load(
+            LoadTarget.Place(
+                name = _state.value.selectedCityName,
+                latitude = spot?.latitude ?: weather.latitude,
+                longitude = spot?.longitude ?: weather.longitude,
+                relocalizeName = true,
+                nameFromDevice = spot?.fromDevice ?: false
+            ),
+            langCode
+        )
+    }
+
+    private fun resetForNewSession() {
+        loadJob?.cancel()
+        searchJob?.cancel()
+        favoriteJob?.cancel()
+        _state.value = HomeStateContainer()
+        domainWeather = null
+        domainSuggestions = emptyList()
+        isInitialLaunchPerformed = false
+        lastRefreshTime = 0L
+        loadTarget = LoadTarget.Startup(useDeviceLocation = false)
+        loadedLangCode = null
+        shownSpot = null
+    }
+
+    fun onSearchQueryChanged(newQuery: String, langCode: String) {
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            delay(500.milliseconds)
+            val suggestions = try {
+                getLocationSuggestionsUseCase(newQuery, langCode)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                emptyList()
+            }
+            domainSuggestions = suggestions
+            _state.update { it.copy(citySuggestions = suggestions.map { s -> s.toPresentation() }) }
+        }
+    }
+
+    fun onToggleFavorite() {
+        val weather = domainWeather ?: return
+        val favorite = weather.toFavoriteCity(_state.value.selectedCityName)
+        viewModelScope.launch { toggleFavoriteUseCase(favorite) }
+    }
+
+    private fun onWeatherShown(weather: WeatherDomainModel) {
+        favoriteJob?.cancel()
+        favoriteJob = observeFavoriteStatusUseCase(weather.latitude, weather.longitude)
+            .onEach { isFav -> _state.update { it.copy(isFavorite = isFav) } }
+            .launchIn(viewModelScope)
+
+        viewModelScope.launch { refreshFavoriteSnapshotUseCase(weather.toFavoriteCity()) }
+    }
+
+    /** The name for these coordinates in the app language, or null if unknown, slow or failed. */
+    private suspend fun lookupCityName(
+        latitude: Double?,
+        longitude: Double?,
+        langCode: String
+    ): String? {
+        if (latitude == null || longitude == null) return null
+        return withTimeoutOrNull(NAME_LOOKUP_TIMEOUT_MILLIS.milliseconds) {
+            reverseGeocodeLocationUseCase(latitude, longitude, langCode)?.fullName
+        }
+    }
+
+    /** [name] rewritten in the app language for the place near these coordinates, or null. */
+    private suspend fun localizePlaceName(
+        name: String,
+        latitude: Double,
+        longitude: Double,
+        langCode: String
+    ): String? = withTimeoutOrNull(NAME_LOOKUP_TIMEOUT_MILLIS.milliseconds) {
+        localizePlaceNameUseCase(name, latitude, longitude, langCode)
+    }
+
+    companion object {
+        private const val TAG = "HomeViewModel"
+        private const val LOAD_TIMEOUT_MILLIS = 30_000L
+        private const val NAME_LOOKUP_TIMEOUT_MILLIS = 4_000L
+    }
+}
+```
+
+## home\presentation\mapper\CitySuggestionPresentationMapper.kt
+
+```kotlin
+package com.mhq.fynecast.home.presentation.mapper
+
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
+import com.mhq.fynecast.home.presentation.model.CitySuggestionPresentationModel
+
+/** The id is the place's coordinates: two suggestions at the same spot are the same place. */
+fun CitySuggestionModel.toPresentation(): CitySuggestionPresentationModel =
+    CitySuggestionPresentationModel(
+        id = "$latitude,$longitude",
+        name = fullName
+    )
+```
+
+## home\presentation\mapper\WeatherPresentationMapper.kt
+
+```kotlin
+package com.mhq.fynecast.home.presentation.mapper
+
+import com.mhq.fynecast.core.domain.weather.DailyForecastDomainModel
+import com.mhq.fynecast.core.domain.weather.HourlyForecastDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.core.domain.weather.WeatherStatsDomainModel
+import com.mhq.fynecast.home.presentation.model.DailyForecastPresentationModel
+import com.mhq.fynecast.home.presentation.model.HourlyForecastPresentationModel
+import com.mhq.fynecast.home.presentation.model.WeatherPresentationModel
+import com.mhq.fynecast.home.presentation.model.WeatherStatsPresentationModel
+
+fun WeatherDomainModel.toPresentation(): WeatherPresentationModel = WeatherPresentationModel(
+    latitude = latitude,
+    longitude = longitude,
+    currentTempC = currentTempC,
+    currentTempF = currentTempF,
+    conditionText = conditionText,
+    conditionIcon = conditionIcon,
+    lastUpdated = lastUpdated,
+    timeZoneId = timeZoneId,
+    alertsCount = alerts.size,
+    stats = stats.toPresentation(),
+    dailyForecasts = dailyForecasts.map { it.toPresentation() },
+    hourlyForecasts = hourlyForecasts.map { it.toPresentation() }
+)
+
+internal fun WeatherStatsDomainModel.toPresentation() = WeatherStatsPresentationModel(
+    humidity = humidity,
+    windKph = windKph,
+    windMph = windMph,
+    pressureMb = pressureMb,
+    pressureIn = pressureIn,
+    uvIndex = uvIndex
+)
+
+internal fun DailyForecastDomainModel.toPresentation() = DailyForecastPresentationModel(
+    date = date,
+    iconUrl = iconUrl,
+    description = description,
+    maxTempC = maxTempC,
+    maxTempF = maxTempF,
+    minTempC = minTempC,
+    minTempF = minTempF
+)
+
+internal fun HourlyForecastDomainModel.toPresentation() = HourlyForecastPresentationModel(
+    time = time,
+    iconUrl = iconUrl,
+    tempC = tempC,
+    tempF = tempF
+)
+```
+
+## home\presentation\model\CitySuggestionPresentationModel.kt
+
+```kotlin
+package com.mhq.fynecast.home.presentation.model
+
+/** One row of the search dropdown. The UI sends [id] back when the user picks it. */
+data class CitySuggestionPresentationModel(
+    val id: String,
+    val name: String
+)
+```
+
+## home\presentation\model\DailyForecastPresentationModel.kt
+
+```kotlin
+package com.mhq.fynecast.home.presentation.model
+
+import java.time.LocalDate
+
+data class DailyForecastPresentationModel(
+    val date: LocalDate,
+    val iconUrl: String,
+    val description: String,
+    val maxTempC: Double,
+    val maxTempF: Double,
+    val minTempC: Double,
+    val minTempF: Double
+)
+```
+
+## home\presentation\model\HourlyForecastPresentationModel.kt
+
+```kotlin
+package com.mhq.fynecast.home.presentation.model
+
+import java.time.LocalDateTime
+
+data class HourlyForecastPresentationModel(
+    val time: LocalDateTime,
+    val iconUrl: String,
+    val tempC: Double,
+    val tempF: Double
+)
+```
+
+## home\presentation\model\WeatherPresentationModel.kt
+
+```kotlin
+package com.mhq.fynecast.home.presentation.model
+
+import java.time.LocalDateTime
+
+/** What the Home screen needs to show the weather. The UI never sees the domain model. */
+data class WeatherPresentationModel(
+    val latitude: Double,
+    val longitude: Double,
+    val currentTempC: Double,
+    val currentTempF: Double,
+    val conditionText: String,
+    val conditionIcon: String,
+    val lastUpdated: LocalDateTime?,
+    val timeZoneId: String?,
+    /** The banner only shows how many alerts there are; the Alerts screen shows the alerts themselves. */
+    val alertsCount: Int,
+    val stats: WeatherStatsPresentationModel,
+    val dailyForecasts: List<DailyForecastPresentationModel>,
+    val hourlyForecasts: List<HourlyForecastPresentationModel>
+)
+```
+
+## home\presentation\model\WeatherStatsPresentationModel.kt
+
+```kotlin
+package com.mhq.fynecast.home.presentation.model
+
+data class WeatherStatsPresentationModel(
+    val humidity: Int,
+    val windKph: Double,
+    val windMph: Double,
+    val pressureMb: Double,
+    val pressureIn: Double,
+    val uvIndex: Double
+)
+```
+
 ## home\ui\components\LikeButton.kt
 
 ```kotlin
@@ -11191,11 +11775,11 @@ import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.core.domain.weather.DailyForecastDomainModel
+import com.mhq.fynecast.home.presentation.model.DailyForecastPresentationModel
 
 @Composable
 fun WeatherDailyCarousel(
-    dailyForecasts: List<DailyForecastDomainModel>,
+    dailyForecasts: List<DailyForecastPresentationModel>,
     isMetric: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -11721,13 +12305,13 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.core.domain.weather.HourlyForecastDomainModel
+import com.mhq.fynecast.home.presentation.model.HourlyForecastPresentationModel
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 
 @Composable
 fun WeatherHourlyCarousel(
-    hourlyForecasts: List<HourlyForecastDomainModel>,
+    hourlyForecasts: List<HourlyForecastPresentationModel>,
     isMetric: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -11988,15 +12572,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
+import com.mhq.fynecast.home.presentation.model.CitySuggestionPresentationModel
+import kotlin.collections.isNotEmpty
 
 @Composable
 fun WeatherSearchBar(
-    suggestions: List<CitySuggestionModel>,
+    suggestions: List<CitySuggestionPresentationModel>,
     onQueryChange: (String) -> Unit,
-    onSuggestionClick: (CitySuggestionModel) -> Unit,
+    onSuggestionClick: (CitySuggestionPresentationModel) -> Unit,
     onMapClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -12104,7 +12689,7 @@ fun WeatherSearchBar(
                     onSearch = {
                         if (isListVisible) {
                             onSuggestionClick(suggestions[0])
-                            searchQuery = suggestions[0].fullName
+                            searchQuery = suggestions[0].name
                             showSuggestions = false
                             focusManager.clearFocus()
                         }
@@ -12154,7 +12739,7 @@ fun WeatherSearchBar(
                             ListItem(
                                 headlineContent = {
                                     Text(
-                                        text = suggestion.fullName,
+                                        text = suggestion.name,
                                         color = onSurfaceColor,
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium
@@ -12173,7 +12758,7 @@ fun WeatherSearchBar(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(18.dp))
                                     .clickable {
-                                        searchQuery = suggestion.fullName
+                                        searchQuery = suggestion.name
                                         showSuggestions = false
                                         onSuggestionClick(suggestion)
                                         focusManager.clearFocus()
@@ -12402,12 +12987,12 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.domain.weather.WeatherStatsDomainModel
+import com.mhq.fynecast.home.presentation.model.WeatherStatsPresentationModel
 import java.text.NumberFormat
 
 @Composable
 fun WeatherStatsGrid(
-    stats: WeatherStatsDomainModel,
+    stats: WeatherStatsPresentationModel,
     isMetric: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -12471,410 +13056,6 @@ fun WeatherStatsGrid(
 }
 ```
 
-## home\ui\HomeRetryAction.kt
-
-```kotlin
-package com.mhq.fynecast.home.ui
-
-enum class HomeRetryAction {
-    RequestLocation,
-    ReloadPlace
-}
-```
-
-## home\ui\HomeStateContainer.kt
-
-```kotlin
-package com.mhq.fynecast.home.ui
-
-import com.mhq.fynecast.core.domain.location.CitySuggestionModel
-
-data class HomeStateContainer(
-    val uiState: HomeUiState = HomeUiState.Loading,
-    val selectedCityName: String = "",
-    val citySuggestions: List<CitySuggestionModel> = emptyList(),
-    val isFavorite: Boolean = false,
-    /** True while a new city loads and the previous weather is still on screen. */
-    val isRefreshing: Boolean = false
-)
-```
-
-## home\ui\HomeUiState.kt
-
-```kotlin
-package com.mhq.fynecast.home.ui
-
-import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
-
-sealed interface HomeUiState {
-    data object Loading : HomeUiState
-    data class Success(val weather: WeatherDomainModel) : HomeUiState
-    data class Error(val retry: HomeRetryAction) : HomeUiState
-}
-```
-
-## home\ui\HomeViewModel.kt
-
-```kotlin
-package com.mhq.fynecast.home.ui
-
-import android.util.Log
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
-import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
-import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
-import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
-import com.mhq.fynecast.home.domain.mapper.toFavoriteCity
-import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
-import com.mhq.fynecast.home.domain.usecases.LoadCurrentWeatherUseCase
-import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
-import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
-import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
-import com.mhq.fynecast.home.domain.usecases.ResolveStartupLocationUseCase
-import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
-import com.mhq.fynecast.settings.domain.usecases.profile.SaveLastSearchedCityUseCase
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.time.Duration.Companion.milliseconds
-
-class HomeViewModel(
-    private val loadCurrentWeatherUseCase: LoadCurrentWeatherUseCase,
-    private val resolveStartupLocationUseCase : ResolveStartupLocationUseCase,
-    private val observeSelectedCityUseCase: ObserveSelectedCityUseCase,
-    private val getLocationSuggestionsUseCase: GetLocationSuggestionsUseCase,
-    private val observeSignedInUserIdUseCase: ObserveSignedInUserIdUseCase,
-    private val observeFavoriteStatusUseCase: ObserveFavoriteStatusUseCase,
-    private val refreshFavoriteSnapshotUseCase: RefreshFavoriteSnapshotUseCase,
-    private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
-    private val saveLastSearchedCityUseCase: SaveLastSearchedCityUseCase,
-    private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase,
-    private val localizePlaceNameUseCase: LocalizePlaceNameUseCase,
-    private val defaultCityFallback: String = "Cairo"
-) : ViewModel() {
-
-    private val _state = MutableStateFlow(HomeStateContainer())
-    val state: StateFlow<HomeStateContainer> = _state.asStateFlow()
-    private var loadTarget: LoadTarget = LoadTarget.Startup(useDeviceLocation = false)
-    private var loadJob: Job? = null
-    private var searchJob: Job? = null
-    private var favoriteJob: Job? = null
-    private var lastRefreshTime = 0L
-    private val refreshCooldownMillis = 60 * 1000L
-    private var loadedLangCode: String? = null
-    private var latestLangCode: String? = null
-
-    /** The place we queried (not the weather service's snapped station) & how its name was made. */
-    private var shownSpot: ShownSpot? = null
-
-    /** True once any load has been requested; the UI uses it to ask for location only once. */
-    var isInitialLaunchPerformed = false
-        private set
-
-    private sealed interface LoadTarget {
-        val retry: HomeRetryAction
-
-        data class Startup(val useDeviceLocation: Boolean) : LoadTarget {
-            override val retry = HomeRetryAction.RequestLocation
-        }
-
-        data class Place(
-            val name: String,
-            val latitude: Double,
-            val longitude: Double,
-            val relocalizeName: Boolean = false,
-            val nameFromDevice: Boolean = false
-        ) : LoadTarget {
-            override val retry = HomeRetryAction.ReloadPlace
-        }
-    }
-
-    private class ShownSpot(
-        val latitude: Double,
-        val longitude: Double,
-        val fromDevice: Boolean
-    )
-
-    private class LoadedCity(
-        val weather: WeatherDomainModel,
-        val name: String,
-        val spot: ShownSpot
-    )
-
-    init {
-        observeSignedInUserIdUseCase()
-            .drop(1)
-            .onEach { resetForNewSession() }
-            .launchIn(viewModelScope)
-
-        observeSelectedCityUseCase()
-            .onEach { city ->
-                onCitySelected(city.name, city.latitude, city.longitude, latestLangCode ?: "en")
-            }
-            .launchIn(viewModelScope)
-    }
-
-    fun onLocationPermissionResult(isGranted: Boolean, langCode: String) {
-        load(LoadTarget.Startup(useDeviceLocation = isGranted), langCode)
-    }
-
-    fun onCitySelected(
-        suggestionName: String,
-        lat: Double,
-        lon: Double,
-        langCode: String
-    ) {
-        viewModelScope.launch {
-            saveLastSearchedCityUseCase(
-                name = suggestionName,
-                lat = lat,
-                lon = lon
-            )
-        }
-        load(
-            /**
-             * Search results only come in English, German or French;
-             * other languages get the name rewritten in the app language once the weather is in.
-             * */
-            LoadTarget.Place(
-                suggestionName,
-                lat,
-                lon,
-                relocalizeName = langCode != "en"
-            ),
-            langCode
-        )
-    }
-
-    /** Reloads the place that failed. Startup failures retry through the location flow instead. */
-    fun onRetryClicked(langCode: String) = load(loadTarget, langCode)
-
-    private fun load(target: LoadTarget, langCode: String) {
-        loadTarget = target
-        isInitialLaunchPerformed = true
-
-        loadJob?.cancel()
-        loadJob = viewModelScope.launch {
-            _state.update {
-                if (it.uiState is HomeUiState.Success) it.copy(isRefreshing = true)
-                else it.copy(uiState = HomeUiState.Loading)
-            }
-            try {
-                val loaded = withTimeout(LOAD_TIMEOUT_MILLIS.milliseconds) {
-                    fetchCity(target, langCode)
-                }
-                _state.update {
-                    it.copy(
-                        uiState = HomeUiState.Success(loaded.weather),
-                        selectedCityName = loaded.name,
-                        isRefreshing = false
-                    )
-                }
-                shownSpot = loaded.spot
-                loadedLangCode = langCode
-                onWeatherShown(loaded.weather)
-                if (target is LoadTarget.Place && target.relocalizeName && !target.nameFromDevice) {
-                    viewModelScope.launch {
-                        saveLastSearchedCityUseCase(
-                            name = loaded.name,
-                            lat = target.latitude,
-                            lon = target.longitude
-                        )
-                    }
-                }
-                latestLangCode?.takeIf { it != langCode }?.let { onLanguageChanged(it) }
-            } catch (e: TimeoutCancellationException) {
-                _state.update {
-                    it.copy(
-                        uiState = HomeUiState.Error(target.retry),
-                        isRefreshing = false
-                    )
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.w("HomeViewModel", "Load failed", e)
-                _state.update {
-                    it.copy(
-                        uiState = HomeUiState.Error(target.retry),
-                        isRefreshing = false
-                    )
-                }
-            }
-        }
-    }
-
-    private suspend fun fetchCity(target: LoadTarget, langCode: String): LoadedCity =
-        when (target) {
-            is LoadTarget.Place -> {
-                val weather = loadCurrentWeatherUseCase(
-                    "${target.latitude},${target.longitude}",
-                    langCode
-                )
-                val name = when {
-                    !target.relocalizeName -> target.name
-                    target.nameFromDevice ->
-                        lookupCityName(target.latitude, target.longitude, langCode) ?: target.name
-
-                    else ->
-                        localizePlaceName(target.name, target.latitude, target.longitude, langCode)
-                            ?: target.name
-                }
-                LoadedCity(
-                    weather,
-                    name,
-                    ShownSpot(target.latitude, target.longitude, target.nameFromDevice)
-                )
-            }
-
-            is LoadTarget.Startup -> {
-                delay(300.milliseconds)
-                val spot = resolveStartupLocationUseCase(target.useDeviceLocation)
-                val weather = loadCurrentWeatherUseCase(spot.query, langCode)
-                val deviceName = if (spot.fromDevice) {
-                    lookupCityName(spot.latitude, spot.longitude, langCode)
-                } else {
-                    null
-                }
-                val name = spot.name
-                    ?: deviceName
-                    ?: "${weather.cityName}, ${weather.country}"
-                LoadedCity(
-                    weather,
-                    name,
-                    ShownSpot(
-                        latitude = spot.latitude ?: weather.latitude,
-                        longitude = spot.longitude ?: weather.longitude,
-                        fromDevice = spot.fromDevice
-                    )
-                )
-            }
-        }
-
-    fun onRefreshRequested(langCode: String) {
-        val now = System.currentTimeMillis()
-        if (now - lastRefreshTime < refreshCooldownMillis) return
-        if (loadJob?.isActive == true) return
-        val weather = (_state.value.uiState as? HomeUiState.Success)?.weather ?: return
-
-        loadJob = viewModelScope.launch {
-            try {
-                val fresh =
-                    loadCurrentWeatherUseCase("${weather.latitude},${weather.longitude}", langCode)
-                _state.update { it.copy(uiState = HomeUiState.Success(fresh)) }
-                loadedLangCode = langCode
-                onWeatherShown(fresh)
-                lastRefreshTime = System.currentTimeMillis()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to refresh weather", e)
-            }
-        }
-    }
-
-    fun onLanguageChanged(langCode: String) {
-        latestLangCode = langCode
-        if (langCode == loadedLangCode) return
-        val weather = (_state.value.uiState as? HomeUiState.Success)?.weather ?: return
-        val spot = shownSpot
-        load(
-            LoadTarget.Place(
-                name = _state.value.selectedCityName,
-                latitude = spot?.latitude ?: weather.latitude,
-                longitude = spot?.longitude ?: weather.longitude,
-                relocalizeName = true,
-                nameFromDevice = spot?.fromDevice ?: false
-            ),
-            langCode
-        )
-    }
-
-    private fun resetForNewSession() {
-        loadJob?.cancel()
-        searchJob?.cancel()
-        favoriteJob?.cancel()
-        _state.value = HomeStateContainer()
-        isInitialLaunchPerformed = false
-        lastRefreshTime = 0L
-        loadTarget = LoadTarget.Startup(useDeviceLocation = false)
-        loadedLangCode = null
-        shownSpot = null
-    }
-
-    fun onSearchQueryChanged(newQuery: String, langCode: String) {
-        searchJob?.cancel()
-        searchJob = viewModelScope.launch {
-            delay(500.milliseconds)
-            val suggestions = try {
-                getLocationSuggestionsUseCase(newQuery, langCode)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                emptyList()
-            }
-            _state.update { it.copy(citySuggestions = suggestions) }
-        }
-    }
-
-    fun onToggleFavorite() {
-        val state = _state.value
-        val weather = (state.uiState as? HomeUiState.Success)?.weather ?: return
-        val favorite = weather.toFavoriteCity(state.selectedCityName)
-        viewModelScope.launch { toggleFavoriteUseCase(favorite) }
-    }
-
-    private fun onWeatherShown(weather: WeatherDomainModel) {
-        favoriteJob?.cancel()
-        favoriteJob = observeFavoriteStatusUseCase(weather.latitude, weather.longitude)
-            .onEach { isFav -> _state.update { it.copy(isFavorite = isFav) } }
-            .launchIn(viewModelScope)
-
-        viewModelScope.launch { refreshFavoriteSnapshotUseCase(weather.toFavoriteCity()) }
-    }
-
-    /** The name for these coordinates in the app language, or null if unknown, slow or failed. */
-    private suspend fun lookupCityName(
-        latitude: Double?,
-        longitude: Double?,
-        langCode: String
-    ): String? {
-        if (latitude == null || longitude == null) return null
-        return withTimeoutOrNull(NAME_LOOKUP_TIMEOUT_MILLIS.milliseconds) {
-            reverseGeocodeLocationUseCase(latitude, longitude, langCode)?.fullName
-        }
-    }
-
-    /** [name] rewritten in the app language for the place near these coordinates, or null. */
-    private suspend fun localizePlaceName(
-        name: String,
-        latitude: Double,
-        longitude: Double,
-        langCode: String
-    ): String? = withTimeoutOrNull(NAME_LOOKUP_TIMEOUT_MILLIS.milliseconds) {
-        localizePlaceNameUseCase(name, latitude, longitude, langCode)
-    }
-
-    companion object {
-        private const val TAG = "HomeViewModel"
-        private const val LOAD_TIMEOUT_MILLIS = 30_000L
-        private const val NAME_LOOKUP_TIMEOUT_MILLIS = 4_000L
-    }
-}
-```
-
 ## home\ui\screens\HomeContainer.kt
 
 ```kotlin
@@ -12889,9 +13070,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.core.di.AppViewModelFactory
-import com.mhq.fynecast.home.ui.HomeRetryAction
-import com.mhq.fynecast.home.ui.HomeUiState
-import com.mhq.fynecast.home.ui.HomeViewModel
+import com.mhq.fynecast.home.presentation.HomeRetryAction
+import com.mhq.fynecast.home.presentation.HomeUiState
+import com.mhq.fynecast.home.presentation.HomeViewModel
 
 @Composable
 fun HomeContainer(
@@ -12921,7 +13102,7 @@ fun HomeContainer(
 
         is HomeUiState.Success -> {
             HomeContent(
-                weatherDomainModel = uiState.weather,
+                weather = uiState.weather,
                 citySuggestions = stateContainer.citySuggestions,
                 selectedCityName = stateContainer.selectedCityName,
                 isMetric = isMetric,
@@ -12929,12 +13110,7 @@ fun HomeContainer(
                 isRefreshing = stateContainer.isRefreshing,
                 onQueryChange = { homeViewModel.onSearchQueryChanged(it, langCode) },
                 onSuggestionClick = { suggestion ->
-                    homeViewModel.onCitySelected(
-                        suggestion.fullName,
-                        suggestion.latitude,
-                        suggestion.longitude,
-                        langCode
-                    )
+                    homeViewModel.onSuggestionSelected(suggestion.id, langCode)
                 },
                 onMapIconClick = onNavigateToMap,
                 onAlertsBannerClick = onAlertsBannerClick,
@@ -12988,8 +13164,8 @@ import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
-import com.mhq.fynecast.core.domain.location.CitySuggestionModel
-import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.home.presentation.model.CitySuggestionPresentationModel
+import com.mhq.fynecast.home.presentation.model.WeatherPresentationModel
 import com.mhq.fynecast.home.ui.components.WeatherDailyCarousel
 import com.mhq.fynecast.home.ui.components.WeatherHeroCard
 import com.mhq.fynecast.home.ui.components.WeatherHourlyCarousel
@@ -12999,14 +13175,14 @@ import com.mhq.fynecast.home.ui.components.rememberCityTime
 
 @Composable
 fun HomeContent(
-    weatherDomainModel: WeatherDomainModel,
-    citySuggestions: List<CitySuggestionModel>,
+    weather: WeatherPresentationModel,
+    citySuggestions: List<CitySuggestionPresentationModel>,
     selectedCityName: String,
     isMetric: Boolean,
     isFavorite: Boolean,
     isRefreshing: Boolean,
     onQueryChange: (String) -> Unit,
-    onSuggestionClick: (CitySuggestionModel) -> Unit,
+    onSuggestionClick: (CitySuggestionPresentationModel) -> Unit,
     onMapIconClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     onAlertsBannerClick: () -> Unit,
@@ -13035,37 +13211,37 @@ fun HomeContent(
                     .fillMaxWidth()
             )
             WeatherHeroCard(
-                icon = weatherDomainModel.conditionIcon,
+                icon = weather.conditionIcon,
                 city = selectedCityName.substringBefore(","),
                 timestamp = rememberCityTime(
-                    timeZoneId = weatherDomainModel.timeZoneId,
-                    fallback = weatherDomainModel.lastUpdated?.let {
+                    timeZoneId = weather.timeZoneId,
+                    fallback = weather.lastUpdated?.let {
                         DateTimeFormats.lastUpdated(it, currentLocale())
                     }.orEmpty()
                 ),
-                description = weatherDomainModel.conditionText,
+                description = weather.conditionText,
                 temperature = TemperatureFormatter.format(
                     if (isMetric)
-                        weatherDomainModel.currentTempC
+                        weather.currentTempC
                     else
-                        weatherDomainModel.currentTempF
+                        weather.currentTempF
                 ),
                 isFavorite = isFavorite,
-                alertsNumber = weatherDomainModel.alerts.size,
+                alertsNumber = weather.alertsCount,
                 onToggleFavorite = onToggleFavorite,
                 onAlertsBannerClick = onAlertsBannerClick,
                 modifier = Modifier.fillMaxWidth()
             )
             WeatherHourlyCarousel(
-                hourlyForecasts = weatherDomainModel.hourlyForecasts,
+                hourlyForecasts = weather.hourlyForecasts,
                 isMetric = isMetric
             )
             WeatherDailyCarousel(
-                dailyForecasts = weatherDomainModel.dailyForecasts,
+                dailyForecasts = weather.dailyForecasts,
                 isMetric = isMetric
             )
             WeatherStatsGrid(
-                stats = weatherDomainModel.stats,
+                stats = weather.stats,
                 isMetric = isMetric
             )
         }

@@ -22,7 +22,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.openNotificationSettings
-import com.mhq.fynecast.settings.ui.SettingsViewModel
+import com.mhq.fynecast.settings.presentation.SettingsViewModel
 
 @Composable
 fun SettingsContainer(

@@ -19,10 +19,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.core.di.AppViewModelFactory
-import com.mhq.fynecast.core.navigation.SessionViewModel
+import com.mhq.fynecast.core.presentation.SessionViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.FyneCastApp
 import com.mhq.fynecast.home.presentation.HomeViewModel
-import com.mhq.fynecast.settings.ui.SettingsViewModel
+import com.mhq.fynecast.settings.presentation.SettingsViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
