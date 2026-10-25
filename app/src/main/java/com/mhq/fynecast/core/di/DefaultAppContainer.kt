@@ -84,6 +84,8 @@ import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectedCityRepository
 import com.mhq.fynecast.core.domain.weather.WeatherRepository
+import com.mhq.fynecast.home.data.datasource.weather.WeatherRemoteDataSource
+import com.mhq.fynecast.home.data.datasource.weather.WeatherRemoteDataSourceImpl
 import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
@@ -155,11 +157,14 @@ class DefaultAppContainer(
     private val weatherApiRetrofitService: WeatherApiService by lazy {
         weatherApiRetrofit.create(WeatherApiService::class.java)
     }
-    private val weatherRepository: WeatherRepository by lazy {
-        WeatherRepoImpl(
+    private val weatherRemoteDataSource: WeatherRemoteDataSource by lazy {
+        WeatherRemoteDataSourceImpl(
             weatherApiService = weatherApiRetrofitService,
             apiKey = BuildConfig.WEATHER_API_KEY
         )
+    }
+    private val weatherRepository: WeatherRepository by lazy {
+        WeatherRepoImpl(remoteDataSource = weatherRemoteDataSource)
     }
     private val currentWeatherStore: CurrentWeatherStore by lazy {
         InMemoryCurrentWeatherStore()

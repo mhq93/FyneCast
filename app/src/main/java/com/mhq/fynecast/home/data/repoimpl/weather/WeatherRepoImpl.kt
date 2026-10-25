@@ -1,18 +1,14 @@
 package com.mhq.fynecast.home.data.repoimpl.weather
 
-import com.mhq.fynecast.home.data.api.weather.WeatherApiService
-import com.mhq.fynecast.home.data.mapper.toDomain
 import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
 import com.mhq.fynecast.core.domain.weather.WeatherRepository
+import com.mhq.fynecast.home.data.datasource.weather.WeatherRemoteDataSource
+import com.mhq.fynecast.home.data.mapper.toDomain
 
 class WeatherRepoImpl(
-    private val weatherApiService: WeatherApiService,
-    private val apiKey: String
+    private val remoteDataSource: WeatherRemoteDataSource
 ) : WeatherRepository {
+
     override suspend fun fetchWeather(query: String, lang: String): WeatherDomainModel =
-        weatherApiService.getWeatherData(
-            key = apiKey,
-            city = query,
-            languageCode = lang
-        ).toDomain()
+        remoteDataSource.fetchWeather(query, lang).toDomain()
 }
