@@ -85,6 +85,49 @@ data class TrackedAlertEntity(
 )
 ```
 
+## alerts\data\datasource\AlertsLocalDataSource.kt
+
+```kotlin
+package com.mhq.fynecast.alerts.data.datasource
+
+import com.mhq.fynecast.alerts.data.database.TrackedAlertEntity
+import kotlinx.coroutines.flow.Flow
+
+/** Where tracked alerts are stored on the phone. Works with database entities, never domain models. */
+interface AlertsLocalDataSource {
+    fun observeTrackedAlertIds(): Flow<List<String>>
+    suspend fun getAll(): List<TrackedAlertEntity>
+    suspend fun insert(alert: TrackedAlertEntity)
+    suspend fun deleteById(alertId: String)
+    suspend fun deleteAll()
+}
+```
+
+## alerts\data\datasource\AlertsRoomDataSource.kt
+
+```kotlin
+package com.mhq.fynecast.alerts.data.datasource
+
+import com.mhq.fynecast.alerts.data.database.AlertDao
+import com.mhq.fynecast.alerts.data.database.TrackedAlertEntity
+import kotlinx.coroutines.flow.Flow
+
+class AlertsRoomDataSource(
+    private val alertDao: AlertDao
+) : AlertsLocalDataSource {
+
+    override fun observeTrackedAlertIds(): Flow<List<String>> = alertDao.getTrackedAlertIds()
+
+    override suspend fun getAll(): List<TrackedAlertEntity> = alertDao.getAllTrackedAlerts()
+
+    override suspend fun insert(alert: TrackedAlertEntity) = alertDao.insertTrackedAlert(alert)
+
+    override suspend fun deleteById(alertId: String) = alertDao.deleteTrackedAlertById(alertId)
+
+    override suspend fun deleteAll() = alertDao.deleteAllTrackedAlerts()
+}
+```
+
 ## alerts\data\mapper\AlertsMapper.kt
 
 ```kotlin
@@ -135,31 +178,31 @@ fun TrackedAlertEntity.toDomain() =
 ```kotlin
 package com.mhq.fynecast.alerts.data.repoimpl
 
-import com.mhq.fynecast.alerts.data.database.AlertDao
+import com.mhq.fynecast.alerts.data.datasource.AlertsLocalDataSource
 import com.mhq.fynecast.alerts.data.mapper.toDomain
 import com.mhq.fynecast.alerts.data.mapper.toEntity
-import com.mhq.fynecast.core.domain.weather.AlertDomainModel
-import com.mhq.fynecast.core.domain.location.TrackedLocation
 import com.mhq.fynecast.alerts.domain.repository.AlertsRepository
+import com.mhq.fynecast.core.domain.location.TrackedLocation
+import com.mhq.fynecast.core.domain.weather.AlertDomainModel
 
 /**
- * Concrete implementation of the [AlertsRepository] using Room database operations.
+ * Concrete implementation of the [AlertsRepository] on top of a local data source.
  */
-class AlertsRepoImpl(private val alertDao: AlertDao) : AlertsRepository {
+class AlertsRepoImpl(private val localDataSource: AlertsLocalDataSource) : AlertsRepository {
     override fun getTrackedAlertIds() =
-        alertDao.getTrackedAlertIds()
+        localDataSource.observeTrackedAlertIds()
 
     override suspend fun getTrackedAlerts() =
-        alertDao.getAllTrackedAlerts().map { it.toDomain() }
+        localDataSource.getAll().map { it.toDomain() }
 
     override suspend fun saveTrackedAlert(alert: AlertDomainModel, location: TrackedLocation) =
-        alertDao.insertTrackedAlert(alert.toEntity(location))
+        localDataSource.insert(alert.toEntity(location))
 
     override suspend fun deleteTrackedAlert(alertId: String) =
-        alertDao.deleteTrackedAlertById(alertId)
+        localDataSource.deleteById(alertId)
 
     override suspend fun deleteAllTrackedAlerts() =
-        alertDao.deleteAllTrackedAlerts()
+        localDataSource.deleteAll()
 }
 ```
 
@@ -1373,7 +1416,7 @@ class AlertsViewModel(
         )
 
     /** Stream tracking the user's current location context. */
-    val currentLocation: StateFlow<TrackedLocation?> =
+    private val currentLocation: StateFlow<TrackedLocation?> =
         observeCurrentLocationUseCase()
             .stateIn(
                 viewModelScope,
@@ -3436,16 +3479,349 @@ object PasswordValidator {
 }
 ```
 
-## auth\ui\AuthUiText.kt
+## auth\presentation\editprofile\EditProfileUiState.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui
+package com.mhq.fynecast.auth.presentation.editprofile
+
+import com.mhq.fynecast.core.presentation.text.UiText
+
+sealed interface EditProfileUiState {
+    object Idle : EditProfileUiState
+    object Loading : EditProfileUiState
+    object Success : EditProfileUiState
+    data class Error(val message: UiText) : EditProfileUiState
+}
+```
+
+## auth\presentation\editprofile\EditProfileViewModel.kt
+
+```kotlin
+package com.mhq.fynecast.auth.presentation.editprofile
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.mhq.fynecast.R
+import com.mhq.fynecast.auth.domain.models.ValidationResult
+import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
+import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
+import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
+import com.mhq.fynecast.auth.presentation.mapper.toEditProfilePresentation
+import com.mhq.fynecast.auth.presentation.mapper.toUiText
+import com.mhq.fynecast.auth.presentation.model.EditProfilePresentationModel
+import com.mhq.fynecast.core.presentation.text.UiText
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
+
+class EditProfileViewModel(
+    private val observeUserProfileUseCase: ObserveUserProfileUseCase,
+    private val validateEditProfileUseCase: ValidateEditProfileUseCase,
+    private val updateUserProfileUseCase: UpdateUserProfileUseCase
+) : ViewModel() {
+
+    private val _editProfileUiState =
+        MutableStateFlow<EditProfileUiState>(EditProfileUiState.Idle)
+
+    private val _uiEventChannel = Channel<UiText>(Channel.BUFFERED)
+    val uiEvent = _uiEventChannel.receiveAsFlow()
+
+    private val _navigationEventChannel = Channel<Unit>(Channel.BUFFERED)
+    val navigationEvent = _navigationEventChannel.receiveAsFlow()
+
+    /**
+     * The stored profile, emitted once it is loaded (null until then).
+     * The UI copies it into its own fields one time; later refreshes of the profile
+     * never overwrite what the user is typing.
+     */
+    val initialProfile: StateFlow<EditProfilePresentationModel?> = flow {
+        emit(observeUserProfileUseCase().first { it.id.isNotEmpty() }.toEditProfilePresentation())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** Pure checks used by the UI to show field errors while typing. */
+    fun isUsernameValid(username: String): Boolean =
+        validateEditProfileUseCase.validateUsernameFormat(username)
+
+    fun isEmailValid(email: String): Boolean =
+        validateEditProfileUseCase.validateEmailFormat(email)
+
+    fun isPasswordValid(password: String): Boolean =
+        validateEditProfileUseCase.validatePassword(password)
+
+    fun doPasswordsMatch(password: String, confirmPassword: String): Boolean =
+        validateEditProfileUseCase.validatePasswordMatch(password, confirmPassword)
+
+
+    fun onSaveProfileAction(
+        username: String,
+        email: String,
+        profileImageUri: String?,
+        newPassword: String?,
+        confirmPassword: String?
+    ) {
+        when (val validation =
+            validateEditProfileUseCase(username, email, newPassword, confirmPassword)) {
+            is ValidationResult.Success -> {
+                if (_editProfileUiState.value is EditProfileUiState.Loading) return
+                _editProfileUiState.value = EditProfileUiState.Loading
+
+                viewModelScope.launch {
+                    _uiEventChannel.send(UiText.res(R.string.msg_profile_processing))
+
+                    updateUserProfileUseCase(
+                        newName = username,
+                        newEmail = email,
+                        localImageUriString = profileImageUri,
+                        newPassword = newPassword
+                    )
+                        .onSuccess { verificationSent ->
+                            _editProfileUiState.value = EditProfileUiState.Success
+                            _uiEventChannel.send(
+                                UiText.res(
+                                    if (verificationSent) R.string.msg_profile_saved_verify_email
+                                    else R.string.msg_profile_saved
+                                )
+                            )
+                            delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
+                            _navigationEventChannel.send(Unit)
+                        }
+                        .onFailure { e ->
+                            val message = e.toUiText(R.string.error_profile_update_failed)
+                            _editProfileUiState.value = EditProfileUiState.Error(message)
+                            _uiEventChannel.send(message)
+                        }
+                }
+            }
+
+            is ValidationResult.Failure -> {
+                viewModelScope.launch { _uiEventChannel.send(validation.error.toUiText()) }
+            }
+        }
+    }
+
+    companion object {
+        private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
+    }
+}
+```
+
+## auth\presentation\forgotpassword\ForgotPasswordUiState.kt
+
+```kotlin
+package com.mhq.fynecast.auth.presentation.forgotpassword
+
+import com.mhq.fynecast.core.presentation.text.UiText
+
+sealed interface ForgotPasswordUiState {
+    object Idle : ForgotPasswordUiState
+    object Loading : ForgotPasswordUiState
+    object Success : ForgotPasswordUiState
+    data class Error(val message: UiText) : ForgotPasswordUiState
+}
+```
+
+## auth\presentation\forgotpassword\ForgotPasswordViewModel.kt
+
+```kotlin
+package com.mhq.fynecast.auth.presentation.forgotpassword
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.mhq.fynecast.R
+import com.mhq.fynecast.auth.domain.usecases.auth.SendPasswordResetUseCase
+import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
+import com.mhq.fynecast.auth.presentation.mapper.toUiText
+import com.mhq.fynecast.core.presentation.text.UiText
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
+
+class ForgotPasswordViewModel(
+    private val validateLoginFormUseCase: ValidateLoginFormUseCase,
+    private val sendPasswordResetUseCase: SendPasswordResetUseCase
+) : ViewModel() {
+
+    private val _forgotPasswordUiState =
+        MutableStateFlow<ForgotPasswordUiState>(ForgotPasswordUiState.Idle)
+    private val _uiEventChannel = Channel<UiText>(Channel.BUFFERED)
+    val uiEvent = _uiEventChannel.receiveAsFlow()
+    private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
+    val navigationEvent = _navigationEvent.receiveAsFlow()
+
+    /** Pure check used by the UI to show the field error while typing. */
+    fun isEmailValid(email: String): Boolean =
+        validateLoginFormUseCase.validateEmailFormat(email)
+
+    fun onPasswordResetAction(email: String) {
+        val state = _forgotPasswordUiState.value
+        if (state is ForgotPasswordUiState.Loading || state is ForgotPasswordUiState.Success) return
+        viewModelScope.launch {
+            _forgotPasswordUiState.value = ForgotPasswordUiState.Loading
+            sendPasswordResetUseCase(email)
+                .onSuccess {
+                    _forgotPasswordUiState.value = ForgotPasswordUiState.Success
+                    _uiEventChannel.send(UiText.res(R.string.msg_reset_link_sent, email))
+                    delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
+                    _navigationEvent.send(Unit)
+                }
+                .onFailure { error ->
+                    val msg = error.toUiText(R.string.error_reset_link_failed)
+                    _forgotPasswordUiState.value = ForgotPasswordUiState.Error(msg)
+                    _uiEventChannel.send(msg)
+                }
+        }
+    }
+
+    companion object {
+        private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
+    }
+}
+```
+
+## auth\presentation\login\LoginUiState.kt
+
+```kotlin
+package com.mhq.fynecast.auth.presentation.login
+
+import com.mhq.fynecast.core.presentation.text.UiText
+
+sealed interface LoginUiState {
+    object Idle : LoginUiState
+    object Loading : LoginUiState
+    object Success : LoginUiState
+    data class Error(val message: UiText) : LoginUiState
+}
+```
+
+## auth\presentation\login\LoginViewModel.kt
+
+```kotlin
+package com.mhq.fynecast.auth.presentation.login
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.mhq.fynecast.R
+import com.mhq.fynecast.auth.domain.models.ValidationResult
+import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase
+import com.mhq.fynecast.auth.domain.usecases.auth.LoginWithEmailUseCase
+import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
+import com.mhq.fynecast.auth.presentation.mapper.toUiText
+import com.mhq.fynecast.core.presentation.text.UiText
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
+
+class LoginViewModel(
+    private val loginWithEmailUseCase: LoginWithEmailUseCase,
+    private val validateLoginFormUseCase: ValidateLoginFormUseCase,
+    private val authenticateWithSocialTokenUseCase: AuthenticateWithSocialTokenUseCase
+) : ViewModel() {
+
+    private val _loginUiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
+    private val _uiEventChannel = Channel<UiText>(Channel.BUFFERED)
+    val uiEvent = _uiEventChannel.receiveAsFlow()
+    private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
+    val navigationEvent = _navigationEvent.receiveAsFlow()
+
+    /** Pure check used by the UI to show the field error while typing. */
+    fun isEmailValid(email: String): Boolean =
+        validateLoginFormUseCase.validateEmailFormat(email)
+
+    fun onLoginAction(email: String, password: String) {
+        if (_loginUiState.value is LoginUiState.Loading) return
+        when (val validation = validateLoginFormUseCase(email, password)) {
+            is ValidationResult.Success -> {
+                viewModelScope.launch {
+                    _loginUiState.value = LoginUiState.Loading
+                    loginWithEmailUseCase(email, password)
+                        .onSuccess {
+                            _loginUiState.value = LoginUiState.Success
+                            _navigationEvent.send(Unit)
+                        }
+                        .onFailure { handleLoginFailure(it) }
+                }
+            }
+            is ValidationResult.Failure -> {
+                viewModelScope.launch { _uiEventChannel.send(validation.error.toUiText()) }
+            }
+        }
+    }
+
+    suspend fun onGoogleAuthenticate(fetchToken: suspend () -> String) =
+        runSocialSignIn(
+            UiText.res(R.string.error_google_sign_in_failed),
+            isGoogle = true,
+            fetchToken
+        )
+
+    suspend fun onFacebookAuthenticate(fetchToken: suspend () -> String) =
+        runSocialSignIn(
+            UiText.res(R.string.error_facebook_sign_in_failed),
+            isGoogle = false,
+            fetchToken
+        )
+
+    private suspend fun runSocialSignIn(
+        failureMessage: UiText,
+        isGoogle: Boolean,
+        fetchToken: suspend () -> String
+    ) {
+        if (_loginUiState.value is LoginUiState.Loading) return
+        _loginUiState.value = LoginUiState.Loading
+        try {
+            val result = try {
+                authenticateWithSocialTokenUseCase(fetchToken(), isGoogle = isGoogle)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+            result
+                .onSuccess {
+                    _loginUiState.value = LoginUiState.Success
+                    _navigationEvent.send(Unit)
+                }
+                .onFailure {
+                    _loginUiState.value = LoginUiState.Idle
+                    _uiEventChannel.send(failureMessage)
+                }
+        } finally {
+            // Canceled sign-in (user backed out): never stay stuck in Loading.
+            if (_loginUiState.value is LoginUiState.Loading) _loginUiState.value = LoginUiState.Idle
+        }
+    }
+
+    private suspend fun handleLoginFailure(error: Throwable) {
+        val message = error.toUiText(R.string.error_login_failed)
+        _loginUiState.value = LoginUiState.Error(message)
+        _uiEventChannel.send(message)
+    }
+}
+```
+
+## auth\presentation\mapper\AuthUiText.kt
+
+```kotlin
+package com.mhq.fynecast.auth.presentation.mapper
 
 import androidx.annotation.StringRes
 import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.domain.models.ValidationError
 import com.mhq.fynecast.auth.domain.models.ValidationException
-import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.core.presentation.text.UiText
 
 fun ValidationError.toUiText(): UiText = UiText.res(
     when (this) {
@@ -3469,6 +3845,190 @@ fun Throwable.toUiText(@StringRes fallbackRes: Int): UiText =
     (this as? ValidationException)?.error?.toUiText()
         ?: localizedMessage?.takeIf { it.isNotBlank() }?.let { UiText.Dynamic(it) }
         ?: UiText.res(fallbackRes)
+```
+
+## auth\presentation\mapper\EditProfilePresentationMapper.kt
+
+```kotlin
+package com.mhq.fynecast.auth.presentation.mapper
+
+import com.mhq.fynecast.auth.domain.models.UserDomainModel
+import com.mhq.fynecast.auth.presentation.model.EditProfilePresentationModel
+
+fun UserDomainModel.toEditProfilePresentation(): EditProfilePresentationModel =
+    EditProfilePresentationModel(
+        name = name,
+        email = email,
+        profileImageUri = profileImageUri,
+        hasPasswordLogin = hasPasswordLogin
+    )
+```
+
+## auth\presentation\model\EditProfilePresentationModel.kt
+
+```kotlin
+package com.mhq.fynecast.auth.presentation.model
+
+/** What the Edit Profile screen needs to seed its fields. The UI never sees the domain model. */
+data class EditProfilePresentationModel(
+    val name: String,
+    val email: String,
+    val profileImageUri: String?,
+    /** False for Google/Facebook accounts that have no password yet. */
+    val hasPasswordLogin: Boolean
+)
+```
+
+## auth\presentation\signup\SignupUiState.kt
+
+```kotlin
+package com.mhq.fynecast.auth.presentation.signup
+
+import com.mhq.fynecast.core.presentation.text.UiText
+
+sealed interface SignupUiState {
+    object Idle : SignupUiState
+    object Loading : SignupUiState
+    object Success : SignupUiState
+    data class Error(val message: UiText) : SignupUiState
+}
+```
+
+## auth\presentation\signup\SignupViewModel.kt
+
+```kotlin
+package com.mhq.fynecast.auth.presentation.signup
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.mhq.fynecast.R
+import com.mhq.fynecast.auth.domain.models.ValidationResult
+import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase
+import com.mhq.fynecast.auth.domain.usecases.auth.RegisterWithEmailUseCase
+import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
+import com.mhq.fynecast.auth.presentation.mapper.toUiText
+import com.mhq.fynecast.core.presentation.text.UiText
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.milliseconds
+
+class SignupViewModel(
+    private val validateSignupFormUseCase: ValidateSignupFormUseCase,
+    private val registerWithEmailUseCase: RegisterWithEmailUseCase,
+    private val authenticateWithSocialTokenUseCase: AuthenticateWithSocialTokenUseCase
+) : ViewModel() {
+
+    private val _signupUiState = MutableStateFlow<SignupUiState>(SignupUiState.Idle)
+    private val _uiEventChannel = Channel<UiText>(Channel.BUFFERED)
+    val uiEvent = _uiEventChannel.receiveAsFlow()
+    private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
+    val navigationEvent = _navigationEvent.receiveAsFlow()
+
+    /** Pure checks used by the UI to show field errors while typing. */
+    fun isUsernameValid(username: String): Boolean =
+        validateSignupFormUseCase.validateUsername(username)
+
+    fun isEmailValid(email: String): Boolean =
+        validateSignupFormUseCase.validateEmail(email)
+
+    fun isPasswordValid(password: String): Boolean =
+        validateSignupFormUseCase.validatePassword(password)
+
+    fun doPasswordsMatch(password: String, confirmPassword: String): Boolean =
+        validateSignupFormUseCase.validatePasswordMatch(password, confirmPassword)
+
+    fun onSignupAction(
+        username: String,
+        email: String,
+        password: String,
+        confirmPassword: String
+    ) {
+        val state = _signupUiState.value
+        if (state is SignupUiState.Loading || state is SignupUiState.Success) return
+        val validation = validateSignupFormUseCase(
+            username = username,
+            email = email,
+            password = password,
+            confirmPassword = confirmPassword
+        )
+        if (validation is ValidationResult.Failure) {
+            viewModelScope.launch { _uiEventChannel.send(validation.error.toUiText()) }
+            return
+        }
+        viewModelScope.launch {
+            _signupUiState.value = SignupUiState.Loading
+            registerWithEmailUseCase(
+                username = username,
+                email = email,
+                password = password
+            )
+                .onSuccess {
+                    _signupUiState.value = SignupUiState.Success
+                    _uiEventChannel.send(UiText.res(R.string.msg_account_created))
+                    delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
+                    _navigationEvent.send(Unit)
+                }
+                .onFailure { error ->
+                    val msg = error.toUiText(R.string.error_signup_failed)
+                    _signupUiState.value = SignupUiState.Error(msg)
+                    _uiEventChannel.send(msg)
+                }
+        }
+    }
+
+    suspend fun onGoogleAuthenticate(fetchToken: suspend () -> String) =
+        runSocialSignIn(
+            UiText.res(R.string.error_google_sign_in_failed),
+            isGoogle = true,
+            fetchToken
+        )
+
+    suspend fun onFacebookAuthenticate(fetchToken: suspend () -> String) =
+        runSocialSignIn(
+            UiText.res(R.string.error_facebook_sign_in_failed),
+            isGoogle = false,
+            fetchToken
+        )
+
+    private suspend fun runSocialSignIn(
+        failureMessage: UiText,
+        isGoogle: Boolean,
+        fetchToken: suspend () -> String
+    ) {
+        val state = _signupUiState.value
+        if (state is SignupUiState.Loading || state is SignupUiState.Success) return
+        _signupUiState.value = SignupUiState.Loading
+        try {
+            val result = try {
+                authenticateWithSocialTokenUseCase(fetchToken(), isGoogle = isGoogle)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+            result
+                .onSuccess {
+                    _signupUiState.value = SignupUiState.Success
+                    _navigationEvent.send(Unit)
+                }
+                .onFailure {
+                    _signupUiState.value = SignupUiState.Idle
+                    _uiEventChannel.send(failureMessage)
+                }
+        } finally {
+            if (_signupUiState.value is SignupUiState.Loading) _signupUiState.value =
+                SignupUiState.Idle
+        }
+    }
+
+    companion object {
+        private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
+    }
+}
 ```
 
 ## auth\ui\editprofile\ui\components\EditProfileForm.kt
@@ -3767,139 +4327,6 @@ private fun EditProfileHeaderPreview() {
 }
 ```
 
-## auth\ui\editprofile\ui\EditProfileUiState.kt
-
-```kotlin
-package com.mhq.fynecast.auth.ui.editprofile.ui
-
-import com.mhq.fynecast.core.ui.text.UiText
-
-sealed interface EditProfileUiState {
-    object Idle : EditProfileUiState
-    object Loading : EditProfileUiState
-    object Success : EditProfileUiState
-    data class Error(val message: UiText) : EditProfileUiState
-}
-```
-
-## auth\ui\editprofile\ui\EditProfileViewModel.kt
-
-```kotlin
-package com.mhq.fynecast.auth.ui.editprofile.ui
-
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.mhq.fynecast.R
-import com.mhq.fynecast.auth.domain.models.UserDomainModel
-import com.mhq.fynecast.auth.domain.models.ValidationResult
-import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
-import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
-import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
-import com.mhq.fynecast.auth.ui.toUiText
-import com.mhq.fynecast.core.ui.text.UiText
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
-
-class EditProfileViewModel(
-    private val observeUserProfileUseCase: ObserveUserProfileUseCase,
-    private val validateEditProfileUseCase: ValidateEditProfileUseCase,
-    private val updateUserProfileUseCase: UpdateUserProfileUseCase
-) : ViewModel() {
-
-    private val _editProfileUiState =
-        MutableStateFlow<EditProfileUiState>(EditProfileUiState.Idle)
-
-    private val _uiEventChannel = Channel<UiText>(Channel.BUFFERED)
-    val uiEvent = _uiEventChannel.receiveAsFlow()
-
-    private val _navigationEventChannel = Channel<Unit>(Channel.BUFFERED)
-    val navigationEvent = _navigationEventChannel.receiveAsFlow()
-
-    /**
-     * The stored profile, emitted once it is loaded (null until then).
-     * The UI copies it into its own fields one time; later refreshes of the profile
-     * never overwrite what the user is typing.
-     */
-    val initialProfile: StateFlow<UserDomainModel?> = flow {
-        emit(observeUserProfileUseCase().first { it.id.isNotEmpty() })
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
-
-    /** Pure checks used by the UI to show field errors while typing. */
-    fun isUsernameValid(username: String): Boolean =
-        validateEditProfileUseCase.validateUsernameFormat(username)
-
-    fun isEmailValid(email: String): Boolean =
-        validateEditProfileUseCase.validateEmailFormat(email)
-
-    fun isPasswordValid(password: String): Boolean =
-        validateEditProfileUseCase.validatePassword(password)
-
-    fun doPasswordsMatch(password: String, confirmPassword: String): Boolean =
-        validateEditProfileUseCase.validatePasswordMatch(password, confirmPassword)
-
-
-    fun onSaveProfileAction(
-        username: String,
-        email: String,
-        profileImageUri: String?,
-        newPassword: String?,
-        confirmPassword: String?
-    ) {
-        when (val validation =
-            validateEditProfileUseCase(username, email, newPassword, confirmPassword)) {
-            is ValidationResult.Success -> {
-                if (_editProfileUiState.value is EditProfileUiState.Loading) return
-                _editProfileUiState.value = EditProfileUiState.Loading
-
-                viewModelScope.launch {
-                    _uiEventChannel.send(UiText.res(R.string.msg_profile_processing))
-
-                    updateUserProfileUseCase(
-                        newName = username,
-                        newEmail = email,
-                        localImageUriString = profileImageUri,
-                        newPassword = newPassword
-                    )
-                        .onSuccess { verificationSent ->
-                            _editProfileUiState.value = EditProfileUiState.Success
-                            _uiEventChannel.send(
-                                UiText.res(
-                                    if (verificationSent) R.string.msg_profile_saved_verify_email
-                                    else R.string.msg_profile_saved
-                                )
-                            )
-                            delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
-                            _navigationEventChannel.send(Unit)
-                        }
-                        .onFailure { e ->
-                            val message = e.toUiText(R.string.error_profile_update_failed)
-                            _editProfileUiState.value = EditProfileUiState.Error(message)
-                            _uiEventChannel.send(message)
-                        }
-                }
-            }
-
-            is ValidationResult.Failure -> {
-                viewModelScope.launch { _uiEventChannel.send(validation.error.toUiText()) }
-            }
-        }
-    }
-
-    companion object {
-        private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
-    }
-}
-```
-
 ## auth\ui\editprofile\ui\screens\EditProfileContainer.kt
 
 ```kotlin
@@ -3926,7 +4353,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
+import com.mhq.fynecast.auth.presentation.editprofile.EditProfileViewModel
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.launch
@@ -4313,82 +4740,6 @@ private fun AuthForgotPasswordFormPreview() {
 }
 ```
 
-## auth\ui\forgotpassword\ui\ForgotPasswordUiState.kt
-
-```kotlin
-package com.mhq.fynecast.auth.ui.forgotpassword.ui
-
-import com.mhq.fynecast.core.ui.text.UiText
-
-sealed interface ForgotPasswordUiState {
-    object Idle : ForgotPasswordUiState
-    object Loading : ForgotPasswordUiState
-    object Success : ForgotPasswordUiState
-    data class Error(val message: UiText) : ForgotPasswordUiState
-}
-```
-
-## auth\ui\forgotpassword\ui\ForgotPasswordViewModel.kt
-
-```kotlin
-package com.mhq.fynecast.auth.ui.forgotpassword.ui
-
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.mhq.fynecast.R
-import com.mhq.fynecast.auth.domain.usecases.auth.SendPasswordResetUseCase
-import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
-import com.mhq.fynecast.auth.ui.toUiText
-import com.mhq.fynecast.core.ui.text.UiText
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.milliseconds
-
-class ForgotPasswordViewModel(
-    private val validateLoginFormUseCase: ValidateLoginFormUseCase,
-    private val sendPasswordResetUseCase: SendPasswordResetUseCase
-) : ViewModel() {
-
-    private val _forgotPasswordUiState =
-        MutableStateFlow<ForgotPasswordUiState>(ForgotPasswordUiState.Idle)
-    private val _uiEventChannel = Channel<UiText>(Channel.BUFFERED)
-    val uiEvent = _uiEventChannel.receiveAsFlow()
-    private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
-    val navigationEvent = _navigationEvent.receiveAsFlow()
-
-    /** Pure check used by the UI to show the field error while typing. */
-    fun isEmailValid(email: String): Boolean =
-        validateLoginFormUseCase.validateEmailFormat(email)
-
-    fun onPasswordResetAction(email: String) {
-        val state = _forgotPasswordUiState.value
-        if (state is ForgotPasswordUiState.Loading || state is ForgotPasswordUiState.Success) return
-        viewModelScope.launch {
-            _forgotPasswordUiState.value = ForgotPasswordUiState.Loading
-            sendPasswordResetUseCase(email)
-                .onSuccess {
-                    _forgotPasswordUiState.value = ForgotPasswordUiState.Success
-                    _uiEventChannel.send(UiText.res(R.string.msg_reset_link_sent, email))
-                    delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
-                    _navigationEvent.send(Unit)
-                }
-                .onFailure { error ->
-                    val msg = error.toUiText(R.string.error_reset_link_failed)
-                    _forgotPasswordUiState.value = ForgotPasswordUiState.Error(msg)
-                    _uiEventChannel.send(msg)
-                }
-        }
-    }
-
-    companion object {
-        private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
-    }
-}
-```
-
 ## auth\ui\forgotpassword\ui\screens\ForgotPasswordContainer.kt
 
 ```kotlin
@@ -4412,7 +4763,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mhq.fynecast.auth.ui.forgotpassword.ui.ForgotPasswordViewModel
+import com.mhq.fynecast.auth.presentation.forgotpassword.ForgotPasswordViewModel
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
 import kotlinx.coroutines.flow.collectLatest
@@ -4718,129 +5069,6 @@ private fun AuthFormLoginPreview() {
 }
 ```
 
-## auth\ui\login\ui\LoginUiState.kt
-
-```kotlin
-package com.mhq.fynecast.auth.ui.login.ui
-
-import com.mhq.fynecast.core.ui.text.UiText
-
-sealed interface LoginUiState {
-    object Idle : LoginUiState
-    object Loading : LoginUiState
-    object Success : LoginUiState
-    data class Error(val message: UiText) : LoginUiState
-}
-```
-
-## auth\ui\login\ui\LoginViewModel.kt
-
-```kotlin
-package com.mhq.fynecast.auth.ui.login.ui
-
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.mhq.fynecast.R
-import com.mhq.fynecast.auth.domain.models.ValidationResult
-import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase
-import com.mhq.fynecast.auth.domain.usecases.auth.LoginWithEmailUseCase
-import com.mhq.fynecast.auth.domain.usecases.auth.ValidateLoginFormUseCase
-import com.mhq.fynecast.auth.ui.toUiText
-import com.mhq.fynecast.core.ui.text.UiText
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.launch
-
-class LoginViewModel(
-    private val loginWithEmailUseCase: LoginWithEmailUseCase,
-    private val validateLoginFormUseCase: ValidateLoginFormUseCase,
-    private val authenticateWithSocialTokenUseCase: AuthenticateWithSocialTokenUseCase
-) : ViewModel() {
-
-    private val _loginUiState = MutableStateFlow<LoginUiState>(LoginUiState.Idle)
-    private val _uiEventChannel = Channel<UiText>(Channel.BUFFERED)
-    val uiEvent = _uiEventChannel.receiveAsFlow()
-    private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
-    val navigationEvent = _navigationEvent.receiveAsFlow()
-
-    /** Pure check used by the UI to show the field error while typing. */
-    fun isEmailValid(email: String): Boolean =
-        validateLoginFormUseCase.validateEmailFormat(email)
-
-    fun onLoginAction(email: String, password: String) {
-        if (_loginUiState.value is LoginUiState.Loading) return
-        when (val validation = validateLoginFormUseCase(email, password)) {
-            is ValidationResult.Success -> {
-                viewModelScope.launch {
-                    _loginUiState.value = LoginUiState.Loading
-                    loginWithEmailUseCase(email, password)
-                        .onSuccess {
-                            _loginUiState.value = LoginUiState.Success
-                            _navigationEvent.send(Unit)
-                        }
-                        .onFailure { handleLoginFailure(it) }
-                }
-            }
-            is ValidationResult.Failure -> {
-                viewModelScope.launch { _uiEventChannel.send(validation.error.toUiText()) }
-            }
-        }
-    }
-
-    suspend fun onGoogleAuthenticate(fetchToken: suspend () -> String) =
-        runSocialSignIn(
-            UiText.res(R.string.error_google_sign_in_failed),
-            isGoogle = true,
-            fetchToken
-        )
-
-    suspend fun onFacebookAuthenticate(fetchToken: suspend () -> String) =
-        runSocialSignIn(
-            UiText.res(R.string.error_facebook_sign_in_failed),
-            isGoogle = false,
-            fetchToken
-        )
-
-    private suspend fun runSocialSignIn(
-        failureMessage: UiText,
-        isGoogle: Boolean,
-        fetchToken: suspend () -> String
-    ) {
-        if (_loginUiState.value is LoginUiState.Loading) return
-        _loginUiState.value = LoginUiState.Loading
-        try {
-            val result = try {
-                authenticateWithSocialTokenUseCase(fetchToken(), isGoogle = isGoogle)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
-            result
-                .onSuccess {
-                    _loginUiState.value = LoginUiState.Success
-                    _navigationEvent.send(Unit)
-                }
-                .onFailure {
-                    _loginUiState.value = LoginUiState.Idle
-                    _uiEventChannel.send(failureMessage)
-                }
-        } finally {
-            // Canceled sign-in (user backed out): never stay stuck in Loading.
-            if (_loginUiState.value is LoginUiState.Loading) _loginUiState.value = LoginUiState.Idle
-        }
-    }
-
-    private suspend fun handleLoginFailure(error: Throwable) {
-        val message = error.toUiText(R.string.error_login_failed)
-        _loginUiState.value = LoginUiState.Error(message)
-        _uiEventChannel.send(message)
-    }
-}
-```
-
 ## auth\ui\login\ui\screens\LoginContainer.kt
 
 ```kotlin
@@ -4866,7 +5094,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
+import com.mhq.fynecast.auth.presentation.login.LoginViewModel
 import com.mhq.fynecast.auth.ui.social.SocialTokenFetcher
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
@@ -5304,7 +5532,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
+import com.mhq.fynecast.auth.presentation.signup.SignupViewModel
 import com.mhq.fynecast.auth.ui.social.SocialTokenFetcher
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
@@ -5528,158 +5756,6 @@ fun SignupScreenScreenPreview() {
             onGoogleAuthenticate = {},
             onFacebookAuthenticate = {}
         )
-    }
-}
-```
-
-## auth\ui\signup\ui\SignupUiState.kt
-
-```kotlin
-package com.mhq.fynecast.auth.ui.signup.ui
-
-import com.mhq.fynecast.core.ui.text.UiText
-
-sealed interface SignupUiState {
-    object Idle : SignupUiState
-    object Loading : SignupUiState
-    object Success : SignupUiState
-    data class Error(val message: UiText) : SignupUiState
-}
-```
-
-## auth\ui\signup\ui\SignupViewModel.kt
-
-```kotlin
-package com.mhq.fynecast.auth.ui.signup.ui
-
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.mhq.fynecast.R
-import com.mhq.fynecast.auth.domain.models.ValidationResult
-import com.mhq.fynecast.auth.domain.usecases.auth.AuthenticateWithSocialTokenUseCase
-import com.mhq.fynecast.auth.domain.usecases.auth.RegisterWithEmailUseCase
-import com.mhq.fynecast.auth.domain.usecases.auth.ValidateSignupFormUseCase
-import com.mhq.fynecast.auth.ui.toUiText
-import com.mhq.fynecast.core.ui.text.UiText
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.launch
-import kotlin.coroutines.cancellation.CancellationException
-import kotlin.time.Duration.Companion.milliseconds
-
-class SignupViewModel(
-    private val validateSignupFormUseCase: ValidateSignupFormUseCase,
-    private val registerWithEmailUseCase: RegisterWithEmailUseCase,
-    private val authenticateWithSocialTokenUseCase: AuthenticateWithSocialTokenUseCase
-) : ViewModel() {
-
-    private val _signupUiState = MutableStateFlow<SignupUiState>(SignupUiState.Idle)
-    private val _uiEventChannel = Channel<UiText>(Channel.BUFFERED)
-    val uiEvent = _uiEventChannel.receiveAsFlow()
-    private val _navigationEvent = Channel<Unit>(Channel.BUFFERED)
-    val navigationEvent = _navigationEvent.receiveAsFlow()
-
-    /** Pure checks used by the UI to show field errors while typing. */
-    fun isUsernameValid(username: String): Boolean =
-        validateSignupFormUseCase.validateUsername(username)
-
-    fun isEmailValid(email: String): Boolean =
-        validateSignupFormUseCase.validateEmail(email)
-
-    fun isPasswordValid(password: String): Boolean =
-        validateSignupFormUseCase.validatePassword(password)
-
-    fun doPasswordsMatch(password: String, confirmPassword: String): Boolean =
-        validateSignupFormUseCase.validatePasswordMatch(password, confirmPassword)
-
-    fun onSignupAction(
-        username: String,
-        email: String,
-        password: String,
-        confirmPassword: String
-    ) {
-        val state = _signupUiState.value
-        if (state is SignupUiState.Loading || state is SignupUiState.Success) return
-        val validation = validateSignupFormUseCase(
-            username = username,
-            email = email,
-            password = password,
-            confirmPassword = confirmPassword
-        )
-        if (validation is ValidationResult.Failure) {
-            viewModelScope.launch { _uiEventChannel.send(validation.error.toUiText()) }
-            return
-        }
-        viewModelScope.launch {
-            _signupUiState.value = SignupUiState.Loading
-            registerWithEmailUseCase(
-                username = username,
-                email = email,
-                password = password
-            )
-                .onSuccess {
-                    _signupUiState.value = SignupUiState.Success
-                    _uiEventChannel.send(UiText.res(R.string.msg_account_created))
-                    delay(SUCCESS_MESSAGE_DISPLAY_DELAY_MS.milliseconds)
-                    _navigationEvent.send(Unit)
-                }
-                .onFailure { error ->
-                    val msg = error.toUiText(R.string.error_signup_failed)
-                    _signupUiState.value = SignupUiState.Error(msg)
-                    _uiEventChannel.send(msg)
-                }
-        }
-    }
-
-    suspend fun onGoogleAuthenticate(fetchToken: suspend () -> String) =
-        runSocialSignIn(
-            UiText.res(R.string.error_google_sign_in_failed),
-            isGoogle = true,
-            fetchToken
-        )
-
-    suspend fun onFacebookAuthenticate(fetchToken: suspend () -> String) =
-        runSocialSignIn(
-            UiText.res(R.string.error_facebook_sign_in_failed),
-            isGoogle = false,
-            fetchToken
-        )
-
-    private suspend fun runSocialSignIn(
-        failureMessage: UiText,
-        isGoogle: Boolean,
-        fetchToken: suspend () -> String
-    ) {
-        val state = _signupUiState.value
-        if (state is SignupUiState.Loading || state is SignupUiState.Success) return
-        _signupUiState.value = SignupUiState.Loading
-        try {
-            val result = try {
-                authenticateWithSocialTokenUseCase(fetchToken(), isGoogle = isGoogle)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
-            result
-                .onSuccess {
-                    _signupUiState.value = SignupUiState.Success
-                    _navigationEvent.send(Unit)
-                }
-                .onFailure {
-                    _signupUiState.value = SignupUiState.Idle
-                    _uiEventChannel.send(failureMessage)
-                }
-        } finally {
-            if (_signupUiState.value is SignupUiState.Loading) _signupUiState.value =
-                SignupUiState.Idle
-        }
-    }
-
-    companion object {
-        private const val SUCCESS_MESSAGE_DISPLAY_DELAY_MS = 1500L
     }
 }
 ```
@@ -5933,6 +6009,7 @@ import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectCityUseCase
 import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.KeepFavoriteNamesLocalizedUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
@@ -5985,14 +6062,15 @@ interface AppContainer {
 
     // Location Use Cases
     val getCurrentLocationUseCase: GetCurrentLocationUseCase
-    val getLocationSuggestionsUseCase: GetLocationSuggestionsUseCase
     val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase
+    val getLocationSuggestionsUseCase: GetLocationSuggestionsUseCase
     val getLastSearchedCityUseCase: GetLastSearchedCityUseCase
     val resolveStartupLocationUseCase: ResolveStartupLocationUseCase
     val selectCityUseCase: SelectCityUseCase
     val observeSelectedCityUseCase: ObserveSelectedCityUseCase
     val localizePlaceNameUseCase: LocalizePlaceNameUseCase
     val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase
+    val keepFavoriteNamesLocalizedUseCase: KeepFavoriteNamesLocalizedUseCase
 
     // Favorites Use Cases
     val getFavoritesUseCase: GetFavoritesUseCase
@@ -6034,15 +6112,15 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.mhq.fynecast.alerts.presentation.AlertsViewModel
-import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
-import com.mhq.fynecast.auth.ui.forgotpassword.ui.ForgotPasswordViewModel
-import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
-import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
-import com.mhq.fynecast.core.navigation.SessionViewModel
+import com.mhq.fynecast.auth.presentation.editprofile.EditProfileViewModel
+import com.mhq.fynecast.auth.presentation.forgotpassword.ForgotPasswordViewModel
+import com.mhq.fynecast.auth.presentation.login.LoginViewModel
+import com.mhq.fynecast.auth.presentation.signup.SignupViewModel
+import com.mhq.fynecast.core.presentation.SessionViewModel
 import com.mhq.fynecast.favorites.presentation.FavoritesViewModel
 import com.mhq.fynecast.home.presentation.HomeViewModel
 import com.mhq.fynecast.map.presentation.MapPickerViewModel
-import com.mhq.fynecast.settings.ui.SettingsViewModel
+import com.mhq.fynecast.settings.presentation.SettingsViewModel
 
 private fun CreationExtras.container(): AppContainer =
     (this[APPLICATION_KEY] as FyneCastApplication).container
@@ -6126,6 +6204,7 @@ val AppViewModelFactory: ViewModelProvider.Factory = viewModelFactory {
             resolveStartupLocationUseCase = container.resolveStartupLocationUseCase,
             refreshFavoriteSnapshotUseCase = container.refreshFavoriteSnapshotUseCase,
             toggleFavoriteUseCase = container.toggleFavoriteUseCase,
+            deleteFavoriteUseCase = container.deleteFavoriteUseCase,
             saveLastSearchedCityUseCase = container.saveLastSearchedCityUseCase,
             reverseGeocodeLocationUseCase = container.reverseGeocodeLocationUseCase,
             localizePlaceNameUseCase = container.localizePlaceNameUseCase
@@ -6173,6 +6252,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.mhq.fynecast.BuildConfig
 import com.mhq.fynecast.alerts.data.database.AlertsDatabase
+import com.mhq.fynecast.alerts.data.datasource.AlertsLocalDataSource
+import com.mhq.fynecast.alerts.data.datasource.AlertsRoomDataSource
 import com.mhq.fynecast.alerts.data.repoimpl.AlertTrackingControllerImpl
 import com.mhq.fynecast.alerts.data.repoimpl.AlertsRepoImpl
 import com.mhq.fynecast.alerts.domain.repository.AlertTrackingController
@@ -6220,33 +6301,44 @@ import com.mhq.fynecast.core.data.infra.FirebaseCurrentUserProvider
 import com.mhq.fynecast.core.data.location.SelectedCityRepositoryImpl
 import com.mhq.fynecast.core.data.time.SystemTimeProvider
 import com.mhq.fynecast.core.domain.infra.AppInitializer
+import com.mhq.fynecast.core.domain.infra.AppLanguageProvider
 import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
-import com.mhq.fynecast.core.domain.time.TimeProvider
-import com.mhq.fynecast.favorites.data.database.FavoritesDatabase
-import com.mhq.fynecast.favorites.data.repoimpl.FavoritesRepoImpl
-import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
-import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
-import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
-import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
-import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
-import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
-import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
-import com.mhq.fynecast.home.data.api.location.LocationApiService
-import com.mhq.fynecast.home.data.api.weather.WeatherApiService
-import com.mhq.fynecast.home.data.infra.AndroidLocationStatusChecker
-import com.mhq.fynecast.home.data.infra.AndroidPlaceNameSource
-import com.mhq.fynecast.home.data.repoimpl.location.DefaultLocationRepoImpl
-import com.mhq.fynecast.home.data.repoimpl.location.PhotonLocationRepoImpl
-import com.mhq.fynecast.home.data.repoimpl.weather.InMemoryCurrentWeatherStore
-import com.mhq.fynecast.home.data.repoimpl.weather.WeatherRepoImpl
-import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
-import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
-import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
 import com.mhq.fynecast.core.domain.location.LocationRepository
 import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectedCityRepository
+import com.mhq.fynecast.core.domain.time.TimeProvider
+import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
 import com.mhq.fynecast.core.domain.weather.WeatherRepository
+import com.mhq.fynecast.favorites.data.database.FavoritesDatabase
+import com.mhq.fynecast.favorites.data.datasource.FavoritesLocalDataSource
+import com.mhq.fynecast.favorites.data.datasource.FavoritesRoomDataSource
+import com.mhq.fynecast.favorites.data.repoimpl.FavoritesRepoImpl
+import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
+import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
+import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.KeepFavoriteNamesLocalizedUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RelocalizeFavoriteNamesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
+import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
+import com.mhq.fynecast.home.data.api.location.LocationApiService
+import com.mhq.fynecast.home.data.api.weather.WeatherApiService
+import com.mhq.fynecast.home.data.datasource.location.AndroidPlaceNameSource
+import com.mhq.fynecast.home.data.datasource.location.DeviceLocationDataSource
+import com.mhq.fynecast.home.data.datasource.location.FusedDeviceLocationDataSource
+import com.mhq.fynecast.home.data.datasource.location.LocationRemoteDataSource
+import com.mhq.fynecast.home.data.datasource.location.PhotonLocationRemoteDataSource
+import com.mhq.fynecast.home.data.datasource.weather.WeatherRemoteDataSource
+import com.mhq.fynecast.home.data.datasource.weather.WeatherRemoteDataSourceImpl
+import com.mhq.fynecast.home.data.infra.AndroidLocationStatusChecker
+import com.mhq.fynecast.home.data.repoimpl.location.DefaultLocationRepoImpl
+import com.mhq.fynecast.home.data.repoimpl.location.PhotonLocationRepoImpl
+import com.mhq.fynecast.home.data.repoimpl.weather.InMemoryCurrentWeatherStore
+import com.mhq.fynecast.home.data.repoimpl.weather.WeatherRepoImpl
+import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
+import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
 import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
@@ -6258,6 +6350,7 @@ import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.home.domain.usecases.ResolveStartupLocationUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
+import com.mhq.fynecast.settings.data.infra.PreferencesAppLanguageProvider
 import com.mhq.fynecast.settings.data.repoimpl.UserPreferencesRepositoryImpl
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
 import com.mhq.fynecast.settings.domain.usecases.profile.ClearLastSearchedCityUseCase
@@ -6318,11 +6411,14 @@ class DefaultAppContainer(
     private val weatherApiRetrofitService: WeatherApiService by lazy {
         weatherApiRetrofit.create(WeatherApiService::class.java)
     }
-    private val weatherRepository: WeatherRepository by lazy {
-        WeatherRepoImpl(
+    private val weatherRemoteDataSource: WeatherRemoteDataSource by lazy {
+        WeatherRemoteDataSourceImpl(
             weatherApiService = weatherApiRetrofitService,
             apiKey = BuildConfig.WEATHER_API_KEY
         )
+    }
+    private val weatherRepository: WeatherRepository by lazy {
+        WeatherRepoImpl(remoteDataSource = weatherRemoteDataSource)
     }
     private val currentWeatherStore: CurrentWeatherStore by lazy {
         InMemoryCurrentWeatherStore()
@@ -6369,16 +6465,24 @@ class DefaultAppContainer(
     private val locationProviderStatusChecker: LocationProviderStatusChecker by lazy {
         AndroidLocationStatusChecker(appContext = context)
     }
+    private val deviceLocationDataSource: DeviceLocationDataSource by lazy {
+        FusedDeviceLocationDataSource(
+            fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+        )
+    }
     private val deviceLocationRepository: DeviceLocationRepository by lazy {
         DefaultLocationRepoImpl(
-            fusedLocationClient = LocationServices.getFusedLocationProviderClient(context),
+            deviceLocationDataSource = deviceLocationDataSource,
             statusChecker = locationProviderStatusChecker
         )
     }
+    private val locationRemoteDataSource: LocationRemoteDataSource by lazy {
+        PhotonLocationRemoteDataSource(photonApiRetrofitService)
+    }
     private val locationRepository: LocationRepository by lazy {
         PhotonLocationRepoImpl(
-            photonApiRetrofitService,
-            AndroidPlaceNameSource(context)
+            remoteDataSource = locationRemoteDataSource,
+            placeNameSource = AndroidPlaceNameSource(context)
         )
     }
     override val localizePlaceNameUseCase: LocalizePlaceNameUseCase by lazy {
@@ -6505,8 +6609,11 @@ class DefaultAppContainer(
 
 
     // Favorites Use Cases
+    private val favoritesLocalDataSource: FavoritesLocalDataSource by lazy {
+        FavoritesRoomDataSource(favoritesDatabase.favoriteDao())
+    }
     private val favoritesRepository: FavoritesRepository by lazy {
-        FavoritesRepoImpl(favoritesDatabase.favoriteDao(), currentUserProvider)
+        FavoritesRepoImpl(favoritesLocalDataSource, currentUserProvider)
     }
     private val favoritesDatabase: FavoritesDatabase by lazy {
         Room.databaseBuilder(
@@ -6536,6 +6643,19 @@ class DefaultAppContainer(
     override val restoreFavoriteUseCase: RestoreFavoriteUseCase by lazy {
         RestoreFavoriteUseCase(favoritesRepository)
     }
+    private val appLanguageProvider: AppLanguageProvider by lazy {
+        PreferencesAppLanguageProvider(userPreferencesRepository)
+    }
+    private val relocalizeFavoriteNamesUseCase: RelocalizeFavoriteNamesUseCase by lazy {
+        RelocalizeFavoriteNamesUseCase(favoritesRepository, locationRepository)
+    }
+    override val keepFavoriteNamesLocalizedUseCase: KeepFavoriteNamesLocalizedUseCase by lazy {
+        KeepFavoriteNamesLocalizedUseCase(
+            appLanguageProvider,
+            currentUserProvider,
+            relocalizeFavoriteNamesUseCase
+        )
+    }
 
     // Time
     private val timeProvider: TimeProvider by lazy { SystemTimeProvider() }
@@ -6551,8 +6671,11 @@ class DefaultAppContainer(
             "alerts_db"
         ).build()
     }
+    private val alertsLocalDataSource: AlertsLocalDataSource by lazy {
+        AlertsRoomDataSource(alertsDatabase.alertDao())
+    }
     private val alertsRepository: AlertsRepository by lazy {
-        AlertsRepoImpl(alertDao = alertsDatabase.alertDao())
+        AlertsRepoImpl(localDataSource = alertsLocalDataSource)
     }
     override val getAlertsUseCase: GetAlertsUseCase by lazy {
         GetAlertsUseCase(currentWeatherStore)
@@ -6718,6 +6841,19 @@ package com.mhq.fynecast.core.domain.infra
 
 interface AppInitializer {
     fun initializeDebugFeatures()
+}
+```
+
+## core\domain\infra\AppLanguageProvider.kt
+
+```kotlin
+package com.mhq.fynecast.core.domain.infra
+
+import kotlinx.coroutines.flow.Flow
+
+interface AppLanguageProvider {
+    /** The app language code ("en", "ar"): the current one first, then again on every change. */
+    fun observeLanguageCode(): Flow<String>
 }
 ```
 
@@ -7113,15 +7249,16 @@ enum class BottomNavTab(
 }
 ```
 
-## core\navigation\SessionViewModel.kt
+## core\presentation\SessionViewModel.kt
 
 ```kotlin
-package com.mhq.fynecast.core.navigation
+package com.mhq.fynecast.core.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mhq.fynecast.auth.domain.usecases.profile.RefreshUserSessionUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
+import com.mhq.fynecast.core.navigation.AppDestination
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -7145,6 +7282,38 @@ class SessionViewModel(
         viewModelScope.launch {
             if (!refreshUserSession()) _sessionExpired.send(Unit)
         }
+    }
+}
+```
+
+## core\presentation\text\UiText.kt
+
+```kotlin
+package com.mhq.fynecast.core.presentation.text
+
+import android.content.Context
+import androidx.annotation.StringRes
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+
+/** Text a ViewModel can publish without touching Context; the UI turns it into a String. */
+sealed class UiText {
+    data class Dynamic(val value: String) : UiText()
+    data class Resource(@StringRes val resId: Int, val args: List<Any> = emptyList()) : UiText()
+
+    @Composable
+    fun asString(): String = when (this) {
+        is Dynamic -> value
+        is Resource -> stringResource(resId, *args.toTypedArray())
+    }
+
+    fun asString(context: Context): String = when (this) {
+        is Dynamic -> value
+        is Resource -> context.getString(resId, *args.toTypedArray())
+    }
+
+    companion object {
+        fun res(@StringRes resId: Int, vararg args: Any): UiText = Resource(resId, args.toList())
     }
 }
 ```
@@ -7945,17 +8114,17 @@ import androidx.navigation.compose.rememberNavController
 import com.mhq.fynecast.R
 import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.screens.AlertsContainer
-import com.mhq.fynecast.auth.ui.editprofile.ui.EditProfileViewModel
+import com.mhq.fynecast.auth.presentation.editprofile.EditProfileViewModel
 import com.mhq.fynecast.auth.ui.editprofile.ui.screens.EditProfileContainer
 import com.mhq.fynecast.auth.ui.forgotpassword.ui.screens.ForgotPasswordContainer
 import com.mhq.fynecast.auth.ui.login.ui.screens.LoginContainer
-import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
+import com.mhq.fynecast.auth.presentation.signup.SignupViewModel
 import com.mhq.fynecast.auth.ui.signup.ui.screens.SignupContainer
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.navigation.AppDestination
 import com.mhq.fynecast.core.navigation.BottomNavTab
 import com.mhq.fynecast.core.navigation.BottomNavigationBar
-import com.mhq.fynecast.core.navigation.SessionViewModel
+import com.mhq.fynecast.core.presentation.SessionViewModel
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.favorites.presentation.FavoritesViewModel
 import com.mhq.fynecast.favorites.ui.screens.FavoritesContainer
@@ -7964,7 +8133,7 @@ import com.mhq.fynecast.home.presentation.HomeViewModel
 import com.mhq.fynecast.home.ui.screens.HomeContainer
 import com.mhq.fynecast.map.presentation.MapPickerViewModel
 import com.mhq.fynecast.map.ui.screens.MapPickerScreen
-import com.mhq.fynecast.settings.ui.SettingsViewModel
+import com.mhq.fynecast.settings.presentation.SettingsViewModel
 import com.mhq.fynecast.settings.ui.screens.SettingsContainer
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
@@ -8311,10 +8480,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.core.di.AppViewModelFactory
-import com.mhq.fynecast.core.navigation.SessionViewModel
+import com.mhq.fynecast.core.presentation.SessionViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.FyneCastApp
 import com.mhq.fynecast.home.presentation.HomeViewModel
-import com.mhq.fynecast.settings.ui.SettingsViewModel
+import com.mhq.fynecast.settings.presentation.SettingsViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -8457,38 +8626,6 @@ fun Context.openNotificationSettings() {
         Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
             .putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
     )
-}
-```
-
-## core\ui\text\UiText.kt
-
-```kotlin
-package com.mhq.fynecast.core.ui.text
-
-import android.content.Context
-import androidx.annotation.StringRes
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
-
-/** Text a ViewModel can publish without touching Context; the UI turns it into a String. */
-sealed class UiText {
-    data class Dynamic(val value: String) : UiText()
-    data class Resource(@StringRes val resId: Int, val args: List<Any> = emptyList()) : UiText()
-
-    @Composable
-    fun asString(): String = when (this) {
-        is Dynamic -> value
-        is Resource -> stringResource(resId, *args.toTypedArray())
-    }
-
-    fun asString(context: Context): String = when (this) {
-        is Dynamic -> value
-        is Resource -> context.getString(resId, *args.toTypedArray())
-    }
-
-    companion object {
-        fun res(@StringRes resId: Int, vararg args: Any): UiText = Resource(resId, args.toList())
-    }
 }
 ```
 
@@ -8706,6 +8843,17 @@ abstract class FavoriteDao {
         icon: String
     )
 
+    @Query(
+        """UPDATE favorites SET cityName = :cityName, countryName = :countryName
+              WHERE userId = :userId AND locationKey = :key"""
+    )
+    abstract suspend fun updateNames(
+        userId: String,
+        key: String,
+        cityName: String,
+        countryName: String
+    )
+
     @Query("SELECT * FROM favorites WHERE userId = :userId ORDER BY cityName ASC, countryName ASC")
     abstract fun getAllFavorites(userId: String): Flow<List<FavoriteEntity>>
 
@@ -8759,6 +8907,81 @@ abstract class FavoritesDatabase : RoomDatabase() {
 }
 ```
 
+## favorites\data\datasource\FavoritesLocalDataSource.kt
+
+```kotlin
+package com.mhq.fynecast.favorites.data.datasource
+
+import com.mhq.fynecast.favorites.data.database.FavoriteEntity
+import kotlinx.coroutines.flow.Flow
+
+/** Where favorites are stored on the phone. Works with database entities, never domain models. */
+interface FavoritesLocalDataSource {
+    fun observeIsFavorite(userId: String, key: String): Flow<Boolean>
+    fun observeAll(userId: String): Flow<List<FavoriteEntity>>
+    suspend fun getAllOnce(userId: String): List<FavoriteEntity>
+
+    /** Adds the favorite if it is missing and removes it if present, as one atomic step. */
+    suspend fun toggle(entity: FavoriteEntity)
+    suspend fun insert(entity: FavoriteEntity)
+    suspend fun delete(userId: String, key: String)
+    suspend fun updateNames(userId: String, key: String, cityName: String, countryName: String)
+    suspend fun updateSnapshot(
+        userId: String,
+        key: String,
+        tempC: Double,
+        tempF: Double,
+        icon: String
+    )
+}
+```
+
+## favorites\data\datasource\FavoritesRoomDataSource.kt
+
+```kotlin
+package com.mhq.fynecast.favorites.data.datasource
+
+import com.mhq.fynecast.favorites.data.database.FavoriteDao
+import com.mhq.fynecast.favorites.data.database.FavoriteEntity
+import kotlinx.coroutines.flow.Flow
+
+class FavoritesRoomDataSource(
+    private val favoriteDao: FavoriteDao
+) : FavoritesLocalDataSource {
+
+    override fun observeIsFavorite(userId: String, key: String): Flow<Boolean> =
+        favoriteDao.observeIsFavorite(userId, key)
+
+    override fun observeAll(userId: String): Flow<List<FavoriteEntity>> =
+        favoriteDao.getAllFavorites(userId)
+
+    override suspend fun getAllOnce(userId: String): List<FavoriteEntity> =
+        favoriteDao.getFavoritesOnce(userId)
+
+    override suspend fun toggle(entity: FavoriteEntity) = favoriteDao.toggle(entity)
+
+    override suspend fun insert(entity: FavoriteEntity) = favoriteDao.insertFavorite(entity)
+
+    override suspend fun delete(userId: String, key: String) =
+        favoriteDao.deleteFavorite(userId, key)
+
+    override suspend fun updateNames(
+        userId: String,
+        key: String,
+        cityName: String,
+        countryName: String
+    ) = favoriteDao.updateNames(userId, key, cityName, countryName)
+
+    override suspend fun updateSnapshot(
+        userId: String,
+        key: String,
+        tempC: Double,
+        tempF: Double,
+        icon: String
+    ) = favoriteDao.updateSnapshot(userId, key, tempC, tempF, icon)
+}
+```
+
 ## favorites\data\mapper\FavoritesMapper.kt
 
 ```kotlin
@@ -8796,7 +9019,7 @@ fun FavoriteCityDomainModel.toEntity(userId: String) = FavoriteEntity(
 package com.mhq.fynecast.favorites.data.repoimpl
 
 import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
-import com.mhq.fynecast.favorites.data.database.FavoriteDao
+import com.mhq.fynecast.favorites.data.datasource.FavoritesLocalDataSource
 import com.mhq.fynecast.favorites.data.mapper.toDomain
 import com.mhq.fynecast.favorites.data.mapper.toEntity
 import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
@@ -8809,7 +9032,7 @@ import kotlinx.coroutines.flow.map
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FavoritesRepoImpl(
-    private val favoriteDao: FavoriteDao,
+    private val localDataSource: FavoritesLocalDataSource,
     private val currentUserProvider: CurrentUserProvider
 ) : FavoritesRepository {
 
@@ -8818,27 +9041,27 @@ class FavoritesRepoImpl(
             if (userId == null)
                 flowOf(false)
             else
-                favoriteDao.observeIsFavorite(userId, id)
+                localDataSource.observeIsFavorite(userId, id)
         }
 
     override suspend fun toggleFavorite(city: FavoriteCityDomainModel) {
         val userId = currentUserProvider.currentUserId() ?: return
-        favoriteDao.toggle(city.toEntity(userId))
+        localDataSource.toggle(city.toEntity(userId))
     }
 
     override suspend fun saveFavorite(city: FavoriteCityDomainModel) {
         val userId = currentUserProvider.currentUserId() ?: return
-        favoriteDao.insertFavorite(city.toEntity(userId))
+        localDataSource.insert(city.toEntity(userId))
     }
 
     override suspend fun deleteFavorite(id: String) {
         val userId = currentUserProvider.currentUserId() ?: return
-        favoriteDao.deleteFavorite(userId, id)
+        localDataSource.delete(userId, id)
     }
 
     override suspend fun refreshSnapshot(city: FavoriteCityDomainModel) {
         val userId = currentUserProvider.currentUserId() ?: return
-        favoriteDao.updateSnapshot(
+        localDataSource.updateSnapshot(
             userId,
             city.id,
             city.temperatureC,
@@ -8847,9 +9070,14 @@ class FavoritesRepoImpl(
         )
     }
 
+    override suspend fun updateNames(id: String, cityName: String, countryName: String) {
+        val userId = currentUserProvider.currentUserId() ?: return
+        localDataSource.updateNames(userId, id, cityName, countryName)
+    }
+
     override suspend fun getFavoritesList(): List<FavoriteCityDomainModel> {
         val userId = currentUserProvider.currentUserId() ?: return emptyList()
-        return favoriteDao.getFavoritesOnce(userId).map { it.toDomain() }
+        return localDataSource.getAllOnce(userId).map { it.toDomain() }
     }
 
     override fun getAllFavorites(): Flow<List<FavoriteCityDomainModel>> =
@@ -8857,7 +9085,7 @@ class FavoritesRepoImpl(
             if (userId == null) {
                 flowOf(emptyList())
             } else {
-                favoriteDao.getAllFavorites(userId)
+                localDataSource.observeAll(userId)
                     .map { entities -> entities.map { it.toDomain() } }
             }
         }
@@ -8910,6 +9138,8 @@ interface FavoritesRepository {
     suspend fun deleteFavorite(id: String)
     /** updates temperature and icon. */
     suspend fun refreshSnapshot(city: FavoriteCityDomainModel)
+    /** rewrites the saved city and country names, e.g. after the app language changed. */
+    suspend fun updateNames(id: String, cityName: String, countryName: String)
     /** one-off read, not observed. */
     suspend fun getFavoritesList(): List<FavoriteCityDomainModel>
 }
@@ -8939,6 +9169,53 @@ import kotlinx.coroutines.flow.Flow
 class GetFavoritesUseCase(private val favoritesRepository: FavoritesRepository) {
     operator fun invoke(): Flow<List<FavoriteCityDomainModel>> =
         favoritesRepository.getAllFavorites()
+}
+```
+
+## favorites\domain\usecases\KeepFavoriteNamesLocalizedUseCase.kt
+
+```kotlin
+package com.mhq.fynecast.favorites.domain.usecases
+
+import com.mhq.fynecast.core.domain.infra.AppLanguageProvider
+import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+
+/**
+ * Keeps the saved favorite names in the app language without any screen being involved.
+ *
+ * It rewrites them whenever the app language changes while someone is signed in,
+ * and when a user signs in (their favorites may have been saved in another language).
+ * Nothing runs at app start: the names are already in the language they were saved in.
+ */
+class KeepFavoriteNamesLocalizedUseCase(
+    private val appLanguageProvider: AppLanguageProvider,
+    private val currentUserProvider: CurrentUserProvider,
+    private val relocalizeFavoriteNames: RelocalizeFavoriteNamesUseCase
+) {
+    /** Never returns on its own: it runs for as long as the scope that calls it lives. */
+    suspend operator fun invoke() {
+        combine(
+            appLanguageProvider.observeLanguageCode(),
+            currentUserProvider.observeUserId()
+        ) { lang, userId -> lang to userId }
+            .distinctUntilChanged()
+            .drop(1) // the state the app started in
+            .collectLatest { (lang, userId) ->
+                if (userId == null) return@collectLatest
+                try {
+                    relocalizeFavoriteNames(lang)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // The old names stay; the next language change or sign-in tries again.
+                }
+            }
+    }
 }
 ```
 
@@ -9030,6 +9307,72 @@ import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
 class RefreshFavoriteSnapshotUseCase(private val favoritesRepository: FavoritesRepository) {
     suspend operator fun invoke(city: FavoriteCityDomainModel) =
         favoritesRepository.refreshSnapshot(city)
+}
+```
+
+## favorites\domain\usecases\RelocalizeFavoriteNamesUseCase.kt
+
+```kotlin
+package com.mhq.fynecast.favorites.domain.usecases
+
+import com.mhq.fynecast.core.domain.location.LocationRepository
+import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
+import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+
+/**
+ * One pass over the favorites of the signed-in user: rewrites each saved city and country
+ * in [lang] (a city saved in English reads in Arabic after the switch, and back).
+ *
+ * A favorite whose name cannot be looked up (offline, no match near its coordinates)
+ * keeps the name it already has.
+ */
+class RelocalizeFavoriteNamesUseCase(
+    private val favoritesRepository: FavoritesRepository,
+    private val locationRepository: LocationRepository
+) {
+    suspend operator fun invoke(lang: String) {
+        val favorites = favoritesRepository.getFavoritesList()
+        if (favorites.isEmpty()) return
+        val gate = Semaphore(MAX_PARALLEL_LOOKUPS)
+        coroutineScope {
+            favorites.map { favorite ->
+                async { gate.withPermit { relocalize(favorite, lang) } }
+            }.awaitAll()
+        }
+    }
+
+    private suspend fun relocalize(favorite: FavoriteCityDomainModel, lang: String) {
+        try {
+            val localized = locationRepository.getLocalizedPlaceName(
+                name = "${favorite.cityName}, ${favorite.countryName}",
+                lat = favorite.latitude,
+                lon = favorite.longitude,
+                lang = lang
+            ) ?: return
+
+            val city = localized.substringBefore(",").trim()
+            // The geocoder leaves the country out when it equals the city (e.g. "Singapore").
+            val country = localized.substringAfter(",", "").trim().ifBlank { city }
+            if (city.isBlank()) return
+            if (city == favorite.cityName && country == favorite.countryName) return
+
+            favoritesRepository.updateNames(favorite.id, city, country)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Keep the old name.
+        }
+    }
+
+    private companion object {
+        const val MAX_PARALLEL_LOOKUPS = 3
+    }
 }
 ```
 
@@ -9250,77 +9593,75 @@ data class FavoriteCityPresentationModel(
 package com.mhq.fynecast.favorites.ui.components
 
 import android.content.res.Configuration
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
+import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.favorites.presentation.model.FavoriteCityPresentationModel
 
+/** Corner radius shared with the swipe-to-delete background so the red layer matches the card. */
+val FavoriteCardCornerRadius = 24.dp
+
+/**
+ * One favorite city, about 68 dp tall: icon bubble, city and country, big light temperature.
+ * The tap is handled inside the card so the ripple follows its rounded corners.
+ */
 @Composable
 fun FavoriteCityItem(
     favorite: FavoriteCityPresentationModel,
     isMetric: Boolean,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val onBackground = MaterialTheme.colorScheme.onBackground
+
     GlassyCard(
-        modifier = modifier.padding(horizontal = 8.dp),
-        containerAlpha = 0.12f,
-        borderAlpha = 0.3f
+        cornerRadius = FavoriteCardCornerRadius,
+        padding = 0.dp,
+        containerAlpha = 0.06f,
+        borderAlpha = 0.15f,
+        modifier = modifier.fillMaxWidth()
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
-            // Left — City info
-            Column(
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 12.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = favorite.cityName,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.Cursive,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = favorite.countryName,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Right — Weather icon + temp
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(onBackground.copy(alpha = 0.06f))
             ) {
                 AsyncImage(
                     model = "https:${favorite.weatherIconUrl}",
@@ -9328,45 +9669,86 @@ fun FavoriteCityItem(
                     error = painterResource(R.drawable.ic_launcher_foreground),
                     contentDescription = stringResource(R.string.weather_icon),
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.size(48.dp)
-                )
-                Text(
-                    text = TemperatureFormatter.format(
-                        if (isMetric) favorite.temperatureC else favorite.temperatureF
-                    ),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimary
+                    modifier = Modifier.size(36.dp)
                 )
             }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = favorite.cityName,
+                    color = onBackground,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.2).sp.unlessArabic()
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = favorite.countryName.uppercase(),
+                    color = onBackground.copy(alpha = 0.45f),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp.unlessArabic()
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Text(
+                text = TemperatureFormatter.format(
+                    if (isMetric) favorite.temperatureC else favorite.temperatureF
+                ),
+                color = onBackground,
+                fontSize = 30.sp,
+                lineHeight = 32.sp,
+                fontWeight = FontWeight.W300,
+                maxLines = 1
+            )
         }
     }
 }
 
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
+private val previewFavorite = FavoriteCityPresentationModel(
+    id = "31.2,29.92",
+    cityName = "Alexandria",
+    countryName = "Egypt",
+    temperatureC = 24.0,
+    temperatureF = 75.2,
+    weatherIconUrl = "Url"
 )
+
+@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE)
+@Composable
+private fun FavoriteCityItemLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        FavoriteCityItem(
+            favorite = previewFavorite,
+            isMetric = true,
+            onClick = {},
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+
 @Preview(
-    name = "Dark Mode",
+    name = "Dark",
     uiMode = Configuration.UI_MODE_NIGHT_YES,
     showBackground = true,
-    backgroundColor = 0xFF000000
+    backgroundColor = 0xFF0F172A
 )
 @Composable
-private fun FavoriteCityItemPreview() {
-    FyneCastTheme {
+private fun FavoriteCityItemDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
         FavoriteCityItem(
-            favorite = FavoriteCityPresentationModel(
-                id = "31.2,29.92",
-                cityName = "Alexandria",
-                countryName = "Egypt",
-                temperatureC = 24.0,
-                temperatureF = 75.2,
-                weatherIconUrl = "Url"
-            ),
-            isMetric = true
+            favorite = previewFavorite,
+            isMetric = true,
+            onClick = {},
+            modifier = Modifier.padding(16.dp)
         )
     }
 }
@@ -9386,6 +9768,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.runtime.Composable
@@ -9399,22 +9782,24 @@ import com.mhq.fynecast.R
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SwipeBackground(dismissState: SwipeToDismissBoxState) {
-    val color = when (dismissState.dismissDirection) {
-        SwipeToDismissBoxValue.EndToStart -> Color.Red.copy(alpha = 0.8f)
-        else -> Color.Transparent
+    val isSwipingToDelete = dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart
+    val color = if (isSwipingToDelete) {
+        MaterialTheme.colorScheme.error.copy(alpha = 0.85f)
+    } else {
+        Color.Transparent
     }
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(color, shape = RoundedCornerShape(16.dp))
+            .background(color, shape = RoundedCornerShape(FavoriteCardCornerRadius))
             .padding(horizontal = 24.dp),
         contentAlignment = Alignment.CenterEnd
     ) {
-        if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+        if (isSwipingToDelete) {
             Icon(
                 imageVector = Icons.Default.Delete,
                 contentDescription = stringResource(R.string.delete),
-                tint = Color.White
+                tint = MaterialTheme.colorScheme.onError
             )
         }
     }
@@ -9620,7 +10005,7 @@ fun FavoritesContainer(
      * Brings every favorite's temperature up to date when the tab is shown
      * (the use case skips the call if it ran in the last 10 minutes).
      * */
-    LaunchedEffect(Unit) {
+    LaunchedEffect(langCode) {
         favoritesViewModel.onScreenShown(langCode)
     }
 
@@ -9685,12 +10070,12 @@ fun FavoritesContainer(
 ```kotlin
 package com.mhq.fynecast.favorites.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.SwipeToDismissBox
@@ -9716,14 +10101,20 @@ fun FavoritesContent(
     contentPadding: PaddingValues = PaddingValues(8.dp),
     modifier: Modifier = Modifier
 ) {
+    // Same 16 dp side margin as the Home cards.
     Box(
         modifier = modifier
-            .padding(vertical = 48.dp, horizontal = 24.dp)
             .fillMaxSize()
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp)
     ) {
         LazyColumn(
-            modifier = Modifier.padding(contentPadding),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = 12.dp,
+                bottom = contentPadding.calculateBottomPadding() + 12.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             items(
                 items = favorites,
@@ -9756,7 +10147,7 @@ fun FavoritesContent(
                     FavoriteCityItem(
                         favorite = favorite,
                         isMetric = isMetric,
-                        modifier = Modifier.clickable { onFavoriteClick(favorite.id) }
+                        onClick = { onFavoriteClick(favorite.id) }
                     )
                 }
             }
@@ -10164,54 +10555,16 @@ interface WeatherApiService {
 }
 ```
 
-## home\data\infra\AndroidLocationStatusChecker.kt
+## home\data\datasource\location\AndroidPlaceNameSource.kt
 
 ```kotlin
-package com.mhq.fynecast.home.data.infra
-
-import android.Manifest
-import android.content.Context
-import android.content.pm.PackageManager
-import android.location.LocationManager
-import androidx.core.content.ContextCompat
-import androidx.core.location.LocationManagerCompat
-import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
-
-class AndroidLocationStatusChecker(
-    private val appContext: Context
-) : LocationProviderStatusChecker {
-
-    override fun hasLocationPermissions(): Boolean {
-        val fineLocation = ContextCompat.checkSelfPermission(
-            appContext, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        val coarseLocation = ContextCompat.checkSelfPermission(
-            appContext, Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        return fineLocation || coarseLocation
-    }
-
-    override fun isLocationEnabled(): Boolean {
-        val locationManager =
-            appContext.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        return LocationManagerCompat.isLocationEnabled(locationManager)
-    }
-}
-```
-
-## home\data\infra\AndroidPlaceNameSource.kt
-
-```kotlin
-package com.mhq.fynecast.home.data.infra
+package com.mhq.fynecast.home.data.datasource.location
 
 import android.content.Context
 import android.location.Address
 import android.location.Geocoder
 import android.location.Location
 import android.os.Build
-import com.mhq.fynecast.home.data.repoimpl.location.PlaceNameSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -10370,6 +10723,235 @@ class AndroidPlaceNameSource(context: Context) : PlaceNameSource {
 }
 ```
 
+## home\data\datasource\location\DeviceLocationDataSource.kt
+
+```kotlin
+package com.mhq.fynecast.home.data.datasource.location
+
+import android.location.Location
+
+/** The phone's position from the device itself (no permission or settings checks here). */
+interface DeviceLocationDataSource {
+    /** A fresh fix, else a recent cached one, else null. Never throws except on cancellation. */
+    suspend fun getCurrentLocation(): Location?
+}
+```
+
+## home\data\datasource\location\FusedDeviceLocationDataSource.kt
+
+```kotlin
+package com.mhq.fynecast.home.data.datasource.location
+
+import android.annotation.SuppressLint
+import android.location.Location
+import android.os.SystemClock
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
+import kotlin.time.Duration.Companion.milliseconds
+
+class FusedDeviceLocationDataSource(
+    private val fusedLocationClient: FusedLocationProviderClient
+) : DeviceLocationDataSource {
+
+    @SuppressLint("MissingPermission")
+    override suspend fun getCurrentLocation(): Location? =
+        try {
+            withTimeoutOrNull(FRESH_FIX_TIMEOUT_MILLIS.milliseconds) { requestFreshLocation() }
+                ?: withTimeoutOrNull(LAST_KNOWN_TIMEOUT_MILLIS.milliseconds) { lastKnownLocation() }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null   // e.g. permission revoked between the check and the request
+        }
+
+    @SuppressLint("MissingPermission")
+    private suspend fun requestFreshLocation(): Location? =
+        suspendCancellableCoroutine { continuation ->
+            val cancellation = CancellationTokenSource()
+            continuation.invokeOnCancellation { cancellation.cancel() }
+
+            fusedLocationClient
+                .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cancellation.token)
+                .addOnSuccessListener { if (continuation.isActive) continuation.resume(it) }
+                .addOnFailureListener { if (continuation.isActive) continuation.resume(null) }
+                .addOnCanceledListener { if (continuation.isActive) continuation.resume(null) }
+        }
+
+    /** A recent cached fix only; an old one could belong to a different city. */
+    @SuppressLint("MissingPermission")
+    private suspend fun lastKnownLocation(): Location? =
+        suspendCancellableCoroutine { continuation ->
+            fusedLocationClient.lastLocation
+                .addOnSuccessListener { location ->
+                    if (continuation.isActive) continuation.resume(location?.takeIf { it.ageMillis() <= MAX_CACHED_FIX_AGE_MILLIS })
+                }
+                .addOnFailureListener { if (continuation.isActive) continuation.resume(null) }
+                .addOnCanceledListener { if (continuation.isActive) continuation.resume(null) }
+        }
+
+    private fun Location.ageMillis(): Long =
+        (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos) / 1_000_000
+
+    private companion object {
+        const val LAST_KNOWN_TIMEOUT_MILLIS = 2_000L
+        const val FRESH_FIX_TIMEOUT_MILLIS = 8_000L
+        const val MAX_CACHED_FIX_AGE_MILLIS = 30 * 60 * 1000L
+    }
+}
+```
+
+## home\data\datasource\location\LocationRemoteDataSource.kt
+
+```kotlin
+package com.mhq.fynecast.home.data.datasource.location
+
+import com.mhq.fynecast.home.data.api.location.dto.PhotonResponseDto
+
+/** Where place search and reverse geocoding come from over the network. Returns raw API data. */
+interface LocationRemoteDataSource {
+    suspend fun searchPlaces(query: String, lang: String): PhotonResponseDto
+    suspend fun reverseGeocode(lat: Double, lon: Double, lang: String): PhotonResponseDto
+}
+```
+
+## home\data\datasource\location\PhotonLocationRemoteDataSource.kt
+
+```kotlin
+package com.mhq.fynecast.home.data.datasource.location
+
+import com.mhq.fynecast.home.data.api.location.LocationApiService
+import com.mhq.fynecast.home.data.api.location.dto.PhotonResponseDto
+
+class PhotonLocationRemoteDataSource(
+    private val locationApiService: LocationApiService
+) : LocationRemoteDataSource {
+
+    override suspend fun searchPlaces(query: String, lang: String): PhotonResponseDto =
+        locationApiService.getSuggestions(query = query, lang = photonLang(lang))
+
+    override suspend fun reverseGeocode(lat: Double, lon: Double, lang: String): PhotonResponseDto =
+        locationApiService.reverseGeocode(lat = lat, lon = lon, lang = photonLang(lang))
+
+    /** Photon's public server only knows English, German and French;
+     * anything else falls back to English. */
+    private fun photonLang(lang: String): String =
+        if (lang in PHOTON_LANGUAGES)
+            lang
+        else
+            "en"
+
+    private companion object {
+        val PHOTON_LANGUAGES = setOf("en", "de", "fr")
+    }
+}
+```
+
+## home\data\datasource\location\PlaceNameSource.kt
+
+```kotlin
+package com.mhq.fynecast.home.data.datasource.location
+
+interface PlaceNameSource {
+    /** The city and country at these coordinates,
+     * written in [langCode], or null. */
+    suspend fun nameAt(
+        latitude: Double,
+        longitude: Double,
+        langCode: String
+    ): String?
+
+    /**
+     * [name] rewritten in [langCode],
+     * for the place within about 50 km of the coordinates.
+     * Null when nothing close enough is found,
+     * so callers keep the name they already have.
+     */
+    suspend fun localize(
+        name: String,
+        latitude: Double,
+        longitude: Double,
+        langCode: String
+    ): String?
+}
+```
+
+## home\data\datasource\weather\WeatherRemoteDataSource.kt
+
+```kotlin
+package com.mhq.fynecast.home.data.datasource.weather
+
+import com.mhq.fynecast.home.data.api.weather.dto.WeatherApiResponse
+
+/** Where weather comes from over the network. Returns raw API data, never domain models. */
+interface WeatherRemoteDataSource {
+    suspend fun fetchWeather(query: String, lang: String): WeatherApiResponse
+}
+```
+
+## home\data\datasource\weather\WeatherRemoteDataSourceImpl.kt
+
+```kotlin
+package com.mhq.fynecast.home.data.datasource.weather
+
+import com.mhq.fynecast.home.data.api.weather.WeatherApiService
+import com.mhq.fynecast.home.data.api.weather.dto.WeatherApiResponse
+
+class WeatherRemoteDataSourceImpl(
+    private val weatherApiService: WeatherApiService,
+    private val apiKey: String
+) : WeatherRemoteDataSource {
+
+    override suspend fun fetchWeather(query: String, lang: String): WeatherApiResponse =
+        weatherApiService.getWeatherData(
+            key = apiKey,
+            city = query,
+            languageCode = lang
+        )
+}
+```
+
+## home\data\infra\AndroidLocationStatusChecker.kt
+
+```kotlin
+package com.mhq.fynecast.home.data.infra
+
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.LocationManager
+import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
+import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
+
+class AndroidLocationStatusChecker(
+    private val appContext: Context
+) : LocationProviderStatusChecker {
+
+    override fun hasLocationPermissions(): Boolean {
+        val fineLocation = ContextCompat.checkSelfPermission(
+            appContext, Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val coarseLocation = ContextCompat.checkSelfPermission(
+            appContext, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        return fineLocation || coarseLocation
+    }
+
+    override fun isLocationEnabled(): Boolean {
+        val locationManager =
+            appContext.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        return LocationManagerCompat.isLocationEnabled(locationManager)
+    }
+}
+```
+
 ## home\data\mapper\AlertDtoMapper.kt
 
 ```kotlin
@@ -10513,76 +11095,22 @@ fun WeatherApiResponse.toDomain(): WeatherDomainModel {
 ```kotlin
 package com.mhq.fynecast.home.data.repoimpl.location
 
-import android.annotation.SuppressLint
-import android.location.Location
-import android.os.SystemClock
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.Priority
-import com.google.android.gms.tasks.CancellationTokenSource
 import com.mhq.fynecast.core.domain.location.GeoCoordinates
+import com.mhq.fynecast.home.data.datasource.location.DeviceLocationDataSource
 import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
 import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlin.coroutines.resume
-import kotlin.time.Duration.Companion.milliseconds
 
 class DefaultLocationRepoImpl(
-    private val fusedLocationClient: FusedLocationProviderClient,
+    private val deviceLocationDataSource: DeviceLocationDataSource,
     private val statusChecker: LocationProviderStatusChecker
 ) : DeviceLocationRepository {
 
-    @SuppressLint("MissingPermission")
     override suspend fun getCurrentLocation(): GeoCoordinates? {
         if (!statusChecker.hasLocationPermissions() || !statusChecker.isLocationEnabled()) return null
 
-        val location = try {
-            withTimeoutOrNull(FRESH_FIX_TIMEOUT_MILLIS.milliseconds) { requestFreshLocation() }
-                ?: withTimeoutOrNull(LAST_KNOWN_TIMEOUT_MILLIS.milliseconds) { lastKnownLocation() }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            null   // e.g. permission revoked between the check and the request
-        }
-
-        return location?.let { GeoCoordinates(latitude = it.latitude, longitude = it.longitude) }
+        return deviceLocationDataSource.getCurrentLocation()
+            ?.let { GeoCoordinates(latitude = it.latitude, longitude = it.longitude) }
     }
-
-    @SuppressLint("MissingPermission")
-    private suspend fun requestFreshLocation(): Location? =
-        suspendCancellableCoroutine { continuation ->
-            val cancellation = CancellationTokenSource()
-            continuation.invokeOnCancellation { cancellation.cancel() }
-
-            fusedLocationClient
-                .getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cancellation.token)
-                .addOnSuccessListener { if (continuation.isActive) continuation.resume(it) }
-                .addOnFailureListener { if (continuation.isActive) continuation.resume(null) }
-                .addOnCanceledListener { if (continuation.isActive) continuation.resume(null) }
-        }
-
-    /** A recent cached fix only; an old one could belong to a different city. */
-    @SuppressLint("MissingPermission")
-    private suspend fun lastKnownLocation(): Location? =
-        suspendCancellableCoroutine { continuation ->
-            fusedLocationClient.lastLocation
-                .addOnSuccessListener { location ->
-                    if (continuation.isActive) continuation.resume(location?.takeIf { it.ageMillis() <= MAX_CACHED_FIX_AGE_MILLIS })
-                }
-                .addOnFailureListener { if (continuation.isActive) continuation.resume(null) }
-                .addOnCanceledListener { if (continuation.isActive) continuation.resume(null) }
-        }
-
-    private fun Location.ageMillis(): Long =
-        (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos) / 1_000_000
-
-    private companion object {
-        const val LAST_KNOWN_TIMEOUT_MILLIS = 2_000L
-        const val FRESH_FIX_TIMEOUT_MILLIS = 8_000L
-        const val MAX_CACHED_FIX_AGE_MILLIS = 30 * 60 * 1000L
-    }
-
 }
 ```
 
@@ -10591,13 +11119,14 @@ class DefaultLocationRepoImpl(
 ```kotlin
 package com.mhq.fynecast.home.data.repoimpl.location
 
-import com.mhq.fynecast.home.data.api.location.LocationApiService
 import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 import com.mhq.fynecast.core.domain.location.LocationRepository
+import com.mhq.fynecast.home.data.datasource.location.LocationRemoteDataSource
+import com.mhq.fynecast.home.data.datasource.location.PlaceNameSource
 import kotlinx.coroutines.CancellationException
 
 class PhotonLocationRepoImpl(
-    private val locationApiService: LocationApiService,
+    private val remoteDataSource: LocationRemoteDataSource,
     private val placeNameSource: PlaceNameSource
 ) : LocationRepository {
 
@@ -10606,7 +11135,7 @@ class PhotonLocationRepoImpl(
         lang: String
     ): List<CitySuggestionModel> {
         return try {
-            val response = locationApiService.getSuggestions(query = query, lang = photonLang(lang))
+            val response = remoteDataSource.searchPlaces(query, lang)
             response.features.map { feature ->
                 val coordinates = feature.geometry.coordinates
                 val props = feature.properties
@@ -10636,8 +11165,7 @@ class PhotonLocationRepoImpl(
             return CitySuggestionModel(fullName = name, latitude = lat, longitude = lon)
         }
         return try {
-            val response =
-                locationApiService.reverseGeocode(lat = lat, lon = lon, lang = photonLang(lang))
+            val response = remoteDataSource.reverseGeocode(lat, lon, lang)
             val bestFeature = response.features.firstOrNull { feature ->
                 val props = feature.properties
                 !props.state.isNullOrBlank() ||
@@ -10674,47 +11202,6 @@ class PhotonLocationRepoImpl(
         lon: Double,
         lang: String
     ): String? = placeNameSource.localize(name, lat, lon, lang)
-
-    /** Photon's public server only knows English, German and French;
-     * anything else falls back to English. */
-    private fun photonLang(lang: String): String =
-        if (lang in PHOTON_LANGUAGES)
-            lang
-        else
-            "en"
-
-    private companion object {
-        val PHOTON_LANGUAGES = setOf("en", "de", "fr")
-    }
-}
-```
-
-## home\data\repoimpl\location\PlaceNameSource.kt
-
-```kotlin
-package com.mhq.fynecast.home.data.repoimpl.location
-
-interface PlaceNameSource {
-    /** The city and country at these coordinates,
-     * written in [langCode], or null. */
-    suspend fun nameAt(
-        latitude: Double,
-        longitude: Double,
-        langCode: String
-    ): String?
-
-    /**
-     * [name] rewritten in [langCode],
-     * for the place within about 50 km of the coordinates.
-     * Null when nothing close enough is found,
-     * so callers keep the name they already have.
-     */
-    suspend fun localize(
-        name: String,
-        latitude: Double,
-        longitude: Double,
-        langCode: String
-    ): String?
 }
 ```
 
@@ -10741,21 +11228,17 @@ class InMemoryCurrentWeatherStore : CurrentWeatherStore {
 ```kotlin
 package com.mhq.fynecast.home.data.repoimpl.weather
 
-import com.mhq.fynecast.home.data.api.weather.WeatherApiService
-import com.mhq.fynecast.home.data.mapper.toDomain
 import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
 import com.mhq.fynecast.core.domain.weather.WeatherRepository
+import com.mhq.fynecast.home.data.datasource.weather.WeatherRemoteDataSource
+import com.mhq.fynecast.home.data.mapper.toDomain
 
 class WeatherRepoImpl(
-    private val weatherApiService: WeatherApiService,
-    private val apiKey: String
+    private val remoteDataSource: WeatherRemoteDataSource
 ) : WeatherRepository {
+
     override suspend fun fetchWeather(query: String, lang: String): WeatherDomainModel =
-        weatherApiService.getWeatherData(
-            key = apiKey,
-            city = query,
-            languageCode = lang
-        ).toDomain()
+        remoteDataSource.fetchWeather(query, lang).toDomain()
 }
 ```
 
@@ -10980,10 +11463,25 @@ package com.mhq.fynecast.home.domain.usecases
 import com.mhq.fynecast.favorites.domain.models.favoriteId
 import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 
 class ObserveFavoriteStatusUseCase(private val favoritesRepository: FavoritesRepository) {
-    operator fun invoke(latitude: Double, longitude: Double): Flow<Boolean> =
-        favoritesRepository.observeIsFavorite(favoriteId(latitude, longitude))
+
+    /**
+     * The id of the saved favorite that stands for the city on screen, or null when it is not one.
+     *
+     * [places] are every coordinate pair that may identify the city: the weather service snaps a
+     * query to its own point, so the point it reports can differ from the one we asked about.
+     * A favorite counts if it was saved under any of them.
+     */
+    operator fun invoke(places: List<Pair<Double, Double>>): Flow<String?> {
+        val ids = places.map { (latitude, longitude) -> favoriteId(latitude, longitude) }.distinct()
+        if (ids.isEmpty()) return flowOf(null)
+        return combine(ids.map { favoritesRepository.observeIsFavorite(it) }) { isSaved ->
+            ids.zip(isSaved.toList()).firstOrNull { (_, saved) -> saved }?.first
+        }
+    }
 }
 ```
 
@@ -11109,6 +11607,7 @@ import androidx.lifecycle.viewModelScope
 import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
 import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
 import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
 import com.mhq.fynecast.home.domain.mapper.toFavoriteCity
@@ -11146,6 +11645,7 @@ class HomeViewModel(
     private val observeFavoriteStatusUseCase: ObserveFavoriteStatusUseCase,
     private val refreshFavoriteSnapshotUseCase: RefreshFavoriteSnapshotUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
+    private val deleteFavoriteUseCase: DeleteFavoriteUseCase,
     private val saveLastSearchedCityUseCase: SaveLastSearchedCityUseCase,
     private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase,
     private val localizePlaceNameUseCase: LocalizePlaceNameUseCase,
@@ -11168,6 +11668,9 @@ class HomeViewModel(
     private var loadJob: Job? = null
     private var searchJob: Job? = null
     private var favoriteJob: Job? = null
+
+    /** The id the saved favorite for the city on screen has, or null when it is not a favorite. */
+    private var savedFavoriteId: String? = null
     private var lastRefreshTime = 0L
     private val refreshCooldownMillis = 60 * 1000L
     private var loadedLangCode: String? = null
@@ -11412,6 +11915,7 @@ class HomeViewModel(
         loadJob?.cancel()
         searchJob?.cancel()
         favoriteJob?.cancel()
+        savedFavoriteId = null
         _state.value = HomeStateContainer()
         domainWeather = null
         domainSuggestions = emptyList()
@@ -11440,14 +11944,30 @@ class HomeViewModel(
 
     fun onToggleFavorite() {
         val weather = domainWeather ?: return
-        val favorite = weather.toFavoriteCity(_state.value.selectedCityName)
-        viewModelScope.launch { toggleFavoriteUseCase(favorite) }
+        val savedId = savedFavoriteId
+        viewModelScope.launch {
+            if (savedId != null) {
+                // Remove the favorite that is actually saved, whichever coordinates it was saved under.
+                deleteFavoriteUseCase(savedId)
+            } else {
+                toggleFavoriteUseCase(weather.toFavoriteCity(_state.value.selectedCityName))
+            }
+        }
     }
 
     private fun onWeatherShown(weather: WeatherDomainModel) {
         favoriteJob?.cancel()
-        favoriteJob = observeFavoriteStatusUseCase(weather.latitude, weather.longitude)
-            .onEach { isFav -> _state.update { it.copy(isFavorite = isFav) } }
+        // The point the weather service reports and the point we asked about can differ,
+        // so a favorite saved under either one is this city.
+        val places = buildList {
+            add(weather.latitude to weather.longitude)
+            shownSpot?.let { add(it.latitude to it.longitude) }
+        }
+        favoriteJob = observeFavoriteStatusUseCase(places)
+            .onEach { savedId ->
+                savedFavoriteId = savedId
+                _state.update { it.copy(isFavorite = savedId != null) }
+            }
             .launchIn(viewModelScope)
 
         viewModelScope.launch { refreshFavoriteSnapshotUseCase(weather.toFavoriteCity()) }
@@ -11759,7 +12279,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -11776,6 +12295,7 @@ import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.home.presentation.model.DailyForecastPresentationModel
+import java.time.LocalDate
 
 @Composable
 fun WeatherDailyCarousel(
@@ -11788,76 +12308,69 @@ fun WeatherDailyCarousel(
     val weekMax = dailyForecasts.maxOfOrNull { if (isMetric) it.maxTempC else it.maxTempF } ?: 0.0
 
     GlassyCard(
-        cornerRadius = 28.dp,
-        padding = 20.dp,
+        cornerRadius = 24.dp,
+        padding = 14.dp,
         containerAlpha = 0.08f,
         borderAlpha = 0.15f,
-        modifier = modifier
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
                 text = stringResource(R.string.daily_forecast),
-                style = MaterialTheme.typography.titleMedium.copy(
+                style = MaterialTheme.typography.titleSmall.copy(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp.unlessArabic()
                 ),
                 color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.padding(bottom = 4.dp)
+                modifier = Modifier.padding(bottom = 2.dp)
             )
 
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                dailyForecasts.forEachIndexed { index, item ->
-                    WeatherDailyRowItem(
-                        day = DateTimeFormats.dayName(item.date, locale),
-                        date = DateTimeFormats.monthDay(item.date, locale),
-                        weekMin = weekMin,
-                        weekMax = weekMax,
-                        weatherIconUrl = item.iconUrl,
-                        weatherDescription = item.description,
-                        highTemperature = if (isMetric) item.maxTempC else item.maxTempF,
-                        lowTemperature = if (isMetric) item.minTempC else item.minTempF
-                    )
-
-                    // Prevent drawing an isolated extra separator line at the final item index boundary
-                    if (index < dailyForecasts.lastIndex) {
-                        HorizontalDivider(
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f),
-                            thickness = 1.dp,
-                            modifier = Modifier.padding(top = 10.dp)
-                        )
-                    }
-                }
+            dailyForecasts.forEach { item ->
+                WeatherDailyRowItem(
+                    day = DateTimeFormats.dayName(item.date, locale),
+                    date = DateTimeFormats.monthDay(item.date, locale),
+                    weekMin = weekMin,
+                    weekMax = weekMax,
+                    weatherIconUrl = item.iconUrl,
+                    weatherDescription = item.description,
+                    highTemperature = if (isMetric) item.maxTempC else item.maxTempF,
+                    lowTemperature = if (isMetric) item.minTempC else item.minTempF
+                )
             }
         }
     }
 }
 
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
+private fun previewDays() = List(7) { i ->
+    DailyForecastPresentationModel(
+        date = LocalDate.of(2026, 10, 25).plusDays(i.toLong()),
+        iconUrl = "",
+        description = "Sunny",
+        maxTempC = 28.0 - i,
+        maxTempF = 82.0 - i,
+        minTempC = 17.0 + i % 3,
+        minTempF = 63.0 + i % 3
+    )
+}
+
+@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE)
+@Composable
+private fun WeatherDailyCarouselLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        WeatherDailyCarousel(dailyForecasts = previewDays(), isMetric = true)
+    }
+}
 
 @Preview(
-    name = "Dark Mode",
+    name = "Dark",
     uiMode = Configuration.UI_MODE_NIGHT_YES,
     showBackground = true,
-    backgroundColor = 0xFF000000
+    backgroundColor = 0xFF0F172A
 )
-
-@Preview
 @Composable
-private fun WeatherDailyCarouselPreview() {
-    FyneCastTheme() {
-        WeatherDailyCarousel(
-            dailyForecasts = emptyList(),
-            isMetric = true
-        )
+private fun WeatherDailyCarouselDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        WeatherDailyCarousel(dailyForecasts = previewDays(), isMetric = true)
     }
 }
 ```
@@ -11893,10 +12406,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
+/** One day, about 30 dp tall: day and date, icon with description, then low, range bar, high. */
 @Composable
 fun WeatherDailyRowItem(
     day: String,
@@ -11914,36 +12429,41 @@ fun WeatherDailyRowItem(
         horizontalArrangement = Arrangement.SpaceBetween,
         modifier = modifier.fillMaxWidth()
     ) {
-        // Left Column: Day Descriptor Bounds
-        Column(
-            modifier = Modifier.width(70.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
+        Column(modifier = Modifier.width(64.dp)) {
             Text(
                 text = day,
                 color = MaterialTheme.colorScheme.onBackground,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontSize = 13.sp,
+                    lineHeight = 16.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                maxLines = 1
             )
             Text(
                 text = date,
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium)
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    lineHeight = 12.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                maxLines = 1
             )
         }
 
-        // Center Content Element: Weather state icon representation map
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 8.dp)
+                .padding(horizontal = 6.dp)
         ) {
             AsyncImage(
                 model = "https:$weatherIconUrl",
                 contentDescription = weatherDescription,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(28.dp)
             )
             Text(
                 text = weatherDescription,
@@ -11956,11 +12476,10 @@ fun WeatherDailyRowItem(
             )
         }
 
-        // Right Content Block: High/Low relative tracking balance parameters
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.End,
-            modifier = Modifier.width(130.dp)
+            modifier = Modifier.width(124.dp)
         ) {
             Text(
                 text = TemperatureFormatter.format(lowTemperature),
@@ -12006,31 +12525,24 @@ fun WeatherDailyRowItem(
 }
 
 @Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
+    name = "Dark",
     uiMode = Configuration.UI_MODE_NIGHT_YES,
     showBackground = true,
-    backgroundColor = 0xFF000000
+    backgroundColor = 0xFF0F172A
 )
-
-@Preview
 @Composable
 private fun WeatherDailyRowItemPreview() {
-    FyneCastTheme() {
+    FyneCastTheme(isDarkMode = true) {
         WeatherDailyRowItem(
-            day = "",
-            date = "",
-            weekMin = 10.0,
-            weekMax = 10.0,
+            day = "Mon",
+            date = "Oct 26",
+            weekMin = 14.0,
+            weekMax = 30.0,
             weatherIconUrl = "",
-            weatherDescription = "",
-            highTemperature = 10.0,
-            lowTemperature = 10.0,
+            weatherDescription = "Sunny",
+            highTemperature = 28.0,
+            lowTemperature = 17.0,
+            modifier = Modifier.padding(16.dp)
         )
     }
 }
@@ -12046,7 +12558,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12054,24 +12565,31 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -12080,6 +12598,10 @@ import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
+/**
+ * The main weather card: city and time, big temperature with the condition icon,
+ * and a one-line High / Low / Humidity / Wind strip. Every value arrives already formatted.
+ */
 @Composable
 fun WeatherHeroCard(
     icon: String,
@@ -12087,35 +12609,58 @@ fun WeatherHeroCard(
     timestamp: String,
     description: String,
     temperature: String,
+    high: String,
+    low: String,
+    humidity: String,
+    wind: String,
     isFavorite: Boolean,
     alertsNumber: Int,
     onToggleFavorite: () -> Unit,
     onAlertsBannerClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val onBackground = MaterialTheme.colorScheme.onBackground
+    val glowColor = MaterialTheme.colorScheme.secondary
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+
     GlassyCard(
-        cornerRadius = 32.dp,
-        padding = 24.dp,
+        cornerRadius = 28.dp,
+        padding = 0.dp,
         containerAlpha = 0.06f,
         borderAlpha = 0.15f,
-        modifier = modifier
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                // A soft warm glow behind the icon corner (the card clips it to its shape).
+                .drawBehind {
+                    drawRect(
+                        brush = Brush.radialGradient(
+                            colors = listOf(glowColor.copy(alpha = 0.16f), Color.Transparent),
+                            center = Offset(
+                                x = if (isRtl) size.width * 0.15f else size.width * 0.85f,
+                                y = size.height * 0.25f
+                            ),
+                            radius = size.width * 0.6f
+                        )
+                    )
+                }
+                .padding(horizontal = 18.dp, vertical = 12.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                    horizontalAlignment = Alignment.Start
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
                         text = city,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        style = MaterialTheme.typography.headlineSmall.copy(
+                        color = onBackground,
+                        style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Black,
                             letterSpacing = (-0.5).sp.unlessArabic()
                         ),
@@ -12124,7 +12669,7 @@ fun WeatherHeroCard(
                     )
                     Text(
                         text = timestamp.uppercase(),
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+                        color = onBackground.copy(alpha = 0.45f),
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp.unlessArabic()
@@ -12138,89 +12683,101 @@ fun WeatherHeroCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    horizontalAlignment = Alignment.Start
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     Text(
                         text = temperature,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        fontSize = 76.sp,
+                        color = onBackground,
+                        fontSize = 64.sp,
                         fontWeight = FontWeight.W200,
-                        lineHeight = 76.sp,
+                        lineHeight = 64.sp,
                         letterSpacing = (-2).sp.unlessArabic()
                     )
                     Text(
                         text = description.uppercase(),
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
-                        style = MaterialTheme.typography.labelLarge.copy(
+                        color = onBackground.copy(alpha = 0.85f),
+                        style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
                             letterSpacing = 1.2.sp.unlessArabic()
-                        )
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                Box(
-                    modifier = Modifier
-                        .size(92.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.onBackground.copy(alpha = 0.03f))
-                        .border(
-                            1.dp,
-                            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.05f),
-                            CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    AsyncImage(
-                        model = "https:$icon",
-                        contentDescription = description,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.size(68.dp)
-                    )
-                }
+                AsyncImage(
+                    model = "https:$icon",
+                    contentDescription = description,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(84.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(color = onBackground.copy(alpha = 0.08f))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HeroStat(
+                    value = high,
+                    label = stringResource(R.string.stat_high),
+                    modifier = Modifier.weight(1f)
+                )
+                HeroStatDivider()
+                HeroStat(
+                    value = low,
+                    label = stringResource(R.string.stat_low),
+                    modifier = Modifier.weight(1f)
+                )
+                HeroStatDivider()
+                HeroStat(
+                    value = humidity,
+                    label = stringResource(R.string.humidity),
+                    modifier = Modifier.weight(1f)
+                )
+                HeroStatDivider()
+                HeroStat(
+                    value = wind,
+                    label = stringResource(R.string.wind),
+                    modifier = Modifier.weight(1f)
+                )
             }
 
             if (alertsNumber > 0) {
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
+                val alertShape = RoundedCornerShape(14.dp)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
+                        .clip(alertShape)
                         .background(MaterialTheme.colorScheme.error.copy(alpha = 0.1f))
                         .border(
                             width = 1.dp,
                             color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f),
-                            shape = RoundedCornerShape(18.dp)
+                            shape = alertShape
                         )
                         .clickable { onAlertsBannerClick() }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Warning,
-                            contentDescription = stringResource(R.string.warning),
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(12.dp)
-                        )
-                    }
-
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = stringResource(R.string.warning),
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(14.dp)
+                    )
                     Text(
                         text = pluralStringResource(
                             R.plurals.active_weather_warnings,
@@ -12234,12 +12791,11 @@ fun WeatherHeroCard(
                         ),
                         modifier = Modifier.weight(1f)
                     )
-
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.error.copy(alpha = 0.6f),
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }
@@ -12247,33 +12803,91 @@ fun WeatherHeroCard(
     }
 }
 
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
+@Composable
+private fun HeroStat(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(
+            text = value,
+            color = MaterialTheme.colorScheme.onBackground,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = label.uppercase(),
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.8.sp.unlessArabic()
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun HeroStatDivider() {
+    VerticalDivider(
+        modifier = Modifier.height(26.dp),
+        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f)
+    )
+}
+
+@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE)
+@Composable
+private fun WeatherHeroCardLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        WeatherHeroCard(
+            icon = "",
+            city = "Cairo",
+            timestamp = "3:42 PM",
+            description = "Mostly sunny",
+            temperature = "24°",
+            high = "28°",
+            low = "17°",
+            humidity = "42%",
+            wind = "12 km/h",
+            isFavorite = true,
+            alertsNumber = 2,
+            onToggleFavorite = {},
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
 
 @Preview(
-    name = "Dark Mode",
+    name = "Dark",
     uiMode = Configuration.UI_MODE_NIGHT_YES,
     showBackground = true,
-    backgroundColor = 0xFF000000
+    backgroundColor = 0xFF0F172A
 )
-
-@Preview
 @Composable
-private fun WeatherHeroCardPreview() {
-    FyneCastTheme() {
+private fun WeatherHeroCardDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
         WeatherHeroCard(
-            icon = "Hi",
-            city = "Hi",
-            timestamp = "Hi",
-            description = "Hi",
-            temperature = "Hi",
-            isFavorite = true,
-            alertsNumber = 10,
+            icon = "",
+            city = "Cairo",
+            timestamp = "3:42 PM",
+            description = "Mostly sunny",
+            temperature = "24°",
+            high = "28°",
+            low = "17°",
+            humidity = "42%",
+            wind = "12 km/h",
+            isFavorite = false,
+            alertsNumber = 0,
             onToggleFavorite = {},
-            onAlertsBannerClick = {}
+            modifier = Modifier.padding(16.dp)
         )
     }
 }
@@ -12286,29 +12900,33 @@ package com.mhq.fynecast.home.ui.components
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
+import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.home.presentation.model.HourlyForecastPresentationModel
-import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
+import java.time.LocalDateTime
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 
+/**
+ * A glass card holding one row of compact hour chips. The first chip is the current hour ("Now").
+ * The row scrolls inside the card, and the next chip peeks in to show there is more.
+ */
 @Composable
 fun WeatherHourlyCarousel(
     hourlyForecasts: List<HourlyForecastPresentationModel>,
@@ -12316,50 +12934,38 @@ fun WeatherHourlyCarousel(
     modifier: Modifier = Modifier
 ) {
     val locale = currentLocale()
+    val nowLabel = stringResource(R.string.hourly_now)
 
     GlassyCard(
-        cornerRadius = 28.dp,
-        padding = 20.dp,
+        cornerRadius = 24.dp,
+        padding = 14.dp,
         containerAlpha = 0.08f,
         borderAlpha = 0.15f,
-        modifier = modifier
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-            .fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.hourly_forecast),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp.unlessArabic()
-                    ),
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-            }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = stringResource(R.string.hourly_forecast),
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp.unlessArabic()
+                ),
+                color = MaterialTheme.colorScheme.onBackground
+            )
 
             LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(
-                    count = hourlyForecasts.size,
-                    key = { index -> hourlyForecasts[index].time.toString() }
-                ) { index ->
-                    val item = hourlyForecasts[index]
-                    // Highlight the first element or elements matching current hour context
-                    val isCurrentHour = index == 0
-
+                itemsIndexed(
+                    items = hourlyForecasts,
+                    key = { _, item -> item.time.toString() }
+                ) { index, item ->
                     WeatherHourlyItem(
-                        header = DateTimeFormats.hour(item.time, locale),
+                        header = if (index == 0) nowLabel else DateTimeFormats.hour(item.time, locale),
                         weatherIconUrl = item.iconUrl,
                         temperature = if (isMetric) item.tempC else item.tempF,
-                        isCurrentHour = isCurrentHour
+                        isCurrentHour = index == 0
                     )
                 }
             }
@@ -12367,29 +12973,117 @@ fun WeatherHourlyCarousel(
     }
 }
 
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
+private fun previewHours() = List(6) { i ->
+    HourlyForecastPresentationModel(
+        time = LocalDateTime.of(2026, 10, 25, 15, 0).plusHours(i.toLong()),
+        iconUrl = "",
+        tempC = 26.0 - i,
+        tempF = 79.0 - i
+    )
+}
 
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview
+@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE)
 @Composable
-private fun WeatherHourlyCarouselPreview() {
-    FyneCastTheme() {
-        WeatherHourlyCarousel(
-            hourlyForecasts = emptyList(),
-            isMetric = true,
-        )
+private fun WeatherHourlyCarouselLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        WeatherHourlyCarousel(hourlyForecasts = previewHours(), isMetric = true)
     }
 }
+
+@Preview(
+    name = "Dark",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+private fun WeatherHourlyCarouselDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        WeatherHourlyCarousel(hourlyForecasts = previewHours(), isMetric = true)
+    }
+}
+
+//package com.mhq.fynecast.home.ui.components
+//
+//import android.content.res.Configuration
+//import androidx.compose.foundation.layout.Arrangement
+//import androidx.compose.foundation.layout.PaddingValues
+//import androidx.compose.foundation.layout.fillMaxWidth
+//import androidx.compose.foundation.lazy.LazyRow
+//import androidx.compose.foundation.lazy.itemsIndexed
+//import androidx.compose.runtime.Composable
+//import androidx.compose.ui.Modifier
+//import androidx.compose.ui.res.stringResource
+//import androidx.compose.ui.tooling.preview.Preview
+//import androidx.compose.ui.unit.dp
+//import com.mhq.fynecast.R
+//import com.mhq.fynecast.core.ui.format.DateTimeFormats
+//import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
+//import com.mhq.fynecast.core.ui.theme.FyneCastTheme
+//import com.mhq.fynecast.home.presentation.model.HourlyForecastPresentationModel
+//import java.time.LocalDateTime
+//
+///**
+// * A single row of compact hour chips. The first chip is the current hour ("Now").
+// * It scrolls edge to edge, so the next chip peeks in to show there is more.
+// */
+//@Composable
+//fun WeatherHourlyCarousel(
+//    hourlyForecasts: List<HourlyForecastPresentationModel>,
+//    isMetric: Boolean,
+//    modifier: Modifier = Modifier
+//) {
+//    val locale = currentLocale()
+//    val nowLabel = stringResource(R.string.hourly_now)
+//
+//    LazyRow(
+//        modifier = modifier.fillMaxWidth(),
+//        contentPadding = PaddingValues(horizontal = 16.dp),
+//        horizontalArrangement = Arrangement.spacedBy(8.dp)
+//    ) {
+//        itemsIndexed(
+//            items = hourlyForecasts,
+//            key = { _, item -> item.time.toString() }
+//        ) { index, item ->
+//            WeatherHourlyItem(
+//                header = if (index == 0) nowLabel else DateTimeFormats.hour(item.time, locale),
+//                weatherIconUrl = item.iconUrl,
+//                temperature = if (isMetric) item.tempC else item.tempF,
+//                isCurrentHour = index == 0
+//            )
+//        }
+//    }
+//}
+//
+//private fun previewHours() = List(6) { i ->
+//    HourlyForecastPresentationModel(
+//        time = LocalDateTime.of(2026, 10, 25, 15, 0).plusHours(i.toLong()),
+//        iconUrl = "",
+//        tempC = 26.0 - i,
+//        tempF = 79.0 - i
+//    )
+//}
+//
+//@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE)
+//@Composable
+//private fun WeatherHourlyCarouselLightPreview() {
+//    FyneCastTheme(isDarkMode = false) {
+//        WeatherHourlyCarousel(hourlyForecasts = previewHours(), isMetric = true)
+//    }
+//}
+//
+//@Preview(
+//    name = "Dark",
+//    uiMode = Configuration.UI_MODE_NIGHT_YES,
+//    showBackground = true,
+//    backgroundColor = 0xFF0F172A
+//)
+//@Composable
+//private fun WeatherHourlyCarouselDarkPreview() {
+//    FyneCastTheme(isDarkMode = true) {
+//        WeatherHourlyCarousel(hourlyForecasts = previewHours(), isMetric = true)
+//    }
+//}
 ```
 
 ## home\ui\components\WeatherHourlyItem.kt
@@ -12411,18 +13105,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.TemperatureFormatter
+import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
+/** One compact hour chip. The current hour gets the accent colour on its label and border. */
 @Composable
 fun WeatherHourlyItem(
     header: String,
@@ -12431,51 +13127,35 @@ fun WeatherHourlyItem(
     isCurrentHour: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val capsuleBackground = if (isCurrentHour) {
-        Brush.verticalGradient(
-            colors = listOf(
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-            )
-        )
-    } else {
-        Brush.verticalGradient(
-            colors = listOf(
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.05f)
-            )
-        )
-    }
-
-    val borderStrokeColor = if (isCurrentHour) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-    } else {
-        MaterialTheme.colorScheme.outline.copy(alpha = 0.1f)
-    }
-
-    val contentColor = if (isCurrentHour) {
-        MaterialTheme.colorScheme.onPrimary
-    } else {
-        MaterialTheme.colorScheme.onBackground
-    }
+    val onBackground = MaterialTheme.colorScheme.onBackground
+    val accent = MaterialTheme.colorScheme.onPrimary
+    val shape = RoundedCornerShape(20.dp)
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
         modifier = modifier
-            .width(68.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(capsuleBackground)
-            .border(width = 1.dp, brush = Brush.verticalGradient(listOf(borderStrokeColor, borderStrokeColor.copy(alpha = 0.2f))), shape = RoundedCornerShape(24.dp))
-            .padding(vertical = 16.dp, horizontal = 8.dp)
+            .width(48.dp)
+            .clip(shape)
+            .background(
+                if (isCurrentHour) accent.copy(alpha = 0.10f) else onBackground.copy(alpha = 0.05f)
+            )
+            .border(
+                width = 1.dp,
+                color = if (isCurrentHour) accent.copy(alpha = 0.55f) else onBackground.copy(alpha = 0.08f),
+                shape = shape
+            )
+            .padding(vertical = 10.dp, horizontal = 4.dp)
     ) {
         Text(
             text = header,
-            color = contentColor.copy(alpha = if (isCurrentHour) 0.9f else 0.6f),
+            color = if (isCurrentHour) accent else onBackground.copy(alpha = 0.55f),
             style = MaterialTheme.typography.labelSmall.copy(
                 fontWeight = if (isCurrentHour) FontWeight.Bold else FontWeight.Medium,
-                letterSpacing = 0.5.sp
-            )
+                letterSpacing = 0.3.sp.unlessArabic()
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
 
         AsyncImage(
@@ -12483,30 +13163,29 @@ fun WeatherHourlyItem(
             contentDescription = stringResource(R.string.hourly_condition),
             contentScale = ContentScale.Fit,
             modifier = Modifier
-                .padding(vertical = 8.dp)
-                .size(38.dp)
+                .padding(vertical = 2.dp)
+                .size(30.dp)
         )
 
         Text(
             text = TemperatureFormatter.format(temperature),
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.titleMedium,
-            color = contentColor
+            color = onBackground,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
         )
     }
 }
 
-
-@Preview(showBackground = true)
+@Preview(showBackground = true, backgroundColor = 0xFF0F172A)
 @Composable
-fun WeatherHourlyItemPreview() {
-    FyneCastTheme() {
-        WeatherHourlyItem(
-            header = "12:00",
-            weatherIconUrl = "",
-            temperature = 10.0,
-            isCurrentHour = true,
-        )
+private fun WeatherHourlyItemPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            WeatherHourlyItem("Now", "", 26.0, isCurrentHour = true)
+            WeatherHourlyItem("4 PM", "", 25.0, isCurrentHour = false)
+        }
     }
 }
 ```
@@ -12526,33 +13205,32 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -12562,8 +13240,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -12575,8 +13253,10 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.home.presentation.model.CitySuggestionPresentationModel
-import kotlin.collections.isNotEmpty
 
+private val SearchBarHeight = 44.dp
+
+/** A slim glass pill: search icon, the field, a clear button and a map button. */
 @Composable
 fun WeatherSearchBar(
     suggestions: List<CitySuggestionPresentationModel>,
@@ -12594,135 +13274,127 @@ fun WeatherSearchBar(
     val isFocused by interactionSource.collectIsFocusedAsState()
 
     val onSurfaceColor = MaterialTheme.colorScheme.onBackground
-    val primaryAccent = MaterialTheme.colorScheme.onPrimary
+    val accent = MaterialTheme.colorScheme.onPrimary
+    val pillShape = RoundedCornerShape(SearchBarHeight / 2)
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .zIndex(10f)
     ) {
-        // Core horizontal capsule bar container
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
-                .clip(RoundedCornerShape(32.dp))
-                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.15f))
-                .then(
-                    Modifier.background(
-                        brush = Brush.linearGradient(
-                            colors = if (isFocused) {
-                                listOf(primaryAccent.copy(alpha = 0.25f), Color.Transparent)
-                            } else {
-                                listOf(onSurfaceColor.copy(alpha = 0.08f), Color.Transparent)
-                            }
-                        )
-                    )
-                )
+                .height(SearchBarHeight)
+                .clip(pillShape)
+                .background(onSurfaceColor.copy(alpha = if (isFocused) 0.10f else 0.06f))
                 .border(
-                    width = 1.2.dp,
-                    color = if (isFocused) primaryAccent.copy(alpha = 0.4f) else onSurfaceColor.copy(alpha = 0.1f),
-                    shape = RoundedCornerShape(32.dp)
-                ),
-            verticalAlignment = Alignment.CenterVertically
+                    width = 1.dp,
+                    color = if (isFocused) accent.copy(alpha = 0.5f) else onSurfaceColor.copy(alpha = 0.12f),
+                    shape = pillShape
+                )
+                .padding(start = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Left Pill Wing: Search Icon Indicator (interactive if you want it to clear focus or request search)
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = stringResource(R.string.search_icon),
+                tint = if (isFocused) accent else onSurfaceColor.copy(alpha = 0.55f),
+                modifier = Modifier.size(18.dp)
+            )
+
             Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(64.dp),
-                contentAlignment = Alignment.Center
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.CenterStart
             ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = stringResource(R.string.search_icon),
-                    tint = if (isFocused) primaryAccent else onSurfaceColor.copy(alpha = 0.7f),
-                    modifier = Modifier.size(24.dp)
+                if (searchQuery.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.enter_a_city_name),
+                        color = onSurfaceColor.copy(alpha = 0.4f),
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1
+                    )
+                }
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = {
+                        searchQuery = it
+                        onQueryChange(it)
+                        showSuggestions = it.isNotEmpty()
+                    },
+                    singleLine = true,
+                    interactionSource = interactionSource,
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(color = onSurfaceColor),
+                    cursorBrush = SolidColor(accent),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            if (isListVisible) {
+                                onSuggestionClick(suggestions[0])
+                                searchQuery = suggestions[0].name
+                                showSuggestions = false
+                                focusManager.clearFocus()
+                            }
+                        }
+                    ),
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            // Central Capsule Area: Unbordered Fluid Input Field Engine
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = {
-                    searchQuery = it
-                    onQueryChange(it)
-                    showSuggestions = it.isNotEmpty()
-                },
-                interactionSource = interactionSource,
-                modifier = Modifier.weight(1f),
-                placeholder = {
-                    Text(
-                        text = stringResource(R.string.enter_a_city_name),
-                        color = onSurfaceColor.copy(alpha = 0.35f),
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = {
+            if (searchQuery.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .size(SearchBarHeight)
+                        .clip(CircleShape)
+                        .clickable {
                             searchQuery = ""
                             onQueryChange("")
                             showSuggestions = false
-                        }) {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = stringResource(R.string.clear_input),
-                                tint = onSurfaceColor.copy(alpha = 0.5f),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = onSurfaceColor,
-                    unfocusedTextColor = onSurfaceColor,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    cursorColor = primaryAccent
-                ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(
-                    onSearch = {
-                        if (isListVisible) {
-                            onSuggestionClick(suggestions[0])
-                            searchQuery = suggestions[0].name
-                            showSuggestions = false
-                            focusManager.clearFocus()
-                        }
-                    }
-                )
-            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Clear,
+                        contentDescription = stringResource(R.string.clear_input),
+                        tint = onSurfaceColor.copy(alpha = 0.5f),
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
 
-            // Right Pill Wing: Vivid Map Action Discover Launch Endpoint
+            // The whole 44 dp square is the tap target; the visible circle is smaller.
             Box(
                 modifier = Modifier
-                    .fillMaxHeight()
-                    .width(64.dp)
-                    .background(onSurfaceColor.copy(alpha = 0.05f))
+                    .size(SearchBarHeight)
+                    .clip(CircleShape)
                     .clickable { onMapClick() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = stringResource(R.string.pick_from_map),
-                    tint = onSurfaceColor.copy(alpha = 0.7f),
-                    modifier = Modifier.size(24.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(CircleShape)
+                        .background(onSurfaceColor.copy(alpha = 0.08f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Map,
+                        contentDescription = stringResource(R.string.pick_from_map),
+                        tint = onSurfaceColor.copy(alpha = 0.75f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
             }
         }
 
-        // Dropdown suggestions layout floating over underlying panels
         AnimatedVisibility(
             visible = isListVisible,
             enter = fadeIn(animationSpec = tween(200)),
             exit = fadeOut(animationSpec = tween(150))
         ) {
             GlassyCard(
-                cornerRadius = 24.dp,
+                cornerRadius = 22.dp,
                 padding = 4.dp,
                 containerAlpha = 0.25f,
                 borderAlpha = 0.35f,
@@ -12749,7 +13421,7 @@ fun WeatherSearchBar(
                                     Icon(
                                         imageVector = Icons.Default.LocationOn,
                                         contentDescription = null,
-                                        tint = primaryAccent.copy(alpha = 0.7f),
+                                        tint = accent.copy(alpha = 0.7f),
                                         modifier = Modifier.size(18.dp)
                                     )
                                 },
@@ -12779,28 +13451,35 @@ fun WeatherSearchBar(
     }
 }
 
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview(showBackground = true)
+@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE)
 @Composable
-fun WeatherSearchBarPreview() {
-    FyneCastTheme() {
+private fun WeatherSearchBarLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
         WeatherSearchBar(
             suggestions = emptyList(),
             onQueryChange = {},
             onSuggestionClick = {},
-            onMapClick = {}
+            onMapClick = {},
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+
+@Preview(
+    name = "Dark",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+private fun WeatherSearchBarDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        WeatherSearchBar(
+            suggestions = emptyList(),
+            onQueryChange = {},
+            onSuggestionClick = {},
+            onMapClick = {},
+            modifier = Modifier.padding(16.dp)
         )
     }
 }
@@ -13145,6 +13824,7 @@ fun HomeContainer(
 package com.mhq.fynecast.home.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13160,7 +13840,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
@@ -13170,8 +13852,8 @@ import com.mhq.fynecast.home.ui.components.WeatherDailyCarousel
 import com.mhq.fynecast.home.ui.components.WeatherHeroCard
 import com.mhq.fynecast.home.ui.components.WeatherHourlyCarousel
 import com.mhq.fynecast.home.ui.components.WeatherSearchBar
-import com.mhq.fynecast.home.ui.components.WeatherStatsGrid
 import com.mhq.fynecast.home.ui.components.rememberCityTime
+import kotlin.math.roundToInt
 
 @Composable
 fun HomeContent(
@@ -13189,16 +13871,28 @@ fun HomeContent(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
 ) {
+    // Today's range comes from the first forecast day.
+    val today = weather.dailyForecasts.firstOrNull()
+    val high =
+        today?.let { TemperatureFormatter.format(if (isMetric) it.maxTempC else it.maxTempF) }
+            ?: "–"
+    val low = today?.let { TemperatureFormatter.format(if (isMetric) it.minTempC else it.minTempF) }
+        ?: "–"
+    val humidity = "${weather.stats.humidity}%"
+    val windSpeed = (if (isMetric) weather.stats.windKph else weather.stats.windMph).roundToInt()
+    val wind = "$windSpeed ${stringResource(if (isMetric) R.string.kph else R.string.mph)}"
 
     Box(
         modifier = modifier.fillMaxSize()
     ) {
+        // Sized to fit a normal phone without scrolling; the scroll is only a fallback for small screens.
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = contentPadding.calculateBottomPadding() + 16.dp)
+                .padding(top = 4.dp, bottom = contentPadding.calculateBottomPadding() + 12.dp)
                 .statusBarsPadding()
         ) {
             WeatherSearchBar(
@@ -13207,7 +13901,7 @@ fun HomeContent(
                 onSuggestionClick = onSuggestionClick,
                 onMapClick = onMapIconClick,
                 modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(horizontal = 16.dp)
                     .fillMaxWidth()
             )
             WeatherHeroCard(
@@ -13226,23 +13920,31 @@ fun HomeContent(
                     else
                         weather.currentTempF
                 ),
+                high = high,
+                low = low,
+                humidity = humidity,
+                wind = wind,
                 isFavorite = isFavorite,
                 alertsNumber = weather.alertsCount,
                 onToggleFavorite = onToggleFavorite,
                 onAlertsBannerClick = onAlertsBannerClick,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth()
             )
             WeatherHourlyCarousel(
                 hourlyForecasts = weather.hourlyForecasts,
-                isMetric = isMetric
+                isMetric = isMetric,
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth()
             )
             WeatherDailyCarousel(
                 dailyForecasts = weather.dailyForecasts,
-                isMetric = isMetric
-            )
-            WeatherStatsGrid(
-                stats = weather.stats,
-                isMetric = isMetric
+                isMetric = isMetric,
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth()
             )
         }
         AnimatedVisibility(
@@ -13479,7 +14181,7 @@ fun CitySuggestionModel.toPresentation(): MapPlacePresentationModel =
 ```kotlin
 package com.mhq.fynecast.map.presentation
 
-import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.core.presentation.text.UiText
 import com.mhq.fynecast.map.presentation.model.MapPlacePresentationModel
 
 /**
@@ -13508,7 +14210,7 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 import com.mhq.fynecast.core.domain.location.SelectCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectedCity
-import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.core.presentation.text.UiText
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.map.presentation.mapper.toPresentation
 import kotlinx.coroutines.CancellationException
@@ -14054,6 +14756,28 @@ private fun localizeLabels(style: Style, langCode: String) {
 }
 ```
 
+## settings\data\infra\PreferencesAppLanguageProvider.kt
+
+```kotlin
+package com.mhq.fynecast.settings.data.infra
+
+import com.mhq.fynecast.core.domain.infra.AppLanguageProvider
+import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+
+class PreferencesAppLanguageProvider(
+    private val preferencesRepository: UserPreferencesRepository
+) : AppLanguageProvider {
+
+    override fun observeLanguageCode(): Flow<String> =
+        preferencesRepository.userPreferencesFlow
+            .map { it.currentLanguage.code }
+            .distinctUntilChanged()
+}
+```
+
 ## settings\data\repoimpl\UserPreferencesRepositoryImpl.kt
 
 ```kotlin
@@ -14307,6 +15031,216 @@ class SetUnitSystemUseCase(private val preferencesRepository: UserPreferencesRep
 }
 ```
 
+## settings\presentation\mapper\LanguageOptionMapper.kt
+
+```kotlin
+package com.mhq.fynecast.settings.presentation.mapper
+
+import com.mhq.fynecast.settings.domain.models.AppLanguage
+import com.mhq.fynecast.settings.presentation.model.LanguageOption
+
+// Both `when` blocks are exhaustive on purpose: adding a language to one enum
+// breaks the build here until the other enum and these mappers are updated.
+fun AppLanguage.toPresentation(): LanguageOption = when (this) {
+    AppLanguage.English -> LanguageOption.English
+    AppLanguage.Arabic -> LanguageOption.Arabic
+}
+
+fun LanguageOption.toDomain(): AppLanguage = when (this) {
+    LanguageOption.English -> AppLanguage.English
+    LanguageOption.Arabic -> AppLanguage.Arabic
+}
+```
+
+## settings\presentation\model\LanguageOption.kt
+
+```kotlin
+package com.mhq.fynecast.settings.presentation.model
+
+/** The languages the Settings screen offers. The UI never sees the domain AppLanguage. */
+enum class LanguageOption(val code: String) {
+    English("en"),
+    Arabic("ar")
+}
+```
+
+## settings\presentation\SettingsViewModel.kt
+
+```kotlin
+package com.mhq.fynecast.settings.presentation
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.mhq.fynecast.alerts.notifications.domain.usecases.ConsumeNotificationPromptUseCase
+import com.mhq.fynecast.alerts.notifications.domain.usecases.HandleNotificationPermissionResultUseCase
+import com.mhq.fynecast.alerts.notifications.domain.usecases.SyncNotificationPermissionUseCase
+import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
+import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
+import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetDarkModeUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetLanguageUseCase
+import com.mhq.fynecast.settings.domain.usecases.profile.SetUnitSystemUseCase
+import com.mhq.fynecast.settings.presentation.mapper.toDomain
+import com.mhq.fynecast.settings.presentation.mapper.toPresentation
+import com.mhq.fynecast.settings.presentation.model.LanguageOption
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+class SettingsViewModel(
+    private val observeUserProfileUseCase: ObserveUserProfileUseCase,
+    private val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase,
+    private val setUnitSystem: SetUnitSystemUseCase,
+    private val setLanguage: SetLanguageUseCase,
+    private val setDarkMode: SetDarkModeUseCase,
+    private val toggleNotifications: ToggleNotificationsUseCase,
+    private val handleNotificationPermissionResult: HandleNotificationPermissionResultUseCase,
+    private val syncNotificationPermission: SyncNotificationPermissionUseCase,
+    private val consumeNotificationPrompt: ConsumeNotificationPromptUseCase,
+    private val logoutUserUseCase: LogoutUserUseCase
+) : ViewModel() {
+
+    private val profileFlow = observeUserProfileUseCase().filter { it.id.isNotEmpty() }
+    private val preferencesFlow = observeUserPreferencesUseCase()
+    private val _requestNotificationPermissionEvent = Channel<Unit>(Channel.BUFFERED)
+    val requestNotificationPermissionEvent = _requestNotificationPermissionEvent.receiveAsFlow()
+    private var isAwaitingTogglePermission = false
+    private val _notificationsBlockedChannel = Channel<Unit>(Channel.BUFFERED)
+    val notificationsBlocked = _notificationsBlockedChannel.receiveAsFlow()
+    private val _logoutCompleteChannel = Channel<Unit>(Channel.BUFFERED)
+    val logoutComplete = _logoutCompleteChannel.receiveAsFlow()
+    private val _logoutFailedChannel = Channel<Unit>(Channel.BUFFERED)
+    val logoutFailed = _logoutFailedChannel.receiveAsFlow()
+    private val _isLoggingOut = MutableStateFlow(false)
+    val isLoggingOut: StateFlow<Boolean> = _isLoggingOut.asStateFlow()
+    private val _isMetric = MutableStateFlow(true)
+    val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
+    private val _currentLanguage = MutableStateFlow(LanguageOption.English)
+    val currentLanguage: StateFlow<LanguageOption> = _currentLanguage.asStateFlow()
+    private val _notificationsEnabled = MutableStateFlow(false)
+    val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
+    private val _isDarkMode = MutableStateFlow<Boolean?>(null)
+    val isDarkMode: StateFlow<Boolean?> = _isDarkMode.asStateFlow()
+    private val _arePreferencesLoaded = MutableStateFlow(false)
+    /** True once the first preferences read has finished; the splash screen waits for it. */
+    val arePreferencesLoaded: StateFlow<Boolean> = _arePreferencesLoaded.asStateFlow()
+
+    val profileName: StateFlow<String> =
+        profileFlow.map { it.name }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                "Username"
+            )
+
+    val profileEmail: StateFlow<String> =
+        profileFlow.map { it.email }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                "username@gmail.com"
+            )
+
+    val profileImageUri: StateFlow<String?> =
+        profileFlow.map { it.profileImageUri }
+            .stateIn(
+                viewModelScope,
+                SharingStarted.Eagerly,
+                null
+            )
+
+    init {
+        viewModelScope.launch {
+            viewModelScope.launch {
+                // A new signed-in profile means the previous logout is over.
+                profileFlow.collect { _isLoggingOut.value = false }
+            }
+
+            preferencesFlow.collect { prefs ->
+                _isMetric.value = prefs.isMetric
+                _currentLanguage.value = prefs.currentLanguage.toPresentation()
+                _isDarkMode.value = prefs.isDarkMode
+                _notificationsEnabled.value = prefs.notificationsEnabled
+                // Last, so the splash only lifts once every value above is set.
+                _arePreferencesLoaded.value = true
+            }
+        }
+    }
+
+    fun onUnitSystemChanged(isMetric: Boolean) {
+        viewModelScope.launch {
+            setUnitSystem(isMetric)
+        }
+    }
+
+    /** Called once the location permission flow finishes, whether it was granted or denied. */
+    fun requestNotificationPermissionOnFirstLaunch() {
+        viewModelScope.launch {
+            if (consumeNotificationPrompt()) _requestNotificationPermissionEvent.trySend(Unit)
+        }
+    }
+
+    fun toggleNotifications(wantsEnabled: Boolean) {
+        viewModelScope.launch {
+            when (toggleNotifications.invoke(wantsEnabled)) {
+                ToggleNotificationsUseCase.Result.PermissionRequired -> {
+                    isAwaitingTogglePermission = true
+                    _requestNotificationPermissionEvent.trySend(Unit)
+                }
+                else -> Unit
+            }
+        }
+    }
+
+    fun onNotificationPermissionResult(granted: Boolean, isBlockedForGood: Boolean) {
+        val fromToggle = isAwaitingTogglePermission
+        isAwaitingTogglePermission = false
+        viewModelScope.launch {
+            handleNotificationPermissionResult(granted)
+            if (!granted && isBlockedForGood && fromToggle) {
+                _notificationsBlockedChannel.send(Unit)
+            }
+        }
+    }
+
+    fun onAppResumed() {
+        viewModelScope.launch {
+            syncNotificationPermission()
+        }
+    }
+
+    fun onLanguageChanged(language: LanguageOption) {
+        viewModelScope.launch { setLanguage(language.toDomain()) }
+    }
+
+    fun onThemeChanged(enabled: Boolean) {
+        viewModelScope.launch { setDarkMode(enabled) }
+    }
+
+    fun onLogoutAction() {
+        if (_isLoggingOut.value) return
+        _isLoggingOut.value = true
+        viewModelScope.launch {
+            logoutUserUseCase().fold(
+                onSuccess = { _logoutCompleteChannel.send(Unit) },
+                onFailure = {
+                    _isLoggingOut.value = false
+                    _logoutFailedChannel.send(Unit)
+                }
+            )
+        }
+    }
+}
+```
+
 ## settings\ui\components\customSegmentedColors.kt
 
 ```kotlin
@@ -14448,18 +15382,18 @@ import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.settings.domain.models.AppLanguage
+import com.mhq.fynecast.settings.presentation.model.LanguageOption
 
 @Composable
 fun SettingsPanel(
     notificationsEnabled: Boolean,
     isDarkMode: Boolean,
     isMetric: Boolean,
-    currentLanguage: AppLanguage,
+    currentLanguage: LanguageOption,
     onNotificationsToggle: (Boolean) -> Unit,
     onDarkModeToggle: (Boolean) -> Unit,
     onMetricToggle: (Boolean) -> Unit,
-    onLanguageChange: (AppLanguage) -> Unit,
+    onLanguageChange: (LanguageOption) -> Unit,
     modifier: Modifier = Modifier
 ) {
     GlassyCard(
@@ -14492,11 +15426,11 @@ fun SettingsPanel(
             SettingsPanelDivider()
             SettingsToggleRow(
                 label = stringResource(R.string.language),
-                isFirstOptionSelected = currentLanguage == AppLanguage.English,
+                isFirstOptionSelected = currentLanguage == LanguageOption.English,
                 firstOptionLabel = stringResource(R.string.english),
                 secondOptionLabel = "العربية",
-                onFirstOptionSelected = { onLanguageChange(AppLanguage.English) },
-                onSecondOptionSelected = { onLanguageChange(AppLanguage.Arabic) }
+                onFirstOptionSelected = { onLanguageChange(LanguageOption.English) },
+                onSecondOptionSelected = { onLanguageChange(LanguageOption.Arabic) }
             )
             SettingsPanelDivider()
             SettingsToggleRow(
@@ -14532,7 +15466,7 @@ private fun SettingsPanelPreview() {
             notificationsEnabled = true,
             isDarkMode = true,
             isMetric = true,
-            currentLanguage = AppLanguage.English,
+            currentLanguage = LanguageOption.English,
             onNotificationsToggle = {},
             onDarkModeToggle = {},
             onMetricToggle = {},
@@ -14887,7 +15821,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.openNotificationSettings
-import com.mhq.fynecast.settings.ui.SettingsViewModel
+import com.mhq.fynecast.settings.presentation.SettingsViewModel
 
 @Composable
 fun SettingsContainer(
@@ -14986,7 +15920,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.settings.domain.models.AppLanguage
+import com.mhq.fynecast.settings.presentation.model.LanguageOption
 import com.mhq.fynecast.settings.ui.components.SettingsLogoutButton
 import com.mhq.fynecast.settings.ui.components.SettingsPanel
 import com.mhq.fynecast.settings.ui.components.SettingsProfileHeader
@@ -15001,8 +15935,8 @@ fun SettingsContent(
     onMetricToggle: (Boolean) -> Unit,
     notificationsEnabled: Boolean,
     onNotificationsToggle: (Boolean) -> Unit,
-    currentLanguage: AppLanguage,
-    onLanguageChange: (AppLanguage) -> Unit,
+    currentLanguage: LanguageOption,
+    onLanguageChange: (LanguageOption) -> Unit,
     isDarkMode: Boolean,
     onDarkModeToggle: (Boolean) -> Unit,
     isLoggingOut: Boolean = false,
@@ -15074,202 +16008,13 @@ fun SettingsScreenPreview() {
             onMetricToggle = {},
             notificationsEnabled = true,
             onNotificationsToggle = {},
-            currentLanguage = AppLanguage.English,
+            currentLanguage = LanguageOption.English,
             onLanguageChange = {},
             isDarkMode = true,
             onDarkModeToggle = {},
             onLogoutClick = {},
             contentPadding = PaddingValues(0.dp)
         )
-    }
-}
-```
-
-## settings\ui\SettingsState.kt
-
-```kotlin
-package com.mhq.fynecast.settings.ui
-
-data class SettingsState(
-    val username: String = "Username",
-    val email: String = "username@gmail.com",
-    val profileImageUri: String? = null
-)
-```
-
-## settings\ui\SettingsViewModel.kt
-
-```kotlin
-package com.mhq.fynecast.settings.ui
-
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.mhq.fynecast.alerts.notifications.domain.usecases.ConsumeNotificationPromptUseCase
-import com.mhq.fynecast.alerts.notifications.domain.usecases.HandleNotificationPermissionResultUseCase
-import com.mhq.fynecast.alerts.notifications.domain.usecases.SyncNotificationPermissionUseCase
-import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
-import com.mhq.fynecast.auth.domain.usecases.profile.ObserveUserProfileUseCase
-import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
-import com.mhq.fynecast.settings.domain.models.AppLanguage
-import com.mhq.fynecast.settings.domain.usecases.profile.ObserveUserPreferencesUseCase
-import com.mhq.fynecast.settings.domain.usecases.profile.SetDarkModeUseCase
-import com.mhq.fynecast.settings.domain.usecases.profile.SetLanguageUseCase
-import com.mhq.fynecast.settings.domain.usecases.profile.SetUnitSystemUseCase
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-
-class SettingsViewModel(
-    private val observeUserProfileUseCase: ObserveUserProfileUseCase,
-    private val observeUserPreferencesUseCase: ObserveUserPreferencesUseCase,
-    private val setUnitSystem: SetUnitSystemUseCase,
-    private val setLanguage: SetLanguageUseCase,
-    private val setDarkMode: SetDarkModeUseCase,
-    private val toggleNotifications: ToggleNotificationsUseCase,
-    private val handleNotificationPermissionResult: HandleNotificationPermissionResultUseCase,
-    private val syncNotificationPermission: SyncNotificationPermissionUseCase,
-    private val consumeNotificationPrompt: ConsumeNotificationPromptUseCase,
-    private val logoutUserUseCase: LogoutUserUseCase
-) : ViewModel() {
-
-    private val profileFlow = observeUserProfileUseCase().filter { it.id.isNotEmpty() }
-    private val preferencesFlow = observeUserPreferencesUseCase()
-    private val _requestNotificationPermissionEvent = Channel<Unit>(Channel.BUFFERED)
-    val requestNotificationPermissionEvent = _requestNotificationPermissionEvent.receiveAsFlow()
-    private var isAwaitingTogglePermission = false
-    private val _notificationsBlockedChannel = Channel<Unit>(Channel.BUFFERED)
-    val notificationsBlocked = _notificationsBlockedChannel.receiveAsFlow()
-    private val _logoutCompleteChannel = Channel<Unit>(Channel.BUFFERED)
-    val logoutComplete = _logoutCompleteChannel.receiveAsFlow()
-    private val _logoutFailedChannel = Channel<Unit>(Channel.BUFFERED)
-    val logoutFailed = _logoutFailedChannel.receiveAsFlow()
-    private val _isLoggingOut = MutableStateFlow(false)
-    val isLoggingOut: StateFlow<Boolean> = _isLoggingOut.asStateFlow()
-    private val _isMetric = MutableStateFlow(true)
-    val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
-    private val _currentLanguage = MutableStateFlow(AppLanguage.English)
-    val currentLanguage: StateFlow<AppLanguage> = _currentLanguage.asStateFlow()
-    private val _isDarkMode = MutableStateFlow<Boolean?>(null)
-    val isDarkMode: StateFlow<Boolean?> = _isDarkMode.asStateFlow()
-    private val _arePreferencesLoaded = MutableStateFlow(false)
-    /** True once the first preferences read has finished; the splash screen waits for it. */
-    val arePreferencesLoaded: StateFlow<Boolean> = _arePreferencesLoaded.asStateFlow()
-
-    val profileName: StateFlow<String> =
-        profileFlow.map { it.name }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.Eagerly,
-                "Username"
-            )
-
-    val profileEmail: StateFlow<String> =
-        profileFlow.map { it.email }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.Eagerly,
-                "username@gmail.com"
-            )
-
-    val profileImageUri: StateFlow<String?> =
-        profileFlow.map { it.profileImageUri }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.Eagerly,
-                null
-            )
-
-    init {
-        viewModelScope.launch {
-            viewModelScope.launch {
-                // A new signed-in profile means the previous logout is over.
-                profileFlow.collect { _isLoggingOut.value = false }
-            }
-
-            preferencesFlow.collect { prefs ->
-                _isMetric.value = prefs.isMetric
-                _currentLanguage.value = prefs.currentLanguage
-                _isDarkMode.value = prefs.isDarkMode
-                // Last, so the splash only lifts once every value above is set.
-                _arePreferencesLoaded.value = true
-            }
-        }
-    }
-
-    fun onUnitSystemChanged(isMetric: Boolean) {
-        viewModelScope.launch {
-            setUnitSystem(isMetric)
-        }
-    }
-
-    // notificationsEnabled StateFlow: initial value true → false
-    val notificationsEnabled: StateFlow<Boolean> =
-        preferencesFlow.map { it.notificationsEnabled }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
-    /** Called once the location permission flow finishes, whether it was granted or denied. */
-    fun requestNotificationPermissionOnFirstLaunch() {
-        viewModelScope.launch {
-            if (consumeNotificationPrompt()) _requestNotificationPermissionEvent.trySend(Unit)
-        }
-    }
-
-    fun toggleNotifications(wantsEnabled: Boolean) {
-        viewModelScope.launch {
-            when (toggleNotifications.invoke(wantsEnabled)) {
-                ToggleNotificationsUseCase.Result.PermissionRequired -> {
-                    isAwaitingTogglePermission = true
-                    _requestNotificationPermissionEvent.trySend(Unit)
-                }
-                else -> Unit
-            }
-        }
-    }
-
-    fun onNotificationPermissionResult(granted: Boolean, isBlockedForGood: Boolean) {
-        val fromToggle = isAwaitingTogglePermission
-        isAwaitingTogglePermission = false
-        viewModelScope.launch {
-            handleNotificationPermissionResult(granted)
-            if (!granted && isBlockedForGood && fromToggle) {
-                _notificationsBlockedChannel.send(Unit)
-            }
-        }
-    }
-
-    fun onAppResumed() {
-        viewModelScope.launch {
-            syncNotificationPermission()
-        }
-    }
-
-    fun onLanguageChanged(language: AppLanguage) {
-        viewModelScope.launch { setLanguage(language) }
-    }
-
-    fun onThemeChanged(enabled: Boolean) {
-        viewModelScope.launch { setDarkMode(enabled) }
-    }
-
-    fun onLogoutAction() {
-        if (_isLoggingOut.value) return
-        _isLoggingOut.value = true
-        viewModelScope.launch {
-            logoutUserUseCase().fold(
-                onSuccess = { _logoutCompleteChannel.send(Unit) },
-                onFailure = {
-                    _isLoggingOut.value = false
-                    _logoutFailedChannel.send(Unit)
-                }
-            )
-        }
     }
 }
 ```

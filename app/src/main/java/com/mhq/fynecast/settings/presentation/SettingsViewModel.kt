@@ -56,6 +56,8 @@ class SettingsViewModel(
     val isMetric: StateFlow<Boolean> = _isMetric.asStateFlow()
     private val _currentLanguage = MutableStateFlow(LanguageOption.English)
     val currentLanguage: StateFlow<LanguageOption> = _currentLanguage.asStateFlow()
+    private val _notificationsEnabled = MutableStateFlow(false)
+    val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
     private val _isDarkMode = MutableStateFlow<Boolean?>(null)
     val isDarkMode: StateFlow<Boolean?> = _isDarkMode.asStateFlow()
     private val _arePreferencesLoaded = MutableStateFlow(false)
@@ -97,6 +99,7 @@ class SettingsViewModel(
                 _isMetric.value = prefs.isMetric
                 _currentLanguage.value = prefs.currentLanguage.toPresentation()
                 _isDarkMode.value = prefs.isDarkMode
+                _notificationsEnabled.value = prefs.notificationsEnabled
                 // Last, so the splash only lifts once every value above is set.
                 _arePreferencesLoaded.value = true
             }
@@ -108,11 +111,6 @@ class SettingsViewModel(
             setUnitSystem(isMetric)
         }
     }
-
-    // notificationsEnabled StateFlow: initial value true → false
-    val notificationsEnabled: StateFlow<Boolean> =
-        preferencesFlow.map { it.notificationsEnabled }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     /** Called once the location permission flow finishes, whether it was granted or denied. */
     fun requestNotificationPermissionOnFirstLaunch() {

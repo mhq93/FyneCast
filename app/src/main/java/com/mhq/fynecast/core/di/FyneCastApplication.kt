@@ -9,6 +9,10 @@ import android.media.RingtoneManager
 import androidx.datastore.preferences.preferencesDataStore
 import com.mhq.fynecast.BuildConfig
 import com.mhq.fynecast.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 private val Context.internalPrefsStore by preferencesDataStore(name = "user_preferences")
 private val Context.internalSessionStore by preferencesDataStore(name = "user_session")
@@ -16,6 +20,9 @@ private val Context.internalSessionStore by preferencesDataStore(name = "user_se
 class FyneCastApplication : Application() {
 
     lateinit var container: AppContainer
+
+    /** Lives as long as the app process; for work that belongs to no screen. */
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
@@ -29,6 +36,9 @@ class FyneCastApplication : Application() {
         )
         if (BuildConfig.DEBUG) container.appInitializer.initializeDebugFeatures()
         createNotificationChannels()
+
+        // Keeps the saved favorite names in the app language for as long as the app lives.
+        applicationScope.launch { container.keepFavoriteNamesLocalizedUseCase() }
     }
 
     private fun createNotificationChannels() {

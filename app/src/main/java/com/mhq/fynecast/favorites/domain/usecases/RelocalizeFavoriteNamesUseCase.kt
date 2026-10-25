@@ -7,37 +7,28 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 
 /**
- * Rewrites the saved city and country of every favorite in the app language
- * (a city saved while the app was in English shows in Arabic after the switch, and back).
+ * One pass over the favorites of the signed-in user: rewrites each saved city and country
+ * in [lang] (a city saved in English reads in Arabic after the switch, and back).
  *
- * Runs once per language while the app process lives. A favorite whose name cannot be looked up
- * (offline, no match near its coordinates) keeps the name it already has.
+ * A favorite whose name cannot be looked up (offline, no match near its coordinates)
+ * keeps the name it already has.
  */
 class RelocalizeFavoriteNamesUseCase(
     private val favoritesRepository: FavoritesRepository,
     private val locationRepository: LocationRepository
 ) {
-    private val runLock = Mutex()
-    private var lastDoneLang: String? = null
-
     suspend operator fun invoke(lang: String) {
-        runLock.withLock {
-            if (lang == lastDoneLang) return
-            val favorites = favoritesRepository.getFavoritesList()
-            if (favorites.isEmpty()) return
-            val gate = Semaphore(MAX_PARALLEL_LOOKUPS)
-            coroutineScope {
-                favorites.map { favorite ->
-                    async { gate.withPermit { relocalize(favorite, lang) } }
-                }.awaitAll()
-            }
-            lastDoneLang = lang
+        val favorites = favoritesRepository.getFavoritesList()
+        if (favorites.isEmpty()) return
+        val gate = Semaphore(MAX_PARALLEL_LOOKUPS)
+        coroutineScope {
+            favorites.map { favorite ->
+                async { gate.withPermit { relocalize(favorite, lang) } }
+            }.awaitAll()
         }
     }
 

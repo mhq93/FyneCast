@@ -59,35 +59,30 @@ import com.mhq.fynecast.core.data.infra.FirebaseCurrentUserProvider
 import com.mhq.fynecast.core.data.location.SelectedCityRepositoryImpl
 import com.mhq.fynecast.core.data.time.SystemTimeProvider
 import com.mhq.fynecast.core.domain.infra.AppInitializer
+import com.mhq.fynecast.core.domain.infra.AppLanguageProvider
 import com.mhq.fynecast.core.domain.infra.CurrentUserProvider
-import com.mhq.fynecast.core.domain.time.TimeProvider
-import com.mhq.fynecast.favorites.data.database.FavoritesDatabase
-import com.mhq.fynecast.favorites.data.repoimpl.FavoritesRepoImpl
-import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
-import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
-import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
-import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
-import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
-import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
-import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
-import com.mhq.fynecast.home.data.api.location.LocationApiService
-import com.mhq.fynecast.home.data.api.weather.WeatherApiService
-import com.mhq.fynecast.home.data.infra.AndroidLocationStatusChecker
-import com.mhq.fynecast.home.data.repoimpl.location.DefaultLocationRepoImpl
-import com.mhq.fynecast.home.data.repoimpl.location.PhotonLocationRepoImpl
-import com.mhq.fynecast.home.data.repoimpl.weather.InMemoryCurrentWeatherStore
-import com.mhq.fynecast.home.data.repoimpl.weather.WeatherRepoImpl
-import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
-import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
-import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
 import com.mhq.fynecast.core.domain.location.LocationRepository
 import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectedCityRepository
+import com.mhq.fynecast.core.domain.time.TimeProvider
+import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
 import com.mhq.fynecast.core.domain.weather.WeatherRepository
+import com.mhq.fynecast.favorites.data.database.FavoritesDatabase
 import com.mhq.fynecast.favorites.data.datasource.FavoritesLocalDataSource
 import com.mhq.fynecast.favorites.data.datasource.FavoritesRoomDataSource
+import com.mhq.fynecast.favorites.data.repoimpl.FavoritesRepoImpl
+import com.mhq.fynecast.favorites.domain.repository.FavoritesRepository
+import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
+import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.KeepFavoriteNamesLocalizedUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
 import com.mhq.fynecast.favorites.domain.usecases.RelocalizeFavoriteNamesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
+import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
+import com.mhq.fynecast.home.data.api.location.LocationApiService
+import com.mhq.fynecast.home.data.api.weather.WeatherApiService
 import com.mhq.fynecast.home.data.datasource.location.AndroidPlaceNameSource
 import com.mhq.fynecast.home.data.datasource.location.DeviceLocationDataSource
 import com.mhq.fynecast.home.data.datasource.location.FusedDeviceLocationDataSource
@@ -95,6 +90,13 @@ import com.mhq.fynecast.home.data.datasource.location.LocationRemoteDataSource
 import com.mhq.fynecast.home.data.datasource.location.PhotonLocationRemoteDataSource
 import com.mhq.fynecast.home.data.datasource.weather.WeatherRemoteDataSource
 import com.mhq.fynecast.home.data.datasource.weather.WeatherRemoteDataSourceImpl
+import com.mhq.fynecast.home.data.infra.AndroidLocationStatusChecker
+import com.mhq.fynecast.home.data.repoimpl.location.DefaultLocationRepoImpl
+import com.mhq.fynecast.home.data.repoimpl.location.PhotonLocationRepoImpl
+import com.mhq.fynecast.home.data.repoimpl.weather.InMemoryCurrentWeatherStore
+import com.mhq.fynecast.home.data.repoimpl.weather.WeatherRepoImpl
+import com.mhq.fynecast.home.domain.repository.DeviceLocationRepository
+import com.mhq.fynecast.home.domain.repository.LocationProviderStatusChecker
 import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLastSearchedCityUseCase
 import com.mhq.fynecast.home.domain.usecases.GetLocationSuggestionsUseCase
@@ -106,6 +108,7 @@ import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.home.domain.usecases.ResolveStartupLocationUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
+import com.mhq.fynecast.settings.data.infra.PreferencesAppLanguageProvider
 import com.mhq.fynecast.settings.data.repoimpl.UserPreferencesRepositoryImpl
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
 import com.mhq.fynecast.settings.domain.usecases.profile.ClearLastSearchedCityUseCase
@@ -398,8 +401,18 @@ class DefaultAppContainer(
     override val restoreFavoriteUseCase: RestoreFavoriteUseCase by lazy {
         RestoreFavoriteUseCase(favoritesRepository)
     }
-    override val relocalizeFavoriteNamesUseCase: RelocalizeFavoriteNamesUseCase by lazy {
+    private val appLanguageProvider: AppLanguageProvider by lazy {
+        PreferencesAppLanguageProvider(userPreferencesRepository)
+    }
+    private val relocalizeFavoriteNamesUseCase: RelocalizeFavoriteNamesUseCase by lazy {
         RelocalizeFavoriteNamesUseCase(favoritesRepository, locationRepository)
+    }
+    override val keepFavoriteNamesLocalizedUseCase: KeepFavoriteNamesLocalizedUseCase by lazy {
+        KeepFavoriteNamesLocalizedUseCase(
+            appLanguageProvider,
+            currentUserProvider,
+            relocalizeFavoriteNamesUseCase
+        )
     }
 
     // Time
