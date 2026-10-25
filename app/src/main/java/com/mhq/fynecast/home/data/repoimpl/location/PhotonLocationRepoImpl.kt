@@ -1,12 +1,13 @@
 package com.mhq.fynecast.home.data.repoimpl.location
 
-import com.mhq.fynecast.home.data.api.location.LocationApiService
 import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 import com.mhq.fynecast.core.domain.location.LocationRepository
+import com.mhq.fynecast.home.data.datasource.location.LocationRemoteDataSource
+import com.mhq.fynecast.home.data.datasource.location.PlaceNameSource
 import kotlinx.coroutines.CancellationException
 
 class PhotonLocationRepoImpl(
-    private val locationApiService: LocationApiService,
+    private val remoteDataSource: LocationRemoteDataSource,
     private val placeNameSource: PlaceNameSource
 ) : LocationRepository {
 
@@ -15,7 +16,7 @@ class PhotonLocationRepoImpl(
         lang: String
     ): List<CitySuggestionModel> {
         return try {
-            val response = locationApiService.getSuggestions(query = query, lang = photonLang(lang))
+            val response = remoteDataSource.searchPlaces(query, lang)
             response.features.map { feature ->
                 val coordinates = feature.geometry.coordinates
                 val props = feature.properties
@@ -45,8 +46,7 @@ class PhotonLocationRepoImpl(
             return CitySuggestionModel(fullName = name, latitude = lat, longitude = lon)
         }
         return try {
-            val response =
-                locationApiService.reverseGeocode(lat = lat, lon = lon, lang = photonLang(lang))
+            val response = remoteDataSource.reverseGeocode(lat, lon, lang)
             val bestFeature = response.features.firstOrNull { feature ->
                 val props = feature.properties
                 !props.state.isNullOrBlank() ||
@@ -83,16 +83,4 @@ class PhotonLocationRepoImpl(
         lon: Double,
         lang: String
     ): String? = placeNameSource.localize(name, lat, lon, lang)
-
-    /** Photon's public server only knows English, German and French;
-     * anything else falls back to English. */
-    private fun photonLang(lang: String): String =
-        if (lang in PHOTON_LANGUAGES)
-            lang
-        else
-            "en"
-
-    private companion object {
-        val PHOTON_LANGUAGES = setOf("en", "de", "fr")
-    }
 }

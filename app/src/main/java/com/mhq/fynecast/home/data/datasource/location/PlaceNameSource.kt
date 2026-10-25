@@ -1,4 +1,4 @@
-package com.mhq.fynecast.home.data.repoimpl.location
+package com.mhq.fynecast.home.data.datasource.location
 
 interface PlaceNameSource {
     /** The city and country at these coordinates,

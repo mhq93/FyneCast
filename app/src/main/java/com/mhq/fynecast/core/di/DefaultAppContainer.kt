@@ -71,7 +71,6 @@ import com.mhq.fynecast.favorites.domain.usecases.ToggleFavoriteUseCase
 import com.mhq.fynecast.home.data.api.location.LocationApiService
 import com.mhq.fynecast.home.data.api.weather.WeatherApiService
 import com.mhq.fynecast.home.data.infra.AndroidLocationStatusChecker
-import com.mhq.fynecast.home.data.infra.AndroidPlaceNameSource
 import com.mhq.fynecast.home.data.repoimpl.location.DefaultLocationRepoImpl
 import com.mhq.fynecast.home.data.repoimpl.location.PhotonLocationRepoImpl
 import com.mhq.fynecast.home.data.repoimpl.weather.InMemoryCurrentWeatherStore
@@ -84,6 +83,11 @@ import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectCityUseCase
 import com.mhq.fynecast.core.domain.location.SelectedCityRepository
 import com.mhq.fynecast.core.domain.weather.WeatherRepository
+import com.mhq.fynecast.home.data.datasource.location.AndroidPlaceNameSource
+import com.mhq.fynecast.home.data.datasource.location.DeviceLocationDataSource
+import com.mhq.fynecast.home.data.datasource.location.FusedDeviceLocationDataSource
+import com.mhq.fynecast.home.data.datasource.location.LocationRemoteDataSource
+import com.mhq.fynecast.home.data.datasource.location.PhotonLocationRemoteDataSource
 import com.mhq.fynecast.home.data.datasource.weather.WeatherRemoteDataSource
 import com.mhq.fynecast.home.data.datasource.weather.WeatherRemoteDataSourceImpl
 import com.mhq.fynecast.home.domain.usecases.GetCurrentLocationUseCase
@@ -211,16 +215,24 @@ class DefaultAppContainer(
     private val locationProviderStatusChecker: LocationProviderStatusChecker by lazy {
         AndroidLocationStatusChecker(appContext = context)
     }
+    private val deviceLocationDataSource: DeviceLocationDataSource by lazy {
+        FusedDeviceLocationDataSource(
+            fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+        )
+    }
     private val deviceLocationRepository: DeviceLocationRepository by lazy {
         DefaultLocationRepoImpl(
-            fusedLocationClient = LocationServices.getFusedLocationProviderClient(context),
+            deviceLocationDataSource = deviceLocationDataSource,
             statusChecker = locationProviderStatusChecker
         )
     }
+    private val locationRemoteDataSource: LocationRemoteDataSource by lazy {
+        PhotonLocationRemoteDataSource(photonApiRetrofitService)
+    }
     private val locationRepository: LocationRepository by lazy {
         PhotonLocationRepoImpl(
-            photonApiRetrofitService,
-            AndroidPlaceNameSource(context)
+            remoteDataSource = locationRemoteDataSource,
+            placeNameSource = AndroidPlaceNameSource(context)
         )
     }
     override val localizePlaceNameUseCase: LocalizePlaceNameUseCase by lazy {
