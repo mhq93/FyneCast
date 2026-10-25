@@ -21,11 +21,11 @@ import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.core.domain.weather.DailyForecastDomainModel
+import com.mhq.fynecast.home.presentation.model.DailyForecastPresentationModel
 
 @Composable
 fun WeatherDailyCarousel(
-    dailyForecasts: List<DailyForecastDomainModel>,
+    dailyForecasts: List<DailyForecastPresentationModel>,
     isMetric: Boolean,
     modifier: Modifier = Modifier
 ) {

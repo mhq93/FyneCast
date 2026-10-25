@@ -1,8 +1,9 @@
-package com.mhq.fynecast.home.ui
+package com.mhq.fynecast.home.presentation
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 import com.mhq.fynecast.core.domain.location.ObserveSelectedCityUseCase
 import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
 import com.mhq.fynecast.favorites.domain.usecases.RefreshFavoriteSnapshotUseCase
@@ -14,6 +15,7 @@ import com.mhq.fynecast.home.domain.usecases.LocalizePlaceNameUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.home.domain.usecases.ResolveStartupLocationUseCase
+import com.mhq.fynecast.home.presentation.mapper.toPresentation
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
 import com.mhq.fynecast.settings.domain.usecases.profile.SaveLastSearchedCityUseCase
 import kotlinx.coroutines.CancellationException
@@ -49,6 +51,16 @@ class HomeViewModel(
 
     private val _state = MutableStateFlow(HomeStateContainer())
     val state: StateFlow<HomeStateContainer> = _state.asStateFlow()
+
+    /**
+     * The domain weather behind the Success state, kept privately: the screen only ever sees
+     * presentation models. It is null whenever the state is not Success.
+     */
+    private var domainWeather: WeatherDomainModel? = null
+
+    /** The domain suggestions behind the search dropdown; the screen sends back an id. */
+    private var domainSuggestions: List<CitySuggestionModel> = emptyList()
+
     private var loadTarget: LoadTarget = LoadTarget.Startup(useDeviceLocation = false)
     private var loadJob: Job? = null
     private var searchJob: Job? = null
@@ -103,7 +115,7 @@ class HomeViewModel(
 
         observeSelectedCityUseCase()
             .onEach { city ->
-                onCitySelected(city.name, city.latitude, city.longitude, latestLangCode ?: "en")
+                selectCity(city.name, city.latitude, city.longitude, latestLangCode ?: "en")
             }
             .launchIn(viewModelScope)
     }
@@ -112,7 +124,14 @@ class HomeViewModel(
         load(LoadTarget.Startup(useDeviceLocation = isGranted), langCode)
     }
 
-    fun onCitySelected(
+    /** The user picked a row of the search dropdown. */
+    fun onSuggestionSelected(suggestionId: String, langCode: String) {
+        val suggestion = domainSuggestions.firstOrNull { it.toPresentation().id == suggestionId }
+            ?: return
+        selectCity(suggestion.fullName, suggestion.latitude, suggestion.longitude, langCode)
+    }
+
+    private fun selectCity(
         suggestionName: String,
         lat: Double,
         lon: Double,
@@ -157,9 +176,10 @@ class HomeViewModel(
                 val loaded = withTimeout(LOAD_TIMEOUT_MILLIS.milliseconds) {
                     fetchCity(target, langCode)
                 }
+                domainWeather = loaded.weather
                 _state.update {
                     it.copy(
-                        uiState = HomeUiState.Success(loaded.weather),
+                        uiState = HomeUiState.Success(loaded.weather.toPresentation()),
                         selectedCityName = loaded.name,
                         isRefreshing = false
                     )
@@ -178,23 +198,23 @@ class HomeViewModel(
                 }
                 latestLangCode?.takeIf { it != langCode }?.let { onLanguageChanged(it) }
             } catch (e: TimeoutCancellationException) {
-                _state.update {
-                    it.copy(
-                        uiState = HomeUiState.Error(target.retry),
-                        isRefreshing = false
-                    )
-                }
+                showError(target.retry)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.w("HomeViewModel", "Load failed", e)
-                _state.update {
-                    it.copy(
-                        uiState = HomeUiState.Error(target.retry),
-                        isRefreshing = false
-                    )
-                }
+                showError(target.retry)
             }
+        }
+    }
+
+    private fun showError(retry: HomeRetryAction) {
+        domainWeather = null
+        _state.update {
+            it.copy(
+                uiState = HomeUiState.Error(retry),
+                isRefreshing = false
+            )
         }
     }
 
@@ -249,13 +269,14 @@ class HomeViewModel(
         val now = System.currentTimeMillis()
         if (now - lastRefreshTime < refreshCooldownMillis) return
         if (loadJob?.isActive == true) return
-        val weather = (_state.value.uiState as? HomeUiState.Success)?.weather ?: return
+        val weather = domainWeather ?: return
 
         loadJob = viewModelScope.launch {
             try {
                 val fresh =
                     loadCurrentWeatherUseCase("${weather.latitude},${weather.longitude}", langCode)
-                _state.update { it.copy(uiState = HomeUiState.Success(fresh)) }
+                domainWeather = fresh
+                _state.update { it.copy(uiState = HomeUiState.Success(fresh.toPresentation())) }
                 loadedLangCode = langCode
                 onWeatherShown(fresh)
                 lastRefreshTime = System.currentTimeMillis()
@@ -270,7 +291,7 @@ class HomeViewModel(
     fun onLanguageChanged(langCode: String) {
         latestLangCode = langCode
         if (langCode == loadedLangCode) return
-        val weather = (_state.value.uiState as? HomeUiState.Success)?.weather ?: return
+        val weather = domainWeather ?: return
         val spot = shownSpot
         load(
             LoadTarget.Place(
@@ -289,6 +310,8 @@ class HomeViewModel(
         searchJob?.cancel()
         favoriteJob?.cancel()
         _state.value = HomeStateContainer()
+        domainWeather = null
+        domainSuggestions = emptyList()
         isInitialLaunchPerformed = false
         lastRefreshTime = 0L
         loadTarget = LoadTarget.Startup(useDeviceLocation = false)
@@ -307,14 +330,14 @@ class HomeViewModel(
             } catch (e: Exception) {
                 emptyList()
             }
-            _state.update { it.copy(citySuggestions = suggestions) }
+            domainSuggestions = suggestions
+            _state.update { it.copy(citySuggestions = suggestions.map { s -> s.toPresentation() }) }
         }
     }
 
     fun onToggleFavorite() {
-        val state = _state.value
-        val weather = (state.uiState as? HomeUiState.Success)?.weather ?: return
-        val favorite = weather.toFavoriteCity(state.selectedCityName)
+        val weather = domainWeather ?: return
+        val favorite = weather.toFavoriteCity(_state.value.selectedCityName)
         viewModelScope.launch { toggleFavoriteUseCase(favorite) }
     }
 

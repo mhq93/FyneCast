@@ -9,9 +9,9 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.core.di.AppViewModelFactory
-import com.mhq.fynecast.home.ui.HomeRetryAction
-import com.mhq.fynecast.home.ui.HomeUiState
-import com.mhq.fynecast.home.ui.HomeViewModel
+import com.mhq.fynecast.home.presentation.HomeRetryAction
+import com.mhq.fynecast.home.presentation.HomeUiState
+import com.mhq.fynecast.home.presentation.HomeViewModel
 
 @Composable
 fun HomeContainer(
@@ -41,7 +41,7 @@ fun HomeContainer(
 
         is HomeUiState.Success -> {
             HomeContent(
-                weatherDomainModel = uiState.weather,
+                weather = uiState.weather,
                 citySuggestions = stateContainer.citySuggestions,
                 selectedCityName = stateContainer.selectedCityName,
                 isMetric = isMetric,
@@ -49,12 +49,7 @@ fun HomeContainer(
                 isRefreshing = stateContainer.isRefreshing,
                 onQueryChange = { homeViewModel.onSearchQueryChanged(it, langCode) },
                 onSuggestionClick = { suggestion ->
-                    homeViewModel.onCitySelected(
-                        suggestion.fullName,
-                        suggestion.latitude,
-                        suggestion.longitude,
-                        langCode
-                    )
+                    homeViewModel.onSuggestionSelected(suggestion.id, langCode)
                 },
                 onMapIconClick = onNavigateToMap,
                 onAlertsBannerClick = onAlertsBannerClick,

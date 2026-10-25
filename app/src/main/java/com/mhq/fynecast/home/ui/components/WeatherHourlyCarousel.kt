@@ -21,13 +21,13 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.core.domain.weather.HourlyForecastDomainModel
+import com.mhq.fynecast.home.presentation.model.HourlyForecastPresentationModel
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
 import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 
 @Composable
 fun WeatherHourlyCarousel(
-    hourlyForecasts: List<HourlyForecastDomainModel>,
+    hourlyForecasts: List<HourlyForecastPresentationModel>,
     isMetric: Boolean,
     modifier: Modifier = Modifier
 ) {

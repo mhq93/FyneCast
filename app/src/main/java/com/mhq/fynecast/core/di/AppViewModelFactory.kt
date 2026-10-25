@@ -12,7 +12,7 @@ import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
 import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.favorites.presentation.FavoritesViewModel
-import com.mhq.fynecast.home.ui.HomeViewModel
+import com.mhq.fynecast.home.presentation.HomeViewModel
 import com.mhq.fynecast.map.presentation.MapPickerViewModel
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 

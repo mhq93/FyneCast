@@ -1,4 +1,4 @@
-package com.mhq.fynecast.home.ui
+package com.mhq.fynecast.home.presentation
 
 enum class HomeRetryAction {
     RequestLocation,

@@ -56,15 +56,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.domain.location.CitySuggestionModel
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
+import com.mhq.fynecast.home.presentation.model.CitySuggestionPresentationModel
+import kotlin.collections.isNotEmpty
 
 @Composable
 fun WeatherSearchBar(
-    suggestions: List<CitySuggestionModel>,
+    suggestions: List<CitySuggestionPresentationModel>,
     onQueryChange: (String) -> Unit,
-    onSuggestionClick: (CitySuggestionModel) -> Unit,
+    onSuggestionClick: (CitySuggestionPresentationModel) -> Unit,
     onMapClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -172,7 +173,7 @@ fun WeatherSearchBar(
                     onSearch = {
                         if (isListVisible) {
                             onSuggestionClick(suggestions[0])
-                            searchQuery = suggestions[0].fullName
+                            searchQuery = suggestions[0].name
                             showSuggestions = false
                             focusManager.clearFocus()
                         }
@@ -222,7 +223,7 @@ fun WeatherSearchBar(
                             ListItem(
                                 headlineContent = {
                                     Text(
-                                        text = suggestion.fullName,
+                                        text = suggestion.name,
                                         color = onSurfaceColor,
                                         style = MaterialTheme.typography.bodyMedium,
                                         fontWeight = FontWeight.Medium
@@ -241,7 +242,7 @@ fun WeatherSearchBar(
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(18.dp))
                                     .clickable {
-                                        searchQuery = suggestion.fullName
+                                        searchQuery = suggestion.name
                                         showSuggestions = false
                                         onSuggestionClick(suggestion)
                                         focusManager.clearFocus()

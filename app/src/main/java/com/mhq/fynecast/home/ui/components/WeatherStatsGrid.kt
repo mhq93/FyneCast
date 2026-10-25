@@ -18,12 +18,12 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.domain.weather.WeatherStatsDomainModel
+import com.mhq.fynecast.home.presentation.model.WeatherStatsPresentationModel
 import java.text.NumberFormat
 
 @Composable
 fun WeatherStatsGrid(
-    stats: WeatherStatsDomainModel,
+    stats: WeatherStatsPresentationModel,
     isMetric: Boolean,
     modifier: Modifier = Modifier
 ) {

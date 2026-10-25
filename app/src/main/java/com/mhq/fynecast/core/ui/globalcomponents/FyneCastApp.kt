@@ -47,8 +47,8 @@ import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.favorites.presentation.FavoritesViewModel
 import com.mhq.fynecast.favorites.ui.screens.FavoritesContainer
-import com.mhq.fynecast.home.ui.HomeUiState
-import com.mhq.fynecast.home.ui.HomeViewModel
+import com.mhq.fynecast.home.presentation.HomeUiState
+import com.mhq.fynecast.home.presentation.HomeViewModel
 import com.mhq.fynecast.home.ui.screens.HomeContainer
 import com.mhq.fynecast.map.presentation.MapPickerViewModel
 import com.mhq.fynecast.map.ui.screens.MapPickerScreen

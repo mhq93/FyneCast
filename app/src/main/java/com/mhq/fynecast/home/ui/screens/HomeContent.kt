@@ -20,8 +20,8 @@ import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.core.ui.format.DateTimeFormats
 import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
-import com.mhq.fynecast.core.domain.location.CitySuggestionModel
-import com.mhq.fynecast.core.domain.weather.WeatherDomainModel
+import com.mhq.fynecast.home.presentation.model.CitySuggestionPresentationModel
+import com.mhq.fynecast.home.presentation.model.WeatherPresentationModel
 import com.mhq.fynecast.home.ui.components.WeatherDailyCarousel
 import com.mhq.fynecast.home.ui.components.WeatherHeroCard
 import com.mhq.fynecast.home.ui.components.WeatherHourlyCarousel
@@ -31,14 +31,14 @@ import com.mhq.fynecast.home.ui.components.rememberCityTime
 
 @Composable
 fun HomeContent(
-    weatherDomainModel: WeatherDomainModel,
-    citySuggestions: List<CitySuggestionModel>,
+    weather: WeatherPresentationModel,
+    citySuggestions: List<CitySuggestionPresentationModel>,
     selectedCityName: String,
     isMetric: Boolean,
     isFavorite: Boolean,
     isRefreshing: Boolean,
     onQueryChange: (String) -> Unit,
-    onSuggestionClick: (CitySuggestionModel) -> Unit,
+    onSuggestionClick: (CitySuggestionPresentationModel) -> Unit,
     onMapIconClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     onAlertsBannerClick: () -> Unit,
@@ -67,37 +67,37 @@ fun HomeContent(
                     .fillMaxWidth()
             )
             WeatherHeroCard(
-                icon = weatherDomainModel.conditionIcon,
+                icon = weather.conditionIcon,
                 city = selectedCityName.substringBefore(","),
                 timestamp = rememberCityTime(
-                    timeZoneId = weatherDomainModel.timeZoneId,
-                    fallback = weatherDomainModel.lastUpdated?.let {
+                    timeZoneId = weather.timeZoneId,
+                    fallback = weather.lastUpdated?.let {
                         DateTimeFormats.lastUpdated(it, currentLocale())
                     }.orEmpty()
                 ),
-                description = weatherDomainModel.conditionText,
+                description = weather.conditionText,
                 temperature = TemperatureFormatter.format(
                     if (isMetric)
-                        weatherDomainModel.currentTempC
+                        weather.currentTempC
                     else
-                        weatherDomainModel.currentTempF
+                        weather.currentTempF
                 ),
                 isFavorite = isFavorite,
-                alertsNumber = weatherDomainModel.alerts.size,
+                alertsNumber = weather.alertsCount,
                 onToggleFavorite = onToggleFavorite,
                 onAlertsBannerClick = onAlertsBannerClick,
                 modifier = Modifier.fillMaxWidth()
             )
             WeatherHourlyCarousel(
-                hourlyForecasts = weatherDomainModel.hourlyForecasts,
+                hourlyForecasts = weather.hourlyForecasts,
                 isMetric = isMetric
             )
             WeatherDailyCarousel(
-                dailyForecasts = weatherDomainModel.dailyForecasts,
+                dailyForecasts = weather.dailyForecasts,
                 isMetric = isMetric
             )
             WeatherStatsGrid(
-                stats = weatherDomainModel.stats,
+                stats = weather.stats,
                 isMetric = isMetric
             )
         }

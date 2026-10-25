@@ -6039,9 +6039,9 @@ import com.mhq.fynecast.auth.ui.forgotpassword.ui.ForgotPasswordViewModel
 import com.mhq.fynecast.auth.ui.login.ui.LoginViewModel
 import com.mhq.fynecast.auth.ui.signup.ui.SignupViewModel
 import com.mhq.fynecast.core.navigation.SessionViewModel
-import com.mhq.fynecast.favorites.ui.FavoritesViewModel
+import com.mhq.fynecast.favorites.presentation.FavoritesViewModel
 import com.mhq.fynecast.home.ui.HomeViewModel
-import com.mhq.fynecast.map.ui.MapPickerViewModel
+import com.mhq.fynecast.map.presentation.MapPickerViewModel
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 
 private fun CreationExtras.container(): AppContainer =
@@ -7957,12 +7957,12 @@ import com.mhq.fynecast.core.navigation.BottomNavTab
 import com.mhq.fynecast.core.navigation.BottomNavigationBar
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.favorites.ui.FavoritesViewModel
+import com.mhq.fynecast.favorites.presentation.FavoritesViewModel
 import com.mhq.fynecast.favorites.ui.screens.FavoritesContainer
 import com.mhq.fynecast.home.ui.HomeUiState
 import com.mhq.fynecast.home.ui.HomeViewModel
 import com.mhq.fynecast.home.ui.screens.HomeContainer
-import com.mhq.fynecast.map.ui.MapPickerViewModel
+import com.mhq.fynecast.map.presentation.MapPickerViewModel
 import com.mhq.fynecast.map.ui.screens.MapPickerScreen
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 import com.mhq.fynecast.settings.ui.screens.SettingsContainer
@@ -8110,8 +8110,8 @@ fun FyneCastApp(
 
                         FavoritesContainer(
                             favoritesViewModel = favoritesViewModel,
-                            onCityRowSelected = { favoriteCity ->
-                                favoritesViewModel.onCitySelected(favoriteCity)
+                            onFavoriteSelected = { favoriteId ->
+                                favoritesViewModel.onFavoriteSelected(favoriteId)
                                 navController.switchToTab(BottomNavTab.Home)
                             },
                             contentPadding = bottomContentPadding,
@@ -8153,12 +8153,8 @@ fun FyneCastApp(
                             langCode = mapLangCode,
                             initialLatitude = currentWeather?.latitude,
                             initialLongitude = currentWeather?.longitude,
-                            onLocationPicked = { location ->
-                                mapPickerViewModel.onLocationConfirmed(
-                                    name = location.fullName,
-                                    latitude = location.latitude,
-                                    longitude = location.longitude
-                                )
+                            onLocationConfirmed = {
+                                mapPickerViewModel.onLocationConfirmed()
                                 if (navController.currentBackStackEntry?.destination?.route == AppDestination.MapPicker.route) {
                                     navController.popBackStack()
                                 }
@@ -8868,27 +8864,6 @@ class FavoritesRepoImpl(
 }
 ```
 
-## favorites\domain\mapper\FavoritesMapper.kt
-
-```kotlin
-package com.mhq.fynecast.favorites.domain.mapper
-
-import com.mhq.fynecast.favorites.data.database.FavoriteEntity
-import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
-
-fun FavoriteCityDomainModel.toEntity(userId: String) = FavoriteEntity(
-    userId = userId,
-    locationKey = id,
-    cityName = cityName,
-    countryName = countryName,
-    latitude = latitude,
-    longitude = longitude,
-    temperatureC = temperatureC,
-    temperatureF = temperatureF,
-    weatherIconUrl = weatherIconUrl
-)
-```
-
 ## favorites\domain\models\FavoriteCityDomainModel.kt
 
 ```kotlin
@@ -9086,6 +9061,189 @@ class ToggleFavoriteUseCase(private val favoritesRepository: FavoritesRepository
 }
 ```
 
+## favorites\presentation\FavoritesEvent.kt
+
+```kotlin
+package com.mhq.fynecast.favorites.presentation
+
+/** One-off events for the Favorites screen (snackbars). */
+sealed interface FavoritesEvent {
+    data class Removed(val cityName: String) : FavoritesEvent
+    data class RemoveFailed(val cityName: String) : FavoritesEvent
+}
+```
+
+## favorites\presentation\FavoritesUiState.kt
+
+```kotlin
+package com.mhq.fynecast.favorites.presentation
+
+import com.mhq.fynecast.favorites.presentation.model.FavoriteCityPresentationModel
+
+/** What the Favorites screen shows. */
+sealed interface FavoritesUiState {
+    /** The first load has not finished yet. */
+    data object Loading : FavoritesUiState
+
+    /** The user has no favorites. */
+    data object Empty : FavoritesUiState
+
+    data class Success(val favorites: List<FavoriteCityPresentationModel>) : FavoritesUiState
+}
+```
+
+## favorites\presentation\FavoritesViewModel.kt
+
+```kotlin
+package com.mhq.fynecast.favorites.presentation
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.mhq.fynecast.core.domain.location.SelectCityUseCase
+import com.mhq.fynecast.core.domain.location.SelectedCity
+import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
+import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
+import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
+import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
+import com.mhq.fynecast.favorites.presentation.mapper.toPresentation
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+class FavoritesViewModel(
+    private val selectCityUseCase: SelectCityUseCase,
+    private val getFavoritesUseCase: GetFavoritesUseCase,
+    private val deleteFavoriteUseCase: DeleteFavoriteUseCase,
+    private val restoreFavoriteUseCase: RestoreFavoriteUseCase,
+    private val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase
+) : ViewModel() {
+
+    /** The domain favorites, kept privately: null = the first load has not finished yet. */
+    private val domainFavorites: StateFlow<List<FavoriteCityDomainModel>?> =
+        getFavoritesUseCase().stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = null
+        )
+
+    /** The screen only ever sees presentation models. */
+    val uiState: StateFlow<FavoritesUiState> = domainFavorites
+        .map { favorites ->
+            when {
+                favorites == null -> FavoritesUiState.Loading
+                favorites.isEmpty() -> FavoritesUiState.Empty
+                else -> FavoritesUiState.Success(favorites.map { it.toPresentation() })
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = FavoritesUiState.Loading
+        )
+
+    private val _events = Channel<FavoritesEvent>(Channel.BUFFERED)
+    val events: Flow<FavoritesEvent> = _events.receiveAsFlow()
+
+    private var lastRemoved: FavoriteCityDomainModel? = null
+
+    /** The user tapped a favorite row: make that city the one Home shows. */
+    fun onFavoriteSelected(favoriteId: String) {
+        val city = findFavorite(favoriteId) ?: return
+        viewModelScope.launch {
+            selectCityUseCase(
+                SelectedCity(
+                    name = "${city.cityName}, ${city.countryName}",
+                    latitude = city.latitude,
+                    longitude = city.longitude
+                )
+            )
+        }
+    }
+
+    fun onDeleteFavorite(favoriteId: String) {
+        val city = findFavorite(favoriteId) ?: return
+        viewModelScope.launch {
+            try {
+                withContext(NonCancellable) { deleteFavoriteUseCase(city.id) }
+                lastRemoved = city
+                _events.send(FavoritesEvent.Removed(city.cityName))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _events.send(FavoritesEvent.RemoveFailed(city.cityName))
+            }
+        }
+    }
+
+    fun onUndoRemove() {
+        val city = lastRemoved ?: return
+        lastRemoved = null
+        viewModelScope.launch { withContext(NonCancellable) { restoreFavoriteUseCase(city) } }
+    }
+
+    /** Called when the Favorites tab is shown; the use case skips the call if it ran recently. */
+    fun onScreenShown(langCode: String) {
+        viewModelScope.launch {
+            try {
+                refreshAllFavoritesUseCase(langCode)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // Old temperatures stay; nothing else to do.
+            }
+        }
+    }
+
+    private fun findFavorite(favoriteId: String): FavoriteCityDomainModel? =
+        domainFavorites.value?.firstOrNull { it.id == favoriteId }
+}
+```
+
+## favorites\presentation\mapper\FavoritePresentationMapper.kt
+
+```kotlin
+package com.mhq.fynecast.favorites.presentation.mapper
+
+import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
+import com.mhq.fynecast.favorites.presentation.model.FavoriteCityPresentationModel
+
+fun FavoriteCityDomainModel.toPresentation(): FavoriteCityPresentationModel =
+    FavoriteCityPresentationModel(
+        id = id,
+        cityName = cityName,
+        countryName = countryName,
+        temperatureC = temperatureC,
+        temperatureF = temperatureF,
+        weatherIconUrl = weatherIconUrl
+    )
+```
+
+## favorites\presentation\model\FavoriteCityPresentationModel.kt
+
+```kotlin
+package com.mhq.fynecast.favorites.presentation.model
+
+/** What the Favorites screen needs to show one city. The UI never sees the domain model. */
+data class FavoriteCityPresentationModel(
+    /** Stable identity of the row; the UI sends it back to the ViewModel. */
+    val id: String,
+    val cityName: String,
+    val countryName: String,
+    val temperatureC: Double,
+    val temperatureF: Double,
+    val weatherIconUrl: String
+)
+```
+
 ## favorites\ui\components\FavoriteCityItem.kt
 
 ```kotlin
@@ -9116,11 +9274,11 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.format.TemperatureFormatter
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
+import com.mhq.fynecast.favorites.presentation.model.FavoriteCityPresentationModel
 
 @Composable
 fun FavoriteCityItem(
-    favoriteCityDomainModel: FavoriteCityDomainModel,
+    favorite: FavoriteCityPresentationModel,
     isMetric: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -9142,7 +9300,7 @@ fun FavoriteCityItem(
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = favoriteCityDomainModel.cityName,
+                    text = favorite.cityName,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Black,
                     fontFamily = FontFamily.Cursive,
@@ -9151,7 +9309,7 @@ fun FavoriteCityItem(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = favoriteCityDomainModel.countryName,
+                    text = favorite.countryName,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
                     maxLines = 1,
@@ -9165,7 +9323,7 @@ fun FavoriteCityItem(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 AsyncImage(
-                    model = "https:${favoriteCityDomainModel.weatherIconUrl}",
+                    model = "https:${favorite.weatherIconUrl}",
                     placeholder = painterResource(R.drawable.ic_launcher_foreground),
                     error = painterResource(R.drawable.ic_launcher_foreground),
                     contentDescription = stringResource(R.string.weather_icon),
@@ -9174,10 +9332,7 @@ fun FavoriteCityItem(
                 )
                 Text(
                     text = TemperatureFormatter.format(
-                        if (isMetric)
-                            favoriteCityDomainModel.temperatureC
-                        else
-                            favoriteCityDomainModel.temperatureF
+                        if (isMetric) favorite.temperatureC else favorite.temperatureF
                     ),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
@@ -9193,26 +9348,22 @@ fun FavoriteCityItem(
     showBackground = true,
     backgroundColor = 0xFFE0F7FA
 )
-
 @Preview(
     name = "Dark Mode",
     uiMode = Configuration.UI_MODE_NIGHT_YES,
     showBackground = true,
     backgroundColor = 0xFF000000
 )
-
-@Preview
 @Composable
 private fun FavoriteCityItemPreview() {
-    FyneCastTheme() {
+    FyneCastTheme {
         FavoriteCityItem(
-            FavoriteCityDomainModel(
+            favorite = FavoriteCityPresentationModel(
+                id = "31.2,29.92",
                 cityName = "Alexandria",
                 countryName = "Egypt",
-                latitude = 100.0,
-                longitude = 100.0,
-                temperatureC = 100.0,
-                temperatureF = 100.0,
+                temperatureC = 24.0,
+                temperatureF = 75.2,
                 weatherIconUrl = "Url"
             ),
             isMetric = true
@@ -9364,115 +9515,6 @@ fun UndoDeleteSnackbarPreview() {
 }
 ```
 
-## favorites\ui\FavoritesEvent.kt
-
-```kotlin
-package com.mhq.fynecast.favorites.ui
-
-sealed interface FavoritesEvent {
-    data class Removed(val cityName: String) : FavoritesEvent
-    data class RemoveFailed(val cityName: String) : FavoritesEvent
-}
-```
-
-## favorites\ui\FavoritesViewModel.kt
-
-```kotlin
-package com.mhq.fynecast.favorites.ui
-
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
-import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import com.mhq.fynecast.core.di.FyneCastApplication
-import com.mhq.fynecast.core.domain.location.SelectCityUseCase
-import com.mhq.fynecast.core.domain.location.SelectedCity
-import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
-import com.mhq.fynecast.favorites.domain.usecases.DeleteFavoriteUseCase
-import com.mhq.fynecast.favorites.domain.usecases.GetFavoritesUseCase
-import com.mhq.fynecast.favorites.domain.usecases.RefreshAllFavoritesUseCase
-import com.mhq.fynecast.favorites.domain.usecases.RestoreFavoriteUseCase
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-
-class FavoritesViewModel(
-    private val selectCityUseCase: SelectCityUseCase,
-    private val getFavoritesUseCase: GetFavoritesUseCase,
-    private val deleteFavoriteUseCase: DeleteFavoriteUseCase,
-    private val restoreFavoriteUseCase: RestoreFavoriteUseCase,
-    private val refreshAllFavoritesUseCase: RefreshAllFavoritesUseCase
-) : ViewModel() {
-
-    /** null = the first load has not finished yet; an empty list = the user has no favorites. */
-    val favorites: StateFlow<List<FavoriteCityDomainModel>?> =
-        getFavoritesUseCase().stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = null
-        )
-
-    private val _events = Channel<FavoritesEvent>(Channel.BUFFERED)
-    val events: Flow<FavoritesEvent> = _events.receiveAsFlow()
-
-    private var lastRemoved: FavoriteCityDomainModel? = null
-
-    fun onCitySelected(city: FavoriteCityDomainModel) {
-        viewModelScope.launch {
-            selectCityUseCase(
-                SelectedCity(
-                    name = "${city.cityName}, ${city.countryName}",
-                    latitude = city.latitude,
-                    longitude = city.longitude
-                )
-            )
-        }
-    }
-
-    fun onDeleteFavorite(city: FavoriteCityDomainModel) {
-        viewModelScope.launch {
-            try {
-                withContext(NonCancellable) { deleteFavoriteUseCase(city.id) }
-                lastRemoved = city
-                _events.send(FavoritesEvent.Removed(city.cityName))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _events.send(FavoritesEvent.RemoveFailed(city.cityName))
-            }
-        }
-    }
-
-    fun onUndoRemove() {
-        val city = lastRemoved ?: return
-        lastRemoved = null
-        viewModelScope.launch { withContext(NonCancellable) { restoreFavoriteUseCase(city) } }
-    }
-
-    /** Called when the Favorites tab is shown; the use case skips the call if it ran recently. */
-    fun onScreenShown(langCode: String) {
-        viewModelScope.launch {
-            try {
-                refreshAllFavoritesUseCase(langCode)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // Old temperatures stay; nothing else to do.
-            }
-        }
-    }
-}
-```
-
 ## favorites\ui\screens\FavoritesBlank.kt
 
 ```kotlin
@@ -9554,23 +9596,23 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.currentLocale
-import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
-import com.mhq.fynecast.favorites.ui.FavoritesEvent
-import com.mhq.fynecast.favorites.ui.FavoritesViewModel
+import com.mhq.fynecast.favorites.presentation.FavoritesEvent
+import com.mhq.fynecast.favorites.presentation.FavoritesUiState
+import com.mhq.fynecast.favorites.presentation.FavoritesViewModel
 import com.mhq.fynecast.favorites.ui.components.UndoDeleteSnackbar
 import kotlinx.coroutines.launch
 
 @Composable
 fun FavoritesContainer(
     favoritesViewModel: FavoritesViewModel = viewModel(factory = AppViewModelFactory),
-    onCityRowSelected: (FavoriteCityDomainModel) -> Unit,
+    onFavoriteSelected: (favoriteId: String) -> Unit,
     isMetric: Boolean,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     modifier: Modifier = Modifier
 ) {
     val resources = LocalResources.current
     val undoLabel = stringResource(R.string.undo)
-    val favorites by favoritesViewModel.favorites.collectAsStateWithLifecycle()
+    val uiState by favoritesViewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val langCode = currentLocale().language
 
@@ -9606,21 +9648,22 @@ fun FavoritesContainer(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        val currentFavorites = favorites
-        when {
-            currentFavorites == null -> {
+        when (val state = uiState) {
+            FavoritesUiState.Loading -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                 }
             }
-            currentFavorites.isEmpty() -> {
+
+            FavoritesUiState.Empty -> {
                 FavoritesBlank(contentPadding = contentPadding)
             }
-            else -> {
+
+            is FavoritesUiState.Success -> {
                 FavoritesContent(
-                    favoriteCities = currentFavorites,
-                    onCityRowSelected = onCityRowSelected,
-                    onDeleteFavorite = favoritesViewModel::onDeleteFavorite,
+                    favorites = state.favorites,
+                    onFavoriteClick = onFavoriteSelected,
+                    onFavoriteDelete = favoritesViewModel::onDeleteFavorite,
                     contentPadding = contentPadding,
                     isMetric = isMetric
                 )
@@ -9660,15 +9703,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.favorites.domain.models.FavoriteCityDomainModel
+import com.mhq.fynecast.favorites.presentation.model.FavoriteCityPresentationModel
 import com.mhq.fynecast.favorites.ui.components.FavoriteCityItem
 import com.mhq.fynecast.favorites.ui.components.SwipeBackground
 
 @Composable
 fun FavoritesContent(
-    favoriteCities: List<FavoriteCityDomainModel>,
-    onCityRowSelected: (FavoriteCityDomainModel) -> Unit,
-    onDeleteFavorite: (FavoriteCityDomainModel) -> Unit,
+    favorites: List<FavoriteCityPresentationModel>,
+    onFavoriteClick: (favoriteId: String) -> Unit,
+    onFavoriteDelete: (favoriteId: String) -> Unit,
     isMetric: Boolean,
     contentPadding: PaddingValues = PaddingValues(8.dp),
     modifier: Modifier = Modifier
@@ -9683,17 +9726,17 @@ fun FavoritesContent(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(
-                items = favoriteCities,
+                items = favorites,
                 key = { it.id }
             ) { favorite ->
                 val currentFavorite by rememberUpdatedState(favorite)
-                val currentOnDelete by rememberUpdatedState(onDeleteFavorite)
+                val currentOnDelete by rememberUpdatedState(onFavoriteDelete)
 
                 val dismissState = rememberSwipeToDismissBoxState(
                     confirmValueChange = { value ->
                         if (value == SwipeToDismissBoxValue.EndToStart) {
                             /** Runs once, when the user finishes the swipe. */
-                            currentOnDelete(currentFavorite)
+                            currentOnDelete(currentFavorite.id)
                         }
                         /**
                          * Never keep a row in the "swiped away" state.
@@ -9711,9 +9754,9 @@ fun FavoritesContent(
                     enableDismissFromStartToEnd = false
                 ) {
                     FavoriteCityItem(
-                        favoriteCityDomainModel = favorite,
+                        favorite = favorite,
                         isMetric = isMetric,
-                        modifier = Modifier.clickable { onCityRowSelected(favorite) }
+                        modifier = Modifier.clickable { onFavoriteClick(favorite.id) }
                     )
                 }
             }
@@ -9726,9 +9769,9 @@ fun FavoritesContent(
 private fun FavoritesContentPreview() {
     FyneCastTheme {
         FavoritesContent(
-            favoriteCities = emptyList(),
-            onCityRowSelected = {},
-            onDeleteFavorite = {},
+            favorites = emptyList(),
+            onFavoriteClick = {},
+            onFavoriteDelete = {},
             isMetric = true
         )
     }
@@ -13243,6 +13286,131 @@ class ReverseGeocodeLocationUseCase(
 }
 ```
 
+## map\presentation\mapper\MapPlacePresentationMapper.kt
+
+```kotlin
+package com.mhq.fynecast.map.presentation.mapper
+
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
+import com.mhq.fynecast.map.presentation.model.MapPlacePresentationModel
+
+fun CitySuggestionModel.toPresentation(): MapPlacePresentationModel =
+    MapPlacePresentationModel(name = fullName)
+```
+
+## map\presentation\MapPickerUiState.kt
+
+```kotlin
+package com.mhq.fynecast.map.presentation
+
+import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.map.presentation.model.MapPlacePresentationModel
+
+/**
+ * What the map picker screen shows.
+ *
+ * The marker coordinates are set immediately on tap so the marker survives rotation
+ * and appears before the place name has been resolved.
+ */
+data class MapPickerUiState(
+    val selectedPlace: MapPlacePresentationModel? = null,
+    val markerLatitude: Double? = null,
+    val markerLongitude: Double? = null,
+    val isSearching: Boolean = false,
+    val errorMessage: UiText? = null
+)
+```
+
+## map\presentation\MapPickerViewModel.kt
+
+```kotlin
+package com.mhq.fynecast.map.presentation
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.mhq.fynecast.R
+import com.mhq.fynecast.core.domain.location.CitySuggestionModel
+import com.mhq.fynecast.core.domain.location.SelectCityUseCase
+import com.mhq.fynecast.core.domain.location.SelectedCity
+import com.mhq.fynecast.core.ui.text.UiText
+import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
+import com.mhq.fynecast.map.presentation.mapper.toPresentation
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+class MapPickerViewModel(
+    private val selectCityUseCase: SelectCityUseCase,
+    private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(MapPickerUiState())
+    val uiState: StateFlow<MapPickerUiState> = _uiState.asStateFlow()
+
+    private var geocodeJob: Job? = null
+
+    /** The domain city for the last tap, kept privately: the screen only sees the presentation model. */
+    private var resolvedCity: CitySuggestionModel? = null
+
+    fun onMapClicked(latitude: Double, longitude: Double, langCode: String) {
+        geocodeJob?.cancel()
+        resolvedCity = null
+        geocodeJob = viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isSearching = true,
+                    selectedPlace = null,
+                    errorMessage = null,
+                    markerLatitude = latitude,
+                    markerLongitude = longitude
+                )
+            }
+            try {
+                val resolved = reverseGeocodeLocationUseCase(latitude, longitude, langCode)
+                if (resolved != null) {
+                    resolvedCity = resolved
+                    _uiState.update { it.copy(selectedPlace = resolved.toPresentation()) }
+                } else {
+                    _uiState.update {
+                        it.copy(errorMessage = UiText.res(R.string.error_map_no_location))
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(errorMessage = UiText.res(R.string.error_map_resolve_failed))
+                }
+            }
+            _uiState.update { it.copy(isSearching = false) }
+        }
+    }
+
+    /** The user pressed "Confirm" on the card: publish the city that was resolved for the last tap. */
+    fun onLocationConfirmed() {
+        val city = resolvedCity ?: return
+        viewModelScope.launch {
+            selectCityUseCase(SelectedCity(city.fullName, city.latitude, city.longitude))
+        }
+    }
+}
+```
+
+## map\presentation\model\MapPlacePresentationModel.kt
+
+```kotlin
+package com.mhq.fynecast.map.presentation.model
+
+/** The place the user tapped, as the confirm card needs it. The UI never sees the domain model. */
+data class MapPlacePresentationModel(
+    val name: String
+)
+```
+
 ## map\ui\components\ErrorCard.kt
 
 ```kotlin
@@ -13382,15 +13550,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 import com.mhq.fynecast.core.ui.theme.AbyssalVoid
 import com.mhq.fynecast.core.ui.theme.ElectricLimeGreen
-import com.mhq.fynecast.core.domain.location.CitySuggestionModel
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
+import com.mhq.fynecast.map.presentation.model.MapPlacePresentationModel
 
 @Composable
 fun LocationConfirmCard(
-    location: CitySuggestionModel,
-    onLocationPicked: (CitySuggestionModel) -> Unit,
+    place: MapPlacePresentationModel,
+    onConfirm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -13407,7 +13575,7 @@ fun LocationConfirmCard(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = location.fullName,
+                text = place.name,
                 color = Color.White,
                 fontWeight = FontWeight.Bold
             )
@@ -13415,7 +13583,7 @@ fun LocationConfirmCard(
                 modifier = Modifier.height(12.dp)
             )
             Button(
-                onClick = { onLocationPicked(location) },
+                onClick = onConfirm,
                 colors = ButtonDefaults.buttonColors(containerColor = ElectricLimeGreen),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -13431,105 +13599,11 @@ fun LocationConfirmCard(
 @Preview
 @Composable
 private fun LocationConfirmCardPreview() {
-    FyneCastTheme(){
+    FyneCastTheme {
         LocationConfirmCard(
-            location = CitySuggestionModel(
-                fullName = "City Name",
-                latitude = 100.0,
-                longitude = 100.0
-            ),
-            onLocationPicked = {}
+            place = MapPlacePresentationModel(name = "City Name"),
+            onConfirm = {}
         )
-    }
-}
-```
-
-## map\ui\MapPickerUiState.kt
-
-```kotlin
-package com.mhq.fynecast.map.ui
-
-import com.mhq.fynecast.core.ui.text.UiText
-import com.mhq.fynecast.core.domain.location.CitySuggestionModel
-
-/**
- * Where the user last tapped
- * Set immediately on tap so the marker survives rotation
- * and appears before the place name has been resolved.
- * */
-data class MapPickerUiState(
-    val selectedLocation: CitySuggestionModel? = null,
-    val markerLatitude: Double? = null,
-    val markerLongitude: Double? = null,
-    val isSearching: Boolean = false,
-    val errorMessage: UiText? = null
-)
-```
-
-## map\ui\MapPickerViewModel.kt
-
-```kotlin
-package com.mhq.fynecast.map.ui
-
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.mhq.fynecast.R
-import com.mhq.fynecast.core.domain.location.SelectCityUseCase
-import com.mhq.fynecast.core.domain.location.SelectedCity
-import com.mhq.fynecast.core.ui.text.UiText
-import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-
-class MapPickerViewModel(
-    private val selectCityUseCase: SelectCityUseCase,
-    private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase
-) : ViewModel() {
-
-    private val _uiState = MutableStateFlow(MapPickerUiState())
-    val uiState: StateFlow<MapPickerUiState> = _uiState.asStateFlow()
-
-    private var geocodeJob: Job? = null
-
-    fun onMapClicked(latitude: Double, longitude: Double, langCode: String) {
-        geocodeJob?.cancel()
-        geocodeJob = viewModelScope.launch {
-            _uiState.update {
-                it.copy(
-                    isSearching = true,
-                    selectedLocation = null,
-                    errorMessage = null,
-                    markerLatitude = latitude,
-                    markerLongitude = longitude
-                )
-            }
-            try {
-                val resolvedLocation = reverseGeocodeLocationUseCase(latitude, longitude, langCode)
-                if (resolvedLocation != null) {
-                    _uiState.update { it.copy(selectedLocation = resolvedLocation) }
-                } else {
-                    _uiState.update {
-                        it.copy(errorMessage = UiText.res(R.string.error_map_no_location))
-                    }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                _uiState.update {
-                    it.copy(errorMessage = UiText.res(R.string.error_map_resolve_failed))
-                }
-            }
-            _uiState.update { it.copy(isSearching = false) }
-        }
-    }
-
-    fun onLocationConfirmed(name: String, latitude: Double, longitude: Double) {
-        viewModelScope.launch { selectCityUseCase(SelectedCity(name, latitude, longitude)) }
     }
 }
 ```
@@ -13576,8 +13650,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.theme.AbyssalVoid
 import com.mhq.fynecast.core.ui.theme.ElectricLimeGreen
-import com.mhq.fynecast.core.domain.location.CitySuggestionModel
-import com.mhq.fynecast.map.ui.MapPickerViewModel
+import com.mhq.fynecast.map.presentation.MapPickerViewModel
 import com.mhq.fynecast.map.ui.components.ErrorCard
 import com.mhq.fynecast.map.ui.components.LoadingCard
 import com.mhq.fynecast.map.ui.components.LocationConfirmCard
@@ -13609,7 +13682,7 @@ fun MapPickerScreen(
     langCode: String,
     initialLatitude: Double?,
     initialLongitude: Double?,
-    onLocationPicked: (CitySuggestionModel) -> Unit,
+    onLocationConfirmed: () -> Unit,
     onBackClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -13748,10 +13821,10 @@ fun MapPickerScreen(
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
                 )
-            } ?: uiState.selectedLocation?.let { location ->
+            } ?: uiState.selectedPlace?.let { place ->
                 LocationConfirmCard(
-                    location = location,
-                    onLocationPicked = onLocationPicked,
+                    place = place,
+                    onConfirm = onLocationConfirmed,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()

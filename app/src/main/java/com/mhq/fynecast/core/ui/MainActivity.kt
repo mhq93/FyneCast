@@ -21,7 +21,7 @@ import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.navigation.SessionViewModel
 import com.mhq.fynecast.core.ui.globalcomponents.FyneCastApp
-import com.mhq.fynecast.home.ui.HomeViewModel
+import com.mhq.fynecast.home.presentation.HomeViewModel
 import com.mhq.fynecast.settings.ui.SettingsViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
