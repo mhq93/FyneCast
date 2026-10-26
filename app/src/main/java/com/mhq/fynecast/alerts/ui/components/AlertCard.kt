@@ -1,5 +1,6 @@
 package com.mhq.fynecast.alerts.ui.components
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
@@ -199,8 +200,16 @@ fun AlertCard(
             // Smooth Expandable Metadata Area (Description & Instructions)
             AnimatedVisibility(
                 visible = isExpanded,
-                enter = expandVertically(animationSpec = tween(250)) + fadeIn(animationSpec = tween(250)),
-                exit = shrinkVertically(animationSpec = tween(250)) + fadeOut(animationSpec = tween(250))
+                enter = expandVertically(animationSpec = tween(250)) + fadeIn(
+                    animationSpec = tween(
+                        250
+                    )
+                ),
+                exit = shrinkVertically(animationSpec = tween(250)) + fadeOut(
+                    animationSpec = tween(
+                        250
+                    )
+                )
             ) {
                 Column(
                     modifier = Modifier
@@ -260,17 +269,48 @@ fun AlertCard(
     }
 }
 
-@Preview
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
 @Composable
-private fun AlertCardPreview() {
-    FyneCastTheme() {
+private fun AlertCardLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
         AlertCard(
             alert = AlertPresentationModel(
                 id = "1",
                 event = "Flood",
                 headline = "Flood warning for the coast",
-                description = "Water levels are rising.",
-                instruction = "Move to higher ground.",
+                description = "Water levels are rising rapidly due to severe storm surges.",
+                instruction = "Move to higher ground immediately.",
+                severity = AlertSeverity.Severe,
+                severityLabel = "Severe"
+            ),
+            isTracked = false,
+            isExpanded = true,
+            onTrackToggle = {},
+            onExpandToggle = {}
+        )
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+private fun AlertCardDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        AlertCard(
+            alert = AlertPresentationModel(
+                id = "1",
+                event = "Flood",
+                headline = "Flood warning for the coast",
+                description = "Water levels are rising rapidly due to severe storm surges.",
+                instruction = "Move to higher ground immediately.",
                 severity = AlertSeverity.Severe,
                 severityLabel = "Severe"
             ),

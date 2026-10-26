@@ -34,11 +34,11 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.screens.AlertsContainer
 import com.mhq.fynecast.auth.presentation.editprofile.EditProfileViewModel
-import com.mhq.fynecast.auth.ui.editprofile.ui.screens.EditProfileContainer
-import com.mhq.fynecast.auth.ui.forgotpassword.ui.screens.ForgotPasswordContainer
-import com.mhq.fynecast.auth.ui.login.ui.screens.LoginContainer
+import com.mhq.fynecast.auth.ui.editprofile.screens.EditProfileContainer
+import com.mhq.fynecast.auth.ui.forgotpassword.screens.ForgotPasswordContainer
+import com.mhq.fynecast.auth.ui.login.screens.LoginContainer
 import com.mhq.fynecast.auth.presentation.signup.SignupViewModel
-import com.mhq.fynecast.auth.ui.signup.ui.screens.SignupContainer
+import com.mhq.fynecast.auth.ui.signup.screens.SignupContainer
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.navigation.AppDestination
 import com.mhq.fynecast.core.navigation.BottomNavTab

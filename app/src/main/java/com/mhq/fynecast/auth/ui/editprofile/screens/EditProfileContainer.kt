@@ -1,4 +1,4 @@
-package com.mhq.fynecast.auth.ui.editprofile.ui.screens
+package com.mhq.fynecast.auth.ui.editprofile.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues

@@ -1,5 +1,6 @@
-package com.mhq.fynecast.auth.ui.login.ui.components
+package com.mhq.fynecast.auth.ui.login.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,12 +25,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.ui.components.AuthPasswordToggle
 import com.mhq.fynecast.auth.ui.components.AuthPrimaryButton
 import com.mhq.fynecast.auth.ui.components.AuthTextField
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
 fun AuthFormLogin(
@@ -83,10 +86,8 @@ fun AuthFormLogin(
                     )
                 },
                 visualTransformation =
-                    if (isPasswordVisible)
-                        VisualTransformation.None
-                    else
-                        PasswordVisualTransformation(),
+                    if (isPasswordVisible) VisualTransformation.None
+                    else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done
@@ -109,5 +110,46 @@ fun AuthFormLogin(
                 onClick = onLoginClick
             )
         }
+    }
+}
+
+@Composable
+private fun AuthFormLoginPreviewContent() {
+    AuthFormLogin(
+        email = "test@fynecast.com",
+        isEmailValid = true,
+        onEmailChanged = {},
+        password = "Password123!",
+        onPasswordChanged = {},
+        isPasswordVisible = false,
+        onTogglePasswordVisibility = {},
+        onForgotPasswordClick = {},
+        onLoginClick = {},
+        modifier = Modifier.padding(16.dp)
+    )
+}
+
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
+@Composable
+fun AuthFormLoginLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        AuthFormLoginPreviewContent()
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun AuthFormLoginDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        AuthFormLoginPreviewContent()
     }
 }

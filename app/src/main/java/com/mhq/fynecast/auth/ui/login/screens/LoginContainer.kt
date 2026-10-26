@@ -1,4 +1,4 @@
-package com.mhq.fynecast.auth.ui.login.ui.screens
+package com.mhq.fynecast.auth.ui.login.screens
 
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box

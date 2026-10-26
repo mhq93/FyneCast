@@ -2,16 +2,20 @@ package com.mhq.fynecast.settings.ui.screens
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -20,6 +24,8 @@ import com.mhq.fynecast.settings.presentation.model.LanguageOption
 import com.mhq.fynecast.settings.ui.components.SettingsLogoutButton
 import com.mhq.fynecast.settings.ui.components.SettingsPanel
 import com.mhq.fynecast.settings.ui.components.SettingsProfileHeader
+
+private val PageEdgePadding = 24.dp
 
 @Composable
 fun SettingsContent(
@@ -40,64 +46,67 @@ fun SettingsContent(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier
 ) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val bottomInset = contentPadding.calculateBottomPadding()
+        // The height the page can use. When the content is shorter, its three blocks are spread
+        // over this height; when it is taller, the page scrolls.
+        val pageHeight =
+            (maxHeight - statusBarHeight - bottomInset - PageEdgePadding * 2).coerceAtLeast(0.dp)
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-    ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top,
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .padding(bottom = contentPadding.calculateBottomPadding() + 24.dp)
                 .verticalScroll(rememberScrollState())
+                .padding(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = PageEdgePadding,
+                    bottom = bottomInset + PageEdgePadding
+                )
         ) {
-            SettingsProfileHeader(
-                profileName = profileName,
-                profileEmail = profileEmail,
-                profileImageUri = profileImageUri,
-                onEditProfileClick = onEditProfileClick,
-            )
-            SettingsPanel(
-                isMetric = isMetric,
-                onMetricToggle = onMetricToggle,
-                notificationsEnabled = notificationsEnabled,
-                onNotificationsToggle = onNotificationsToggle,
-                currentLanguage = currentLanguage,
-                onLanguageChange = onLanguageChange,
-                isDarkMode = isDarkMode,
-                onDarkModeToggle = onDarkModeToggle
-            )
-            SettingsLogoutButton(
-                isLoggingOut = isLoggingOut,
-                onLogoutClick = onLogoutClick,
-            )
+            Column(
+                verticalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = pageHeight)
+            ) {
+                // Each block keeps at least 20 dp from its neighbours; extra height is shared out.
+                SettingsProfileHeader(
+                    profileName = profileName,
+                    profileEmail = profileEmail,
+                    profileImageUri = profileImageUri,
+                    onEditProfileClick = onEditProfileClick,
+                    modifier = Modifier.padding(vertical = 10.dp)
+                )
+                SettingsPanel(
+                    isMetric = isMetric,
+                    onMetricToggle = onMetricToggle,
+                    notificationsEnabled = notificationsEnabled,
+                    onNotificationsToggle = onNotificationsToggle,
+                    currentLanguage = currentLanguage,
+                    onLanguageChange = onLanguageChange,
+                    isDarkMode = isDarkMode,
+                    onDarkModeToggle = onDarkModeToggle,
+                    modifier = Modifier.padding(vertical = 10.dp)
+                )
+                SettingsLogoutButton(
+                    isLoggingOut = isLoggingOut,
+                    onLogoutClick = onLogoutClick,
+                    modifier = Modifier.padding(vertical = 10.dp)
+                )
+            }
         }
     }
 }
 
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview(showBackground = true)
 @Composable
-fun SettingsScreenPreview() {
-    FyneCastTheme() {
+private fun SettingsPreviewContent(isDarkMode: Boolean) {
+    FyneCastTheme(isDarkMode = isDarkMode) {
         SettingsContent(
-            profileName = "name",
-            profileEmail = "email",
+            profileName = "Mohamed",
+            profileEmail = "mohamed@example.com",
             profileImageUri = null,
             onEditProfileClick = {},
             isMetric = true,
@@ -106,10 +115,24 @@ fun SettingsScreenPreview() {
             onNotificationsToggle = {},
             currentLanguage = LanguageOption.English,
             onLanguageChange = {},
-            isDarkMode = true,
+            isDarkMode = isDarkMode,
             onDarkModeToggle = {},
             onLogoutClick = {},
             contentPadding = PaddingValues(0.dp)
         )
     }
 }
+
+@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE, heightDp = 800)
+@Composable
+private fun SettingsLightPreview() = SettingsPreviewContent(isDarkMode = false)
+
+@Preview(
+    name = "Dark",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A,
+    heightDp = 800
+)
+@Composable
+private fun SettingsDarkPreview() = SettingsPreviewContent(isDarkMode = true)

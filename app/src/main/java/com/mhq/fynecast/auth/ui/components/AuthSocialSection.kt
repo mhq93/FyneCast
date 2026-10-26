@@ -1,5 +1,6 @@
 package com.mhq.fynecast.auth.ui.components
 
+import android.content.res.Configuration
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -22,8 +24,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 /** A hairline divider with a short label, then Google and Facebook side by side. */
 @Composable
@@ -98,5 +102,35 @@ private fun SocialButton(
                 modifier = Modifier.size(28.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun AuthSocialSectionPreviewContent() {
+    AuthSocialSection(
+        onGoogleAuthenticate = {},
+        onFacebookAuthenticate = {},
+        modifier = Modifier.padding(16.dp)
+    )
+}
+
+@Preview(name = "Light Mode", showBackground = true, backgroundColor = 0xFFE0F2FE)
+@Composable
+fun AuthSocialSectionLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        AuthSocialSectionPreviewContent()
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun AuthSocialSectionDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        AuthSocialSectionPreviewContent()
     }
 }

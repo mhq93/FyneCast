@@ -3,7 +3,11 @@ package com.mhq.fynecast.settings.ui.components
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -27,16 +31,15 @@ fun SettingsPanel(
     modifier: Modifier = Modifier
 ) {
     GlassyCard(
+        cornerRadius = 24.dp,
         padding = 0.dp,
-        modifier = modifier.padding(
-                start = 16.dp,
-                top = 32.dp,
-                bottom = 32.dp,
-                end = 16.dp
-        ).fillMaxWidth(),
+        containerAlpha = 0.06f,
+        borderAlpha = 0.15f,
+        modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             SettingsToggleRow(
+                icon = Icons.Outlined.Straighten,
                 label = stringResource(R.string.units),
                 isFirstOptionSelected = isMetric,
                 firstOptionLabel = stringResource(R.string.metric),
@@ -46,6 +49,7 @@ fun SettingsPanel(
             )
             SettingsPanelDivider()
             SettingsToggleRow(
+                icon = Icons.Outlined.Notifications,
                 label = stringResource(R.string.notifications),
                 isFirstOptionSelected = notificationsEnabled,
                 firstOptionLabel = stringResource(R.string.on),
@@ -55,6 +59,7 @@ fun SettingsPanel(
             )
             SettingsPanelDivider()
             SettingsToggleRow(
+                icon = Icons.Outlined.Language,
                 label = stringResource(R.string.language),
                 isFirstOptionSelected = currentLanguage == LanguageOption.English,
                 firstOptionLabel = stringResource(R.string.english),
@@ -64,6 +69,7 @@ fun SettingsPanel(
             )
             SettingsPanelDivider()
             SettingsToggleRow(
+                icon = Icons.Outlined.DarkMode,
                 label = stringResource(R.string.dark_mode),
                 isFirstOptionSelected = !isDarkMode,
                 firstOptionLabel = stringResource(R.string.light),
@@ -75,28 +81,36 @@ fun SettingsPanel(
     }
 }
 
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview
+@Preview(showBackground = true, backgroundColor = 0xFF0F172A)
 @Composable
 private fun SettingsPanelPreview() {
-    FyneCastTheme() {
+    FyneCastTheme(isDarkMode = true) {
         SettingsPanel(
             notificationsEnabled = true,
             isDarkMode = true,
             isMetric = true,
             currentLanguage = LanguageOption.English,
+            onNotificationsToggle = {},
+            onDarkModeToggle = {},
+            onMetricToggle = {},
+            onLanguageChange = {}
+        )
+    }
+}
+
+@Preview(
+    uiMode = Configuration.UI_MODE_NIGHT_NO,
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
+@Composable
+private fun SettingsPanelLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        SettingsPanel(
+            notificationsEnabled = false,
+            isDarkMode = false,
+            isMetric = false,
+            currentLanguage = LanguageOption.Arabic,
             onNotificationsToggle = {},
             onDarkModeToggle = {},
             onMetricToggle = {},

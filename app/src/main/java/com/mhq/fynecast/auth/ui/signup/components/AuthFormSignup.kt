@@ -1,4 +1,4 @@
-package com.mhq.fynecast.auth.ui.signup.ui.components
+package com.mhq.fynecast.auth.ui.signup.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

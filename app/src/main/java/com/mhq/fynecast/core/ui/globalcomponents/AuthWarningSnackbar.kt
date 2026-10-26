@@ -1,5 +1,6 @@
 package com.mhq.fynecast.core.ui.globalcomponents
 
+import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -14,8 +15,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarData
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarVisuals
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -73,10 +77,53 @@ fun AuthWarningSnackbar(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
 @Composable
-fun AuthWarningSnackbarPreview() {
-    FyneCastTheme() {
-        AuthWarningSnackbar(snackbarData = null)
+fun AuthWarningSnackbarLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        AuthWarningSnackbar(
+            snackbarData = remember {
+                object : SnackbarData {
+                    override val visuals = object : SnackbarVisuals {
+                        override val message = "Invalid email formatting or weak password sequence detected."
+                        override val actionLabel: String? = null
+                        override val duration = SnackbarDuration.Short
+                        override val withDismissAction = false
+                    }
+                    override fun dismiss() {}
+                    override fun performAction() {}
+                }
+            }
+        )
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun AuthWarningSnackbarDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        AuthWarningSnackbar(
+            snackbarData = remember {
+                object : SnackbarData {
+                    override val visuals = object : SnackbarVisuals {
+                        override val message = "Invalid email formatting or weak password sequence detected."
+                        override val actionLabel: String? = null
+                        override val duration = SnackbarDuration.Short
+                        override val withDismissAction = false
+                    }
+                    override fun dismiss() {}
+                    override fun performAction() {}
+                }
+            }
+        )
     }
 }

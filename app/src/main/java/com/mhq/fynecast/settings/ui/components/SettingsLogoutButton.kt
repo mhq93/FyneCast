@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
@@ -38,17 +38,15 @@ fun SettingsLogoutButton(
     Button(
         onClick = onLogoutClick,
         enabled = !isLoggingOut,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
-        ),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
-            contentColor = MaterialTheme.colorScheme.error
+            containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
+            contentColor = MaterialTheme.colorScheme.error,
+            disabledContainerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.08f),
+            disabledContentColor = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
         ),
         modifier = modifier
-            .padding(horizontal = 16.dp)
             .height(52.dp)
             .fillMaxWidth()
     ) {
@@ -76,18 +74,16 @@ fun SettingsLogoutButton(
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Black,
-                letterSpacing = 0.5.sp
+                letterSpacing = 0.5.sp.unlessArabic()
             )
         }
     }
 }
 
-@Preview
+@Preview(showBackground = true, backgroundColor = 0xFF0F172A)
 @Composable
 private fun SettingsLogoutButtonPreview() {
-    FyneCastTheme() {
-        SettingsLogoutButton(
-            onLogoutClick = {}
-        )
+    FyneCastTheme(isDarkMode = true) {
+        SettingsLogoutButton(onLogoutClick = {})
     }
 }

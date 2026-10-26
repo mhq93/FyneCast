@@ -1,4 +1,4 @@
-package com.mhq.fynecast.auth.ui.forgotpassword.ui.screens
+package com.mhq.fynecast.auth.ui.forgotpassword.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize

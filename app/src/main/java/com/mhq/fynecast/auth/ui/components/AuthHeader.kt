@@ -1,5 +1,6 @@
 package com.mhq.fynecast.auth.ui.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -7,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -19,21 +21,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
-/** The brand mark, the app name in spaced capitals, then the screen title and a short line. */
+/** The brand badge (the sun, or another [icon]), the app name in spaced capitals, then the title and a short line. */
 @Composable
 fun AuthHeader(
     title: String,
     subtitle: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    icon: ImageVector = Icons.Filled.WbSunny
 ) {
     val onBackground = MaterialTheme.colorScheme.onBackground
     val glow = MaterialTheme.colorScheme.secondary
@@ -55,7 +61,7 @@ fun AuthHeader(
                 .border(1.dp, onBackground.copy(alpha = 0.12f), CircleShape)
         ) {
             Icon(
-                imageVector = Icons.Filled.WbSunny,
+                imageVector = icon,
                 contentDescription = null,
                 tint = glow,
                 modifier = Modifier.size(30.dp)
@@ -94,5 +100,35 @@ fun AuthHeader(
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodyMedium
         )
+    }
+}
+
+@Composable
+private fun AuthHeaderPreviewContent() {
+    AuthHeader(
+        title = "Create Account",
+        subtitle = "Join FyneCast to track severe weather alerts globally",
+        modifier = Modifier.padding(16.dp)
+    )
+}
+
+@Preview(name = "Light Mode", showBackground = true, backgroundColor = 0xFFE0F2FE)
+@Composable
+fun AuthHeaderLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        AuthHeaderPreviewContent()
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun AuthHeaderDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        AuthHeaderPreviewContent()
     }
 }

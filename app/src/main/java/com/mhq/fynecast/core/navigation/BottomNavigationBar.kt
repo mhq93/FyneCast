@@ -1,5 +1,6 @@
 package com.mhq.fynecast.core.navigation
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -65,12 +66,32 @@ fun BottomNavigationBar(
     }
 }
 
-@Preview
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
 @Composable
-fun BottomNavigationBarPreview() {
-    FyneCastTheme() {
+fun BottomNavigationBarLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
         BottomNavigationBar(
-            currentRoute = "",
+            currentRoute = AppDestination.Home.route,
+            onItemSelected = {}
+        )
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun BottomNavigationBarDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        BottomNavigationBar(
+            currentRoute = AppDestination.Home.route,
             onItemSelected = {}
         )
     }

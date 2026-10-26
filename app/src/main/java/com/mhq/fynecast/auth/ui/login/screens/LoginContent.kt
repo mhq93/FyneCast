@@ -1,4 +1,4 @@
-package com.mhq.fynecast.auth.ui.login.ui.screens
+package com.mhq.fynecast.auth.ui.login.screens
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Spacer
@@ -13,7 +13,7 @@ import com.mhq.fynecast.auth.ui.components.AuthFooterLink
 import com.mhq.fynecast.auth.ui.components.AuthHeader
 import com.mhq.fynecast.auth.ui.components.AuthScreenLayout
 import com.mhq.fynecast.auth.ui.components.AuthSocialSection
-import com.mhq.fynecast.auth.ui.login.ui.components.AuthFormLogin
+import com.mhq.fynecast.auth.ui.login.components.AuthFormLogin
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
@@ -83,9 +83,15 @@ private fun LoginPreviewContent(isDarkMode: Boolean) {
     }
 }
 
-@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE, heightDp = 820)
+@Preview(
+    name = "Light",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE,
+    heightDp = 820
+)
 @Composable
-private fun LoginLightPreview() = LoginPreviewContent(isDarkMode = false)
+private fun LoginLightPreview() =
+    LoginPreviewContent(isDarkMode = false)
 
 @Preview(
     name = "Dark",
@@ -95,4 +101,5 @@ private fun LoginLightPreview() = LoginPreviewContent(isDarkMode = false)
     heightDp = 820
 )
 @Composable
-private fun LoginDarkPreview() = LoginPreviewContent(isDarkMode = true)
+private fun LoginDarkPreview() =
+    LoginPreviewContent(isDarkMode = true)

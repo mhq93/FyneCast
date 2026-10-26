@@ -1,4 +1,4 @@
-package com.mhq.fynecast.auth.ui.signup.ui.screens
+package com.mhq.fynecast.auth.ui.signup.screens
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Spacer
@@ -13,7 +13,7 @@ import com.mhq.fynecast.auth.ui.components.AuthFooterLink
 import com.mhq.fynecast.auth.ui.components.AuthHeader
 import com.mhq.fynecast.auth.ui.components.AuthScreenLayout
 import com.mhq.fynecast.auth.ui.components.AuthSocialSection
-import com.mhq.fynecast.auth.ui.signup.ui.components.AuthFormSignup
+import com.mhq.fynecast.auth.ui.signup.components.AuthFormSignup
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable

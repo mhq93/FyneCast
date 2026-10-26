@@ -1,4 +1,4 @@
-package com.mhq.fynecast.auth.ui.editprofile.ui.components
+package com.mhq.fynecast.auth.ui.editprofile.components
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -23,22 +23,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.ui.theme.AbyssalVoid
-import com.mhq.fynecast.core.ui.theme.ElectricLimeGreen
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
+/** The profile photo with an accent ring and a round camera button to change it. */
 @Composable
 fun EditProfileHeader(
     profileImageUri: String?,
     onProfileImagePicked: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-
     val imageModel = profileImageUri ?: R.drawable.user
+    val accent = MaterialTheme.colorScheme.onPrimary
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -50,8 +50,8 @@ fun EditProfileHeader(
 
     Box(
         modifier = modifier
-            .padding(top = 24.dp, bottom = 36.dp)
-            .size(100.dp),
+            .padding(vertical = 8.dp)
+            .size(120.dp),
         contentAlignment = Alignment.BottomEnd
     ) {
         AsyncImage(
@@ -62,34 +62,32 @@ fun EditProfileHeader(
             modifier = Modifier
                 .fillMaxSize()
                 .clip(CircleShape)
-                .border(
-                    2.dp,
-                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                    CircleShape
-                )
+                .border(2.dp, accent.copy(alpha = 0.7f), CircleShape)
         )
+        // The whole 44 dp square is the tap target; the visible badge is smaller.
         Box(
+            contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(48.dp)
-                .clickable {
+                .size(44.dp)
+                .clip(CircleShape)
+                .clickable(role = Role.Button) {
                     photoPickerLauncher.launch(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                     )
-                },
-            contentAlignment = Alignment.Center
+                }
         ) {
             Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(34.dp)
                     .clip(CircleShape)
-                    .background(AbyssalVoid)
-                    .border(1.dp, ElectricLimeGreen, CircleShape),
-                contentAlignment = Alignment.Center
+                    .background(accent)
+                    .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
             ) {
                 Icon(
                     imageVector = Icons.Default.CameraAlt,
                     contentDescription = stringResource(R.string.change_photo),
-                    tint = ElectricLimeGreen,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -97,13 +95,13 @@ fun EditProfileHeader(
     }
 }
 
-@Preview
+@Preview(showBackground = true, backgroundColor = 0xFF0F172A)
 @Composable
 private fun EditProfileHeaderPreview() {
-    FyneCastTheme() {
+    FyneCastTheme(isDarkMode = true) {
         EditProfileHeader(
             profileImageUri = null,
-            onProfileImagePicked = {},
+            onProfileImagePicked = {}
         )
     }
 }

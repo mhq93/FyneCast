@@ -1,5 +1,6 @@
 package com.mhq.fynecast.favorites.ui.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,15 +16,17 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarData
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarVisuals
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.core.ui.theme.ElectricLimeGreen
 
 @Composable
 fun UndoDeleteSnackbar(
@@ -80,10 +83,49 @@ fun UndoDeleteSnackbar(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(name = "Light Mode", showBackground = true, backgroundColor = 0xFFE0F2FE)
 @Composable
-fun UndoDeleteSnackbarPreview() {
-    FyneCastTheme() {
-        UndoDeleteSnackbar(snackbarData = null)
+fun UndoDeleteSnackbarLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        UndoDeleteSnackbar(
+            snackbarData = remember {
+                object : SnackbarData {
+                    override val visuals = object : SnackbarVisuals {
+                        override val message = "Alexandria removed from favorites"
+                        override val actionLabel = "Undo"
+                        override val duration = SnackbarDuration.Short
+                        override val withDismissAction = false
+                    }
+                    override fun dismiss() {}
+                    override fun performAction() {}
+                }
+            }
+        )
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun UndoDeleteSnackbarDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        UndoDeleteSnackbar(
+            snackbarData = remember {
+                object : SnackbarData {
+                    override val visuals = object : SnackbarVisuals {
+                        override val message = "Alexandria removed from favorites"
+                        override val actionLabel = "Undo"
+                        override val duration = SnackbarDuration.Short
+                        override val withDismissAction = false
+                    }
+                    override fun dismiss() {}
+                    override fun performAction() {}
+                }
+            }
+        )
     }
 }

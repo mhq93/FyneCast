@@ -4031,24 +4031,573 @@ class SignupViewModel(
 }
 ```
 
+## auth\ui\components\AuthFooterLink.kt
+
+```kotlin
+package com.mhq.fynecast.auth.ui.components
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+
+/** "Don't have an account? Sign up": a muted question and an accent action. */
+@Composable
+fun AuthFooterLink(
+    question: String,
+    action: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+    ) {
+        Text(
+            text = question,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Text(
+            text = action,
+            color = MaterialTheme.colorScheme.onPrimary,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+            modifier = Modifier
+                .padding(start = 6.dp)
+                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                .wrapContentHeight(Alignment.CenterVertically)
+                .clickable(role = Role.Button, onClick = onClick)
+        )
+    }
+}
+```
+
+## auth\ui\components\AuthHeader.kt
+
+```kotlin
+package com.mhq.fynecast.auth.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
+
+/** The brand badge (the sun, or another [icon]), the app name in spaced capitals, then the title and a short line. */
+@Composable
+fun AuthHeader(
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    icon: ImageVector = Icons.Filled.WbSunny
+) {
+    val onBackground = MaterialTheme.colorScheme.onBackground
+    val glow = MaterialTheme.colorScheme.secondary
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(60.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        listOf(glow.copy(alpha = 0.32f), glow.copy(alpha = 0.06f))
+                    )
+                )
+                .border(1.dp, onBackground.copy(alpha = 0.12f), CircleShape)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = glow,
+                modifier = Modifier.size(30.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        Text(
+            text = stringResource(R.string.app_name).uppercase(),
+            color = onBackground.copy(alpha = 0.85f),
+            style = MaterialTheme.typography.titleSmall.copy(
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 4.sp.unlessArabic()
+            ),
+            modifier = Modifier.clearAndSetSemantics {}
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        Text(
+            text = title,
+            color = onBackground,
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold,
+                letterSpacing = (-0.3).sp.unlessArabic()
+            )
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = subtitle,
+            color = onBackground.copy(alpha = 0.6f),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+```
+
+## auth\ui\components\AuthPrimaryButton.kt
+
+```kotlin
+package com.mhq.fynecast.auth.ui.components
+
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
+
+/** The main action: the accent colour as a solid fill, with a soft glow of the same colour. */
+@Composable
+fun AuthPrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val accent = MaterialTheme.colorScheme.onPrimary
+    val shape = RoundedCornerShape(18.dp)
+
+    Button(
+        onClick = onClick,
+        shape = shape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = accent,
+            contentColor = MaterialTheme.colorScheme.primary
+        ),
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = 0.dp,
+            pressedElevation = 0.dp
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(54.dp)
+            .shadow(
+                elevation = 14.dp,
+                shape = shape,
+                ambientColor = accent.copy(alpha = 0.35f),
+                spotColor = accent.copy(alpha = 0.35f)
+            )
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge.copy(
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp.unlessArabic()
+            )
+        )
+    }
+}
+```
+
+## auth\ui\components\AuthScreenLayout.kt
+
+```kotlin
+package com.mhq.fynecast.auth.ui.components
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+
+/**
+ * The shared frame of the sign-in screens: a soft warm glow at the top and a cool one at the
+ * bottom corner, with the content centred and scrollable (it scrolls on small screens
+ * and when the keyboard is open). The glow stays still while the content scrolls.
+ */
+@Composable
+fun AuthScreenLayout(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val warmGlow = MaterialTheme.colorScheme.secondary
+    val coolGlow = MaterialTheme.colorScheme.tertiary
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .drawBehind {
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(warmGlow.copy(alpha = 0.16f), Color.Transparent),
+                        center = Offset(size.width * 0.5f, 0f),
+                        radius = size.width * 0.9f
+                    )
+                )
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(coolGlow.copy(alpha = 0.14f), Color.Transparent),
+                        center = Offset(0f, size.height),
+                        radius = size.width * 0.9f
+                    )
+                )
+            }
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .statusBarsPadding()
+                .imePadding()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            content = content
+        )
+    }
+}
+```
+
+## auth\ui\components\AuthSocialSection.kt
+
+```kotlin
+package com.mhq.fynecast.auth.ui.components
+
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.mhq.fynecast.R
+
+/** A hairline divider with a short label, then Google and Facebook side by side. */
+@Composable
+fun AuthSocialSection(
+    onGoogleAuthenticate: () -> Unit,
+    onFacebookAuthenticate: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val onBackground = MaterialTheme.colorScheme.onBackground
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            HorizontalDivider(
+                modifier = Modifier.weight(1f),
+                color = onBackground.copy(alpha = 0.12f)
+            )
+            Text(
+                text = stringResource(R.string.or_with),
+                color = onBackground.copy(alpha = 0.5f),
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium)
+            )
+            HorizontalDivider(
+                modifier = Modifier.weight(1f),
+                color = onBackground.copy(alpha = 0.12f)
+            )
+        }
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SocialButton(
+                iconRes = R.drawable.ic_google_primary_light,
+                contentDescription = stringResource(R.string.google_login),
+                onClick = onGoogleAuthenticate,
+                modifier = Modifier.weight(1f)
+            )
+            SocialButton(
+                iconRes = R.drawable.ic_facebook_primary_light,
+                contentDescription = stringResource(R.string.facebook_login),
+                onClick = onFacebookAuthenticate,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun SocialButton(
+    @DrawableRes iconRes: Int,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val onBackground = MaterialTheme.colorScheme.onBackground
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        color = onBackground.copy(alpha = 0.06f),
+        border = BorderStroke(1.dp, onBackground.copy(alpha = 0.12f)),
+        modifier = modifier.height(52.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+            Image(
+                painter = painterResource(iconRes),
+                contentDescription = contentDescription,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+    }
+}
+```
+
+## auth\ui\components\AuthTextField.kt
+
+```kotlin
+package com.mhq.fynecast.auth.ui.components
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.dp
+import com.mhq.fynecast.R
+
+/**
+ * A slim 52 dp glass field: icon, hint, optional trailing action.
+ * The focus ring uses the accent colour and an error turns the border red.
+ * [label] is not drawn; it is what screen readers announce for the field.
+ */
+@Composable
+fun AuthTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    placeholder: String,
+    leadingIcon: ImageVector,
+    isError: Boolean,
+    modifier: Modifier = Modifier,
+    trailingContent: (@Composable () -> Unit)? = null,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isFocused by interactionSource.collectIsFocusedAsState()
+
+    val onBackground = MaterialTheme.colorScheme.onBackground
+    val accent = MaterialTheme.colorScheme.onPrimary
+    val error = MaterialTheme.colorScheme.error
+    val shape = RoundedCornerShape(16.dp)
+
+    val borderColor = when {
+        isError -> error.copy(alpha = 0.85f)
+        isFocused -> accent.copy(alpha = 0.6f)
+        else -> onBackground.copy(alpha = 0.12f)
+    }
+
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        interactionSource = interactionSource,
+        textStyle = MaterialTheme.typography.bodyLarge.copy(color = onBackground),
+        cursorBrush = SolidColor(if (isError) error else accent),
+        visualTransformation = visualTransformation,
+        keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
+        modifier = modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = label },
+        decorationBox = { innerTextField ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .clip(shape)
+                    .background(onBackground.copy(alpha = if (isFocused) 0.09f else 0.06f))
+                    .border(1.dp, borderColor, shape)
+                    .padding(start = 14.dp, end = if (trailingContent != null) 4.dp else 14.dp)
+            ) {
+                Icon(
+                    imageVector = leadingIcon,
+                    contentDescription = null,
+                    tint = if (isFocused) accent else onBackground.copy(alpha = 0.5f),
+                    modifier = Modifier.size(20.dp)
+                )
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    if (value.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            color = onBackground.copy(alpha = 0.35f),
+                            style = MaterialTheme.typography.bodyLarge,
+                            maxLines = 1
+                        )
+                    }
+                    innerTextField()
+                }
+                trailingContent?.invoke()
+            }
+        }
+    )
+}
+
+/** The eye button at the end of a password field. */
+@Composable
+fun AuthPasswordToggle(
+    isPasswordVisible: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .clickable(role = Role.Button, onClick = onToggle)
+    ) {
+        Icon(
+            imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+            contentDescription = stringResource(
+                if (isPasswordVisible) R.string.hide_password else R.string.show_password
+            ),
+            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f),
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+```
+
 ## auth\ui\editprofile\ui\components\EditProfileForm.kt
 
 ```kotlin
 package com.mhq.fynecast.auth.ui.editprofile.ui.components
 
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -4066,7 +4615,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.ui.globalcomponents.AuthInputField
+import com.mhq.fynecast.auth.ui.components.AuthPasswordToggle
+import com.mhq.fynecast.auth.ui.components.AuthTextField
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
@@ -4090,122 +4640,105 @@ fun EditProfileForm(
     usernameFocusRequester: FocusRequester = remember { FocusRequester() },
     modifier: Modifier = Modifier
 ) {
-
     val focusManager = LocalFocusManager.current
+    val moveToNext = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
 
     GlassyCard(
-        modifier = modifier.padding(horizontal = 36.dp)
+        cornerRadius = 28.dp,
+        padding = 20.dp,
+        containerAlpha = 0.06f,
+        borderAlpha = 0.15f,
+        modifier = modifier.fillMaxWidth()
     ) {
-        AuthInputField(
-            value = username,
-            label = stringResource(R.string.name),
-            placeholder = stringResource(R.string.enter_name),
-            leadingIcon = Icons.Default.Person,
-            trailingIcon = null,
-            isError = !isUsernameValid,
-            onValueChange = onUsernameChanged,
-            visualTransformation = VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Text,
-                imeAction = ImeAction.Next
-            ),
-            keyboardActions = KeyboardActions(onNext = {
-                focusManager.moveFocus(
-                    FocusDirection.Down
-                )
-            }),
-            modifier = Modifier.focusRequester(usernameFocusRequester)
-        )
-        Spacer(
-            modifier = Modifier.height(8.dp)
-        )
-        AuthInputField(
-            value = userEmail,
-            label = stringResource(R.string.email),
-            placeholder = stringResource(R.string.enter_email),
-            leadingIcon = Icons.Default.Email,
-            trailingIcon = null,
-            isError = !isEmailValid,
-            onValueChange = onUserEmailChanged,
-            visualTransformation = VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Email,
-                imeAction = ImeAction.Next
-            ),
-            keyboardActions = KeyboardActions(onNext = {
-                focusManager.moveFocus(
-                    FocusDirection.Down
-                )
-            })
-        )
-        if (showPasswordFields) {
-            Text(
-                text = stringResource(R.string.email_switch_password_hint),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
-            val visibilityToggle: @Composable () -> Unit = {
-                IconButton(onClick = onTogglePasswordVisibility) {
-                    Icon(
-                        imageVector = if (isPasswordVisible) Icons.Default.Visibility
-                        else Icons.Default.VisibilityOff,
-                        contentDescription = stringResource(
-                            if (isPasswordVisible) R.string.hide_password else R.string.show_password
-                        ),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            val passwordTransformation =
-                if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation()
-
-            AuthInputField(
-                value = newPassword,
-                label = stringResource(R.string.password),
-                placeholder = stringResource(R.string.enter_password),
-                leadingIcon = Icons.Default.Lock,
-                trailingIcon = visibilityToggle,
-                isError = !isNewPasswordValid,
-                onValueChange = onNewPasswordChanged,
-                visualTransformation = passwordTransformation,
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            AuthTextField(
+                value = username,
+                onValueChange = onUsernameChanged,
+                label = stringResource(R.string.name),
+                placeholder = stringResource(R.string.enter_name),
+                leadingIcon = Icons.Default.Person,
+                isError = !isUsernameValid,
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
+                    keyboardType = KeyboardType.Text,
                     imeAction = ImeAction.Next
                 ),
-                keyboardActions = KeyboardActions(onNext = {
-                    focusManager.moveFocus(FocusDirection.Down)
-                })
+                keyboardActions = moveToNext,
+                modifier = Modifier.focusRequester(usernameFocusRequester)
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            AuthInputField(
-                value = confirmPassword,
-                label = stringResource(R.string.confirm_password),
-                placeholder = stringResource(R.string.confirm_password),
-                leadingIcon = Icons.Default.Lock,
-                trailingIcon = visibilityToggle,
-                isError = !doPasswordsMatch,
-                onValueChange = onConfirmPasswordChanged,
-                visualTransformation = passwordTransformation,
+            AuthTextField(
+                value = userEmail,
+                onValueChange = onUserEmailChanged,
+                label = stringResource(R.string.email),
+                placeholder = stringResource(R.string.enter_email),
+                leadingIcon = Icons.Default.Email,
+                isError = !isEmailValid,
                 keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done
+                    keyboardType = KeyboardType.Email,
+                    imeAction = if (showPasswordFields) ImeAction.Next else ImeAction.Done
                 ),
-                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) },
+                    onDone = { focusManager.clearFocus() }
+                )
             )
+            if (showPasswordFields) {
+                Text(
+                    text = stringResource(R.string.email_switch_password_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+                )
+                val passwordTransformation =
+                    if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation()
+                val visibilityToggle: @Composable () -> Unit = {
+                    AuthPasswordToggle(
+                        isPasswordVisible = isPasswordVisible,
+                        onToggle = onTogglePasswordVisibility
+                    )
+                }
+                AuthTextField(
+                    value = newPassword,
+                    onValueChange = onNewPasswordChanged,
+                    label = stringResource(R.string.password),
+                    placeholder = stringResource(R.string.enter_password),
+                    leadingIcon = Icons.Default.Lock,
+                    isError = !isNewPasswordValid,
+                    trailingContent = visibilityToggle,
+                    visualTransformation = passwordTransformation,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Next
+                    ),
+                    keyboardActions = moveToNext
+                )
+                AuthTextField(
+                    value = confirmPassword,
+                    onValueChange = onConfirmPasswordChanged,
+                    label = stringResource(R.string.confirm_password),
+                    placeholder = stringResource(R.string.confirm_password),
+                    leadingIcon = Icons.Default.Lock,
+                    isError = !doPasswordsMatch,
+                    trailingContent = visibilityToggle,
+                    visualTransformation = passwordTransformation,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+                )
+            }
         }
     }
 }
 
-@Preview
+@Preview(showBackground = true, backgroundColor = 0xFF0F172A)
 @Composable
 private fun EditProfileFormPreview() {
-    FyneCastTheme() {
+    FyneCastTheme(isDarkMode = true) {
         EditProfileForm(
-            username = "",
+            username = "Mohamed",
             isUsernameValid = true,
             onUsernameChanged = {},
-            userEmail = "",
+            userEmail = "mohamed@example.com",
             isEmailValid = true,
             onUserEmailChanged = {}
         )
@@ -4241,22 +4774,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.ui.theme.AbyssalVoid
-import com.mhq.fynecast.core.ui.theme.ElectricLimeGreen
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
+/** The profile photo with an accent ring and a round camera button to change it. */
 @Composable
 fun EditProfileHeader(
     profileImageUri: String?,
     onProfileImagePicked: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-
     val imageModel = profileImageUri ?: R.drawable.user
+    val accent = MaterialTheme.colorScheme.onPrimary
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -4268,8 +4801,8 @@ fun EditProfileHeader(
 
     Box(
         modifier = modifier
-            .padding(top = 24.dp, bottom = 36.dp)
-            .size(100.dp),
+            .padding(vertical = 8.dp)
+            .size(120.dp),
         contentAlignment = Alignment.BottomEnd
     ) {
         AsyncImage(
@@ -4280,34 +4813,32 @@ fun EditProfileHeader(
             modifier = Modifier
                 .fillMaxSize()
                 .clip(CircleShape)
-                .border(
-                    2.dp,
-                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
-                    CircleShape
-                )
+                .border(2.dp, accent.copy(alpha = 0.7f), CircleShape)
         )
+        // The whole 44 dp square is the tap target; the visible badge is smaller.
         Box(
+            contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(48.dp)
-                .clickable {
+                .size(44.dp)
+                .clip(CircleShape)
+                .clickable(role = Role.Button) {
                     photoPickerLauncher.launch(
                         PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                     )
-                },
-            contentAlignment = Alignment.Center
+                }
         ) {
             Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(32.dp)
+                    .size(34.dp)
                     .clip(CircleShape)
-                    .background(AbyssalVoid)
-                    .border(1.dp, ElectricLimeGreen, CircleShape),
-                contentAlignment = Alignment.Center
+                    .background(accent)
+                    .border(2.dp, MaterialTheme.colorScheme.background, CircleShape)
             ) {
                 Icon(
                     imageVector = Icons.Default.CameraAlt,
                     contentDescription = stringResource(R.string.change_photo),
-                    tint = ElectricLimeGreen,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -4315,13 +4846,13 @@ fun EditProfileHeader(
     }
 }
 
-@Preview
+@Preview(showBackground = true, backgroundColor = 0xFF0F172A)
 @Composable
 private fun EditProfileHeaderPreview() {
-    FyneCastTheme() {
+    FyneCastTheme(isDarkMode = true) {
         EditProfileHeader(
             profileImageUri = null,
-            onProfileImagePicked = {},
+            onProfileImagePicked = {}
         )
     }
 }
@@ -4467,23 +4998,31 @@ fun EditProfileContainer(
 ```kotlin
 package com.mhq.fynecast.auth.ui.editprofile.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
+import android.content.res.Configuration
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -4491,15 +5030,19 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
+import com.mhq.fynecast.auth.ui.components.AuthPrimaryButton
 import com.mhq.fynecast.auth.ui.editprofile.ui.components.EditProfileForm
 import com.mhq.fynecast.auth.ui.editprofile.ui.components.EditProfileHeader
-import com.mhq.fynecast.core.ui.globalcomponents.AuthActionButton
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
 fun EditProfileContent(
@@ -4525,96 +5068,153 @@ fun EditProfileContent(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier
 ) {
-
+    val onBackground = MaterialTheme.colorScheme.onBackground
     val usernameFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
         usernameFocusRequester.requestFocus()
     }
 
-    Box(
+    // The keyboard is subtracted before measuring, so the page height follows it.
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-    ) {
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding()
+    )  {
+        val bottomInset = contentPadding.calculateBottomPadding()
+        // The height the page can use. When the content is shorter, the photo and form sit
+        // centred between the top bar and the Save button; when it is taller, the page scrolls.
+        val pageHeight = (maxHeight - bottomInset - 24.dp).coerceAtLeast(0.dp)
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxSize()
-                .statusBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = contentPadding.calculateBottomPadding() + 16.dp),
+                .padding(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = 8.dp,
+                    bottom = bottomInset + 16.dp
+                )
         ) {
-            // 1. Customized Top Action Navigation Bar Header
-            Row(
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .heightIn(min = pageHeight)
             ) {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = stringResource(R.string.back),
-                        tint = MaterialTheme.colorScheme.onBackground
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // The whole 44 dp square is the tap target; the visible circle is smaller.
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .clickable(role = Role.Button, onClick = onBackClick)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(onBackground.copy(alpha = 0.06f))
+                                .border(1.dp, onBackground.copy(alpha = 0.12f), CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.back),
+                                tint = onBackground,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        text = stringResource(R.string.edit_profile),
+                        color = onBackground,
+                        textAlign = TextAlign.Center,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.size(44.dp))
+                }
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                    modifier = Modifier.padding(vertical = 16.dp)
+                ) {
+                    EditProfileHeader(
+                        profileImageUri = profileImageUri,
+                        onProfileImagePicked = onProfileImagePicked
+                    )
+                    EditProfileForm(
+                        username = username,
+                        userEmail = userEmail,
+                        isUsernameValid = isUsernameValid,
+                        isEmailValid = isEmailValid,
+                        onUsernameChanged = onUsernameChanged,
+                        onUserEmailChanged = onUserEmailChanged,
+                        showPasswordFields = showPasswordFields,
+                        newPassword = newPassword,
+                        isNewPasswordValid = isNewPasswordValid,
+                        onNewPasswordChanged = onNewPasswordChanged,
+                        confirmPassword = confirmPassword,
+                        doPasswordsMatch = doPasswordsMatch,
+                        onConfirmPasswordChanged = onConfirmPasswordChanged,
+                        isPasswordVisible = isPasswordVisible,
+                        onTogglePasswordVisibility = onTogglePasswordVisibility,
+                        usernameFocusRequester = usernameFocusRequester
                     )
                 }
-                Text(
-                    text = stringResource(R.string.edit_profile),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    fontWeight = FontWeight.Bold
+
+                AuthPrimaryButton(
+                    text = stringResource(R.string.save_changes),
+                    onClick = onSaveClick
                 )
-                Spacer(modifier = Modifier.size(48.dp))
             }
-            EditProfileHeader(
-                profileImageUri = profileImageUri,
-                onProfileImagePicked = onProfileImagePicked,
-                modifier = Modifier
-            )
-            EditProfileForm(
-                username = username,
-                userEmail = userEmail,
-                isUsernameValid = isUsernameValid,
-                isEmailValid = isEmailValid,
-                onUsernameChanged = onUsernameChanged,
-                onUserEmailChanged = onUserEmailChanged,
-                showPasswordFields = showPasswordFields,
-                newPassword = newPassword,
-                isNewPasswordValid = isNewPasswordValid,
-                onNewPasswordChanged = onNewPasswordChanged,
-                confirmPassword = confirmPassword,
-                doPasswordsMatch = doPasswordsMatch,
-                onConfirmPasswordChanged = onConfirmPasswordChanged,
-                isPasswordVisible = isPasswordVisible,
-                onTogglePasswordVisibility = onTogglePasswordVisibility,
-                usernameFocusRequester = usernameFocusRequester,
-            )
-            AuthActionButton(
-                text = stringResource(R.string.save_changes),
-                onDoAction = { onSaveClick() }
-            )
         }
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun EditProfileScreenPreview() {
-    EditProfileContent(
-        username = "JohnDoe",
-        isUsernameValid = true,
-        onUsernameChanged = {},
-        userEmail = "johndoe@gmail.com",
-        isEmailValid = true,
-        onUserEmailChanged = {},
-        profileImageUri = null,
-        onProfileImagePicked = {},
-        onSaveClick = {},
-        onBackClick = {},
-        contentPadding = PaddingValues(0.dp)
-    )
+private fun EditProfilePreviewContent(isDarkMode: Boolean) {
+    FyneCastTheme(isDarkMode = isDarkMode) {
+        EditProfileContent(
+            username = "Mohamed",
+            isUsernameValid = true,
+            onUsernameChanged = {},
+            userEmail = "mohamed@example.com",
+            isEmailValid = true,
+            onUserEmailChanged = {},
+            profileImageUri = null,
+            onProfileImagePicked = {},
+            onSaveClick = {},
+            onBackClick = {},
+            contentPadding = PaddingValues(0.dp)
+        )
+    }
 }
+
+@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE, heightDp = 800)
+@Composable
+private fun EditProfileLightPreview() = EditProfilePreviewContent(isDarkMode = false)
+
+@Preview(
+    name = "Dark",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A,
+    heightDp = 800
+)
+@Composable
+private fun EditProfileDarkPreview() = EditProfilePreviewContent(isDarkMode = true)
 ```
 
 ## auth\ui\forgotpassword\ui\components\AuthForgotPasswordForm.kt
@@ -4622,120 +5222,66 @@ fun EditProfileScreenPreview() {
 ```kotlin
 package com.mhq.fynecast.auth.ui.forgotpassword.ui.components
 
-import android.content.res.Configuration
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.ui.globalcomponents.AuthInputField
+import com.mhq.fynecast.auth.ui.components.AuthPrimaryButton
+import com.mhq.fynecast.auth.ui.components.AuthTextField
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
 fun AuthForgotPasswordForm(
     email: String,
     isEmailValid: Boolean,
     onEmailChanged: (String) -> Unit,
+    onSendLink: () -> Unit,
     modifier: Modifier = Modifier,
     focusRequester: FocusRequester = remember { FocusRequester() }
 ) {
-
     val focusManager = LocalFocusManager.current
 
     GlassyCard(
-        modifier = modifier.padding(horizontal = 36.dp)
+        cornerRadius = 28.dp,
+        padding = 20.dp,
+        containerAlpha = 0.06f,
+        borderAlpha = 0.15f,
+        modifier = modifier.fillMaxWidth()
     ) {
-        Text(
-            text = stringResource(R.string.recover_password),
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onPrimary,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
-        Spacer(
-            modifier = Modifier.height(8.dp)
-        )
-        Text(
-            text = stringResource(R.string.enter_the_email_associated_with_your_account),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
-        Text(
-            text = stringResource(R.string.we_will_send_a_link_to_reset_your_password),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-            modifier = Modifier.fillMaxWidth(),
-            textAlign = TextAlign.Center
-        )
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
-        AuthInputField(
-            value = email,
-            label = stringResource(R.string.email),
-            placeholder = stringResource(R.string.enter_email),
-            leadingIcon = Icons.Default.Email,
-            trailingIcon = null,
-            isError = !isEmailValid,
-            onValueChange = onEmailChanged,
-            visualTransformation = VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Email,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
-            modifier = Modifier.focusRequester(focusRequester)
-        )
-    }
-}
-
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview
-@Composable
-private fun AuthForgotPasswordFormPreview() {
-    FyneCastTheme() {
-        AuthForgotPasswordForm(
-            email = "",
-            isEmailValid = true,
-            onEmailChanged = {}
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            AuthTextField(
+                value = email,
+                onValueChange = onEmailChanged,
+                label = stringResource(R.string.email),
+                placeholder = stringResource(R.string.enter_email),
+                leadingIcon = Icons.Default.Email,
+                isError = !isEmailValid,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
+                modifier = Modifier.focusRequester(focusRequester)
+            )
+            AuthPrimaryButton(
+                text = stringResource(R.string.send_link),
+                onClick = onSendLink
+            )
+        }
     }
 }
 ```
@@ -4822,26 +5368,25 @@ fun ForgotPasswordContainer(
 ```kotlin
 package com.mhq.fynecast.auth.ui.forgotpassword.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import android.content.res.Configuration
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LockReset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
+import com.mhq.fynecast.auth.ui.components.AuthFooterLink
+import com.mhq.fynecast.auth.ui.components.AuthHeader
+import com.mhq.fynecast.auth.ui.components.AuthScreenLayout
 import com.mhq.fynecast.auth.ui.forgotpassword.ui.components.AuthForgotPasswordForm
-import com.mhq.fynecast.core.ui.globalcomponents.AppName
-import com.mhq.fynecast.core.ui.globalcomponents.AuthActionButton
-import com.mhq.fynecast.core.ui.globalcomponents.AuthFooterHyperlink
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
 fun ForgotPasswordContent(
@@ -4852,54 +5397,63 @@ fun ForgotPasswordContent(
     onSendLink: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-
     val focusRequester = remember { FocusRequester() }
-    val scrollState = rememberScrollState()
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
     }
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(vertical = 24.dp)
-    ) {
-        AppName(
-            text = stringResource(R.string.app_name)
+    AuthScreenLayout(modifier = modifier) {
+        AuthHeader(
+            title = stringResource(R.string.recover_password),
+            subtitle = stringResource(R.string.enter_the_email_associated_with_your_account) +
+                "\n" +
+                stringResource(R.string.we_will_send_a_link_to_reset_your_password),
+            icon = Icons.Filled.LockReset
         )
+        Spacer(modifier = Modifier.height(24.dp))
         AuthForgotPasswordForm(
             email = email,
             isEmailValid = isEmailValid,
             onEmailChanged = onEmailChanged,
-            focusRequester = focusRequester,
+            onSendLink = onSendLink,
+            focusRequester = focusRequester
         )
-        AuthActionButton(
-            text = stringResource(R.string.send_link),
-            onDoAction = { onSendLink() },
-        )
-        AuthFooterHyperlink(
+        Spacer(modifier = Modifier.height(12.dp))
+        AuthFooterLink(
             question = stringResource(R.string.remembered_credentials),
-            answer = stringResource(R.string.login),
-            onDoAction = { onBackToLoginClick() }
+            action = stringResource(R.string.login),
+            onClick = onBackToLoginClick
         )
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun ForgotPasswordContentPreview() {
-    ForgotPasswordContent(
-        email = "developer@fynecast.com",
-        isEmailValid = true,
-        onEmailChanged = {},
-        onBackToLoginClick = {},
-        onSendLink = {}
-    )
+private fun ForgotPasswordPreviewContent(isDarkMode: Boolean) {
+    FyneCastTheme(isDarkMode = isDarkMode) {
+        ForgotPasswordContent(
+            email = "",
+            isEmailValid = true,
+            onEmailChanged = {},
+            onBackToLoginClick = {},
+            onSendLink = {}
+        )
+    }
 }
+
+@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE, heightDp = 700)
+@Composable
+private fun ForgotPasswordLightPreview() = ForgotPasswordPreviewContent(isDarkMode = false)
+
+@Preview(
+    name = "Dark",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A,
+    heightDp = 700
+)
+@Composable
+private fun ForgotPasswordDarkPreview() = ForgotPasswordPreviewContent(isDarkMode = true)
 ```
 
 ## auth\ui\login\ui\components\AuthFormLogin.kt
@@ -4907,10 +5461,9 @@ fun ForgotPasswordContentPreview() {
 ```kotlin
 package com.mhq.fynecast.auth.ui.login.ui.components
 
-import android.content.res.Configuration
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
@@ -4918,34 +5471,26 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.ui.globalcomponents.AuthInputField
+import com.mhq.fynecast.auth.ui.components.AuthPasswordToggle
+import com.mhq.fynecast.auth.ui.components.AuthPrimaryButton
+import com.mhq.fynecast.auth.ui.components.AuthTextField
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.core.ui.theme.AbyssalVoid
 
 @Composable
 fun AuthFormLogin(
@@ -4957,114 +5502,74 @@ fun AuthFormLogin(
     isPasswordVisible: Boolean,
     onTogglePasswordVisibility: () -> Unit,
     onForgotPasswordClick: () -> Unit,
+    onLoginClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-
     val focusManager = LocalFocusManager.current
-    val focusRequester = remember { FocusRequester() }
 
     GlassyCard(
-        modifier = modifier.padding(horizontal = 36.dp)
+        cornerRadius = 28.dp,
+        padding = 20.dp,
+        containerAlpha = 0.06f,
+        borderAlpha = 0.15f,
+        modifier = modifier.fillMaxWidth()
     ) {
-        AuthInputField(
-            value = email,
-            label = stringResource(R.string.email),
-            placeholder = stringResource(R.string.enter_email),
-            leadingIcon = Icons.Default.Email,
-            trailingIcon = null,
-            isError = !isEmailValid,
-            onValueChange = onEmailChanged,
-            visualTransformation = VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Email,
-                imeAction = ImeAction.Next
-            ),
-            keyboardActions = KeyboardActions(
-                onNext = { focusManager.moveFocus(FocusDirection.Down) }
-            ),
-            modifier = Modifier.focusRequester(focusRequester)
-        )
-        AuthInputField(
-            value = password,
-            label = stringResource(R.string.password),
-            placeholder = stringResource(R.string.enter_password),
-            leadingIcon = Icons.Default.Lock,
-            trailingIcon = {
-                val image =
-                    if (isPasswordVisible)
-                        Icons.Default.Visibility
-                    else
-                        Icons.Default.VisibilityOff
-                IconButton(onClick = onTogglePasswordVisibility) {
-                    Icon(
-                        imageVector = image,
-                        contentDescription = stringResource(
-                            if (isPasswordVisible) R.string.hide_password else R.string.show_password
-                        ),
-                        tint = AbyssalVoid
-                    )
-                }
-            },
-            isError = false,
-            onValueChange = onPasswordChanged,
-            visualTransformation =
-                if (isPasswordVisible)
-                    VisualTransformation.None
-                else
-                    PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = { focusManager.clearFocus() }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            AuthTextField(
+                value = email,
+                onValueChange = onEmailChanged,
+                label = stringResource(R.string.email),
+                placeholder = stringResource(R.string.enter_email),
+                leadingIcon = Icons.Default.Email,
+                isError = !isEmailValid,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                )
             )
-        )
-        Row(
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .padding(vertical = 4.dp)
-                .fillMaxWidth()
-        ) {
+            AuthTextField(
+                value = password,
+                onValueChange = onPasswordChanged,
+                label = stringResource(R.string.password),
+                placeholder = stringResource(R.string.enter_password),
+                leadingIcon = Icons.Default.Lock,
+                isError = false,
+                trailingContent = {
+                    AuthPasswordToggle(
+                        isPasswordVisible = isPasswordVisible,
+                        onToggle = onTogglePasswordVisibility
+                    )
+                },
+                visualTransformation =
+                    if (isPasswordVisible)
+                        VisualTransformation.None
+                    else
+                        PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = { focusManager.clearFocus() }
+                )
+            )
             Text(
                 text = stringResource(R.string.forgot_password),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.clickable { onForgotPasswordClick() }
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .clickable(role = Role.Button, onClick = onForgotPasswordClick)
+                    .padding(horizontal = 2.dp, vertical = 4.dp)
+            )
+            AuthPrimaryButton(
+                text = stringResource(R.string.login),
+                onClick = onLoginClick
             )
         }
-    }
-}
-
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview
-@Composable
-private fun AuthFormLoginPreview() {
-    FyneCastTheme() {
-        AuthFormLogin(
-            email = "username@gmail.com",
-            password = "12345",
-            isPasswordVisible = true,
-            isEmailValid = true,
-            onEmailChanged = {},
-            onPasswordChanged = {},
-            onTogglePasswordVisibility = {},
-            onForgotPasswordClick = {}
-        )
     }
 }
 ```
@@ -5179,28 +5684,19 @@ fun LoginContainer(
 package com.mhq.fynecast.auth.ui.login.ui.screens
 
 import android.content.res.Configuration
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
+import com.mhq.fynecast.auth.ui.components.AuthFooterLink
+import com.mhq.fynecast.auth.ui.components.AuthHeader
+import com.mhq.fynecast.auth.ui.components.AuthScreenLayout
+import com.mhq.fynecast.auth.ui.components.AuthSocialSection
 import com.mhq.fynecast.auth.ui.login.ui.components.AuthFormLogin
-import com.mhq.fynecast.core.ui.globalcomponents.AppName
-import com.mhq.fynecast.core.ui.globalcomponents.AuthActionButton
-import com.mhq.fynecast.core.ui.globalcomponents.AuthFooterHyperlink
-import com.mhq.fynecast.core.ui.globalcomponents.AuthSocialOptions
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
@@ -5219,21 +5715,12 @@ fun LoginContent(
     onFacebookAuthenticate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-
-    val scrollState = rememberScrollState()
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .imePadding()
-            .padding(vertical = 24.dp)
-    ) {
-        AppName(
-            text = stringResource(R.string.app_name)
+    AuthScreenLayout(modifier = modifier) {
+        AuthHeader(
+            title = stringResource(R.string.auth_login_title),
+            subtitle = stringResource(R.string.auth_login_subtitle)
         )
+        Spacer(modifier = Modifier.height(24.dp))
         AuthFormLogin(
             email = email,
             isEmailValid = isEmailValid,
@@ -5243,47 +5730,32 @@ fun LoginContent(
             isPasswordVisible = isPasswordVisible,
             onTogglePasswordVisibility = onTogglePasswordVisibility,
             onForgotPasswordClick = onForgotPasswordClick,
+            onLoginClick = onLoginClick
         )
-        AuthActionButton(
-            text = stringResource(R.string.login),
-            onDoAction = { onLoginClick() }
+        Spacer(modifier = Modifier.height(20.dp))
+        AuthSocialSection(
+            onGoogleAuthenticate = onGoogleAuthenticate,
+            onFacebookAuthenticate = onFacebookAuthenticate
         )
-        AuthSocialOptions(
-            onGoogleAuthenticate = { onGoogleAuthenticate() },
-            onFacebookAuthenticate = { onFacebookAuthenticate() }
-        )
-        AuthFooterHyperlink(
+        Spacer(modifier = Modifier.height(8.dp))
+        AuthFooterLink(
             question = stringResource(R.string.don_t_have_an_account),
-            answer = stringResource(R.string.sign_up),
-            onDoAction = { onSignUpClick() }
+            action = stringResource(R.string.sign_up),
+            onClick = onSignUpClick
         )
     }
 }
 
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview(showBackground = true)
 @Composable
-fun LoginScreenPreview() {
-    FyneCastTheme() {
+private fun LoginPreviewContent(isDarkMode: Boolean) {
+    FyneCastTheme(isDarkMode = isDarkMode) {
         LoginContent(
             email = "",
             isEmailValid = true,
             onEmailChanged = {},
             password = "",
             onPasswordChanged = {},
-            isPasswordVisible = true,
+            isPasswordVisible = false,
             onTogglePasswordVisibility = {},
             onLoginClick = {},
             onSignUpClick = {},
@@ -5293,6 +5765,20 @@ fun LoginScreenPreview() {
         )
     }
 }
+
+@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE, heightDp = 820)
+@Composable
+private fun LoginLightPreview() = LoginPreviewContent(isDarkMode = false)
+
+@Preview(
+    name = "Dark",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A,
+    heightDp = 820
+)
+@Composable
+private fun LoginDarkPreview() = LoginPreviewContent(isDarkMode = true)
 ```
 
 ## auth\ui\signup\ui\components\AuthFormSignup.kt
@@ -5300,37 +5786,30 @@ fun LoginScreenPreview() {
 ```kotlin
 package com.mhq.fynecast.auth.ui.signup.ui.components
 
-import android.content.res.Configuration
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.ui.globalcomponents.AuthInputField
+import com.mhq.fynecast.auth.ui.components.AuthPasswordToggle
+import com.mhq.fynecast.auth.ui.components.AuthPrimaryButton
+import com.mhq.fynecast.auth.ui.components.AuthTextField
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
 fun AuthFormSignup(
@@ -5348,161 +5827,90 @@ fun AuthFormSignup(
     doPasswordsMatch: Boolean,
     arePasswordsVisible: Boolean,
     onTogglePasswordVisibility: () -> Unit,
+    onSignupClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-
     val focusManager = LocalFocusManager.current
-    val emailFocusRequester = remember { FocusRequester() }
-    val usernameFocusRequester = remember { FocusRequester() }
-    val passwordFocusRequester = remember { FocusRequester() }
-    val confirmPasswordFocusRequester = remember { FocusRequester() }
+    val moveToNext = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+    val passwordTransformation =
+        if (arePasswordsVisible) VisualTransformation.None else PasswordVisualTransformation()
 
     GlassyCard(
-        modifier = modifier.padding(horizontal = 36.dp)
+        cornerRadius = 28.dp,
+        padding = 20.dp,
+        containerAlpha = 0.06f,
+        borderAlpha = 0.15f,
+        modifier = modifier.fillMaxWidth()
     ) {
-        AuthInputField(
-            value = username,
-            label = stringResource(R.string.name),
-            placeholder = stringResource(R.string.enter_name),
-            leadingIcon = Icons.Default.Person,
-            trailingIcon = null,
-            isError = !isUsernameValid,
-            onValueChange = onUsernameChanged,
-            visualTransformation = VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-            keyboardActions = KeyboardActions(
-                onNext = { usernameFocusRequester.requestFocus() }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            AuthTextField(
+                value = username,
+                onValueChange = onUsernameChanged,
+                label = stringResource(R.string.name),
+                placeholder = stringResource(R.string.enter_name),
+                leadingIcon = Icons.Default.Person,
+                isError = !isUsernameValid,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = moveToNext
             )
-        )
-        AuthInputField(
-            value = userEmail,
-            label = stringResource(R.string.email),
-            placeholder = stringResource(R.string.enter_email),
-            leadingIcon = Icons.Default.Email,
-            trailingIcon = null,
-            isError = !isEmailValid,
-            onValueChange = onUserEmailChanged,
-            visualTransformation = VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Email,
-                imeAction = ImeAction.Next
-            ),
-            keyboardActions = KeyboardActions(
-                onNext = { emailFocusRequester.requestFocus() }
-            ),
-            modifier = Modifier.focusRequester(usernameFocusRequester)
-        )
-        AuthInputField(
-            value = userPassword,
-            label = stringResource(R.string.password),
-            placeholder = stringResource(R.string.enter_password),
-            leadingIcon = Icons.Default.Lock,
-            trailingIcon = {
-                IconButton(onClick = onTogglePasswordVisibility) {
-                    Icon(
-                        imageVector =
-                            if (arePasswordsVisible)
-                                Icons.Default.Visibility
-                            else
-                                Icons.Default.VisibilityOff,
-                        contentDescription = stringResource(
-                            if (arePasswordsVisible) R.string.hide_password else R.string.show_password
-                        ),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            isError = !isPasswordValid,
-            onValueChange = onUserPasswordChanged,
-            visualTransformation =
-                if (arePasswordsVisible)
-                    VisualTransformation.None
-                else
-                    PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Next
-            ),
-            keyboardActions =
-                KeyboardActions(
-                    onNext = { passwordFocusRequester.requestFocus() }
+            AuthTextField(
+                value = userEmail,
+                onValueChange = onUserEmailChanged,
+                label = stringResource(R.string.email),
+                placeholder = stringResource(R.string.enter_email),
+                leadingIcon = Icons.Default.Email,
+                isError = !isEmailValid,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
                 ),
-            modifier = Modifier.focusRequester(emailFocusRequester)
-        )
-        AuthInputField(
-            value = confirmPassword,
-            label = stringResource(R.string.confirm_password),
-            placeholder = stringResource(R.string.confirm_password),
-            leadingIcon = Icons.Default.Lock,
-            trailingIcon = {
-                IconButton(onClick = onTogglePasswordVisibility) {
-                    Icon(
-                        imageVector =
-                            if (arePasswordsVisible)
-                                Icons.Default.Visibility
-                            else
-                                Icons.Default.VisibilityOff,
-                        contentDescription = stringResource(
-                            if (arePasswordsVisible) R.string.hide_password else R.string.show_password
-                        ),
-                        tint = colorScheme.onSurfaceVariant
+                keyboardActions = moveToNext
+            )
+            AuthTextField(
+                value = userPassword,
+                onValueChange = onUserPasswordChanged,
+                label = stringResource(R.string.password),
+                placeholder = stringResource(R.string.enter_password),
+                leadingIcon = Icons.Default.Lock,
+                isError = !isPasswordValid,
+                trailingContent = {
+                    AuthPasswordToggle(
+                        isPasswordVisible = arePasswordsVisible,
+                        onToggle = onTogglePasswordVisibility
                     )
-                }
-            },
-            isError = !doPasswordsMatch,
-            onValueChange = onConfirmPasswordChanged,
-            visualTransformation =
-                if (arePasswordsVisible)
-                    VisualTransformation.None
-                else
-                    PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = {
-                    focusManager.clearFocus()
-                }
-            ),
-            modifier = Modifier.focusRequester(passwordFocusRequester)
-        )
-    }
-}
-
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview(showBackground = true)
-@Composable
-private fun AuthFormSignupPreview() {
-    FyneCastTheme() {
-        AuthFormSignup(
-            username = "Username",
-            userEmail = "username@gmail.com",
-            userPassword = "123abc",
-            confirmPassword = "123abc",
-            isUsernameValid = true,
-            isEmailValid = true,
-            isPasswordValid = true,
-            doPasswordsMatch = true,
-            arePasswordsVisible = true,
-            onUsernameChanged = {},
-            onUserEmailChanged = {},
-            onUserPasswordChanged = {},
-            onConfirmPasswordChanged = {},
-            onTogglePasswordVisibility = {}
-        )
+                },
+                visualTransformation = passwordTransformation,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = moveToNext
+            )
+            AuthTextField(
+                value = confirmPassword,
+                onValueChange = onConfirmPasswordChanged,
+                label = stringResource(R.string.confirm_password),
+                placeholder = stringResource(R.string.confirm_password),
+                leadingIcon = Icons.Default.Lock,
+                isError = !doPasswordsMatch,
+                trailingContent = {
+                    AuthPasswordToggle(
+                        isPasswordVisible = arePasswordsVisible,
+                        onToggle = onTogglePasswordVisibility
+                    )
+                },
+                visualTransformation = passwordTransformation,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+            )
+            AuthPrimaryButton(
+                text = stringResource(R.string.sign_up),
+                onClick = onSignupClick
+            )
+        }
     }
 }
 ```
@@ -5632,23 +6040,19 @@ fun SignupContainer(
 package com.mhq.fynecast.auth.ui.signup.ui.screens
 
 import android.content.res.Configuration
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
+import com.mhq.fynecast.auth.ui.components.AuthFooterLink
+import com.mhq.fynecast.auth.ui.components.AuthHeader
+import com.mhq.fynecast.auth.ui.components.AuthScreenLayout
+import com.mhq.fynecast.auth.ui.components.AuthSocialSection
 import com.mhq.fynecast.auth.ui.signup.ui.components.AuthFormSignup
-import com.mhq.fynecast.core.ui.globalcomponents.AppName
-import com.mhq.fynecast.core.ui.globalcomponents.AuthActionButton
-import com.mhq.fynecast.core.ui.globalcomponents.AuthFooterHyperlink
-import com.mhq.fynecast.core.ui.globalcomponents.AuthSocialOptions
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
@@ -5673,20 +6077,12 @@ fun SignupContent(
     onFacebookAuthenticate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-
-    val scrollState = rememberScrollState()
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .imePadding()
-    ) {
-        AppName(
-            text = stringResource(R.string.app_name)
+    AuthScreenLayout(modifier = modifier) {
+        AuthHeader(
+            title = stringResource(R.string.auth_signup_title),
+            subtitle = stringResource(R.string.auth_signup_subtitle)
         )
+        Spacer(modifier = Modifier.height(20.dp))
         AuthFormSignup(
             username = username,
             isUsernameValid = isUsernameValid,
@@ -5701,55 +6097,40 @@ fun SignupContent(
             onConfirmPasswordChanged = onConfirmPasswordChanged,
             doPasswordsMatch = doPasswordsMatch,
             arePasswordsVisible = arePasswordsVisible,
-            onTogglePasswordVisibility = onTogglePasswordVisibility
+            onTogglePasswordVisibility = onTogglePasswordVisibility,
+            onSignupClick = onSignupClick
         )
-        AuthActionButton(
-            text = stringResource(R.string.sign_up),
-            onDoAction = onSignupClick
-        )
-        AuthSocialOptions(
+        Spacer(modifier = Modifier.height(18.dp))
+        AuthSocialSection(
             onGoogleAuthenticate = onGoogleAuthenticate,
             onFacebookAuthenticate = onFacebookAuthenticate
         )
-        AuthFooterHyperlink(
+        Spacer(modifier = Modifier.height(4.dp))
+        AuthFooterLink(
             question = stringResource(R.string.already_have_an_account),
-            answer = stringResource(R.string.login),
-            onDoAction = onLoginClick
+            action = stringResource(R.string.login),
+            onClick = onLoginClick
         )
     }
 }
 
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview(showBackground = true)
 @Composable
-fun SignupScreenScreenPreview() {
-    FyneCastTheme() {
+private fun SignupPreviewContent(isDarkMode: Boolean) {
+    FyneCastTheme(isDarkMode = isDarkMode) {
         SignupContent(
             username = "",
             isUsernameValid = true,
             onUsernameChanged = {},
             email = "",
-            onEmailChanged = {},
             isEmailValid = true,
+            onEmailChanged = {},
             password = "",
             isPasswordValid = true,
             onPasswordChanged = {},
             confirmPassword = "",
             onConfirmPasswordChanged = {},
             doPasswordsMatch = true,
-            arePasswordsVisible = true,
+            arePasswordsVisible = false,
             onTogglePasswordVisibility = {},
             onSignupClick = {},
             onLoginClick = {},
@@ -5758,6 +6139,20 @@ fun SignupScreenScreenPreview() {
         )
     }
 }
+
+@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE, heightDp = 820)
+@Composable
+private fun SignupLightPreview() = SignupPreviewContent(isDarkMode = false)
+
+@Preview(
+    name = "Dark",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A,
+    heightDp = 820
+)
+@Composable
+private fun SignupDarkPreview() = SignupPreviewContent(isDarkMode = true)
 ```
 
 ## auth\ui\social\SocialTokenFetcher.kt
@@ -6764,6 +7159,10 @@ import android.media.RingtoneManager
 import androidx.datastore.preferences.preferencesDataStore
 import com.mhq.fynecast.BuildConfig
 import com.mhq.fynecast.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 private val Context.internalPrefsStore by preferencesDataStore(name = "user_preferences")
 private val Context.internalSessionStore by preferencesDataStore(name = "user_session")
@@ -6771,6 +7170,9 @@ private val Context.internalSessionStore by preferencesDataStore(name = "user_se
 class FyneCastApplication : Application() {
 
     lateinit var container: AppContainer
+
+    /** Lives as long as the app process; for work that belongs to no screen. */
+    private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
@@ -6784,6 +7186,9 @@ class FyneCastApplication : Application() {
         )
         if (BuildConfig.DEBUG) container.appInitializer.initializeDebugFeatures()
         createNotificationChannels()
+
+        // Keeps the saved favorite names in the app language for as long as the app lives.
+        applicationScope.launch { container.keepFavoriteNamesLocalizedUseCase() }
     }
 
     private fun createNotificationChannels() {
@@ -7363,90 +7768,6 @@ object TemperatureFormatter {
 }
 ```
 
-## core\ui\globalcomponents\AppName.kt
-
-```kotlin
-package com.mhq.fynecast.core.ui.globalcomponents
-
-import android.content.res.Configuration
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.TextUnit
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-
-@Composable
-fun AppName(
-    text: String,
-    fontSize: TextUnit = 48.sp,
-    fontFamily: FontFamily = FontFamily.Cursive,
-    fontWeight: FontWeight = FontWeight.Bold,
-    strokeWidth: Float = 5f,
-    modifier: Modifier = Modifier,
-) {
-
-    Box(
-        modifier = modifier
-            .padding(bottom = 48.dp)
-    ) {
-        Text(
-            text = text,
-            style = TextStyle(
-                color = MaterialTheme.colorScheme.outline,
-                fontSize = fontSize,
-                fontWeight = fontWeight,
-                fontFamily = fontFamily,
-                drawStyle = Stroke(width = strokeWidth)
-            ),
-            modifier = Modifier.clearAndSetSemantics {}
-        )
-        Text(
-            text = text,
-            color = MaterialTheme.colorScheme.onPrimary,
-            style = TextStyle(
-                fontSize = fontSize,
-                fontWeight = fontWeight,
-                fontFamily = fontFamily
-            )
-        )
-    }
-}
-
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview(showBackground = true)
-@Composable
-fun AppNamePreview() {
-    FyneCastTheme() {
-        AppName(
-            text = "FyneCast"
-        )
-    }
-}
-```
-
 ## core\ui\globalcomponents\ArabicText.kt
 
 ```kotlin
@@ -7460,398 +7781,6 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun TextUnit.unlessArabic(): TextUnit =
     if (currentLocale().language == "ar") 0.sp else this
-```
-
-## core\ui\globalcomponents\AuthActionButton.kt
-
-```kotlin
-package com.mhq.fynecast.core.ui.globalcomponents
-
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-
-@Composable
-fun AuthActionButton(
-    text: String,
-    onDoAction: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Button(
-        onClick = onDoAction,
-        shape = RoundedCornerShape(16.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.primary,
-            contentColor = MaterialTheme.colorScheme.onPrimary
-        ),
-        modifier = modifier
-            .padding(start = 36.dp, top = 16.dp, end = 36.dp)
-            .height(56.dp)
-            .fillMaxWidth()
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge.copy(
-                fontWeight = FontWeight.Bold
-            )
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun AuthActionButtonPreview() {
-    FyneCastTheme() {
-        AuthActionButton(
-            text = "Sign Up",
-            onDoAction = {}
-        )
-    }
-}
-```
-
-## core\ui\globalcomponents\AuthFooterHyperlink.kt
-
-```kotlin
-package com.mhq.fynecast.core.ui.globalcomponents
-
-import android.content.res.Configuration
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-
-@Composable
-fun AuthFooterHyperlink(
-    question: String,
-    answer: String,
-    onDoAction: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Row(
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.padding(
-            start = 36.dp,
-            top = 24.dp,
-            end = 36.dp
-        )
-    ) {
-        Text(
-            text = question,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(end = 4.dp)
-        )
-        Text(
-            text = answer,
-            color = MaterialTheme.colorScheme.onSurface,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .padding(start = 4.dp)
-                .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
-                .wrapContentHeight(Alignment.CenterVertically)
-                .clickable { onDoAction() }
-        )
-    }
-}
-
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview
-@Composable
-private fun AuthFooterHyperlinkPreview() {
-    FyneCastTheme() {
-        AuthFooterHyperlink(
-            question = "Already have an account?",
-            answer = "Login",
-            onDoAction = {}
-        )
-    }
-}
-```
-
-## core\ui\globalcomponents\AuthInputField.kt
-
-```kotlin
-package com.mhq.fynecast.core.ui.globalcomponents
-
-import android.content.res.Configuration
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessAlarm
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-
-@Composable
-fun AuthInputField(
-    value: String,
-    label: String,
-    placeholder: String,
-    leadingIcon: ImageVector,
-    trailingIcon: @Composable (() -> Unit)? = null,
-    isError: Boolean,
-    onValueChange: (String) -> Unit,
-    visualTransformation: VisualTransformation = VisualTransformation.None,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    keyboardActions: KeyboardActions = KeyboardActions.Default,
-    modifier: Modifier = Modifier
-) {
-
-    OutlinedTextField(
-        value = value,
-        label = { Text(label) },
-        placeholder = { Text(placeholder) },
-        onValueChange = onValueChange,
-        singleLine = true,
-        leadingIcon = {
-            Icon(
-                imageVector = leadingIcon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            )
-        },
-        trailingIcon = trailingIcon,
-        isError = isError,
-        visualTransformation = visualTransformation,
-        keyboardOptions = keyboardOptions,
-        keyboardActions = keyboardActions,
-        shape = RoundedCornerShape(24.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-            focusedLabelColor = MaterialTheme.colorScheme.primary,
-            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-            focusedContainerColor = MaterialTheme.colorScheme.surface,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-            errorBorderColor = MaterialTheme.colorScheme.error,
-            errorLabelColor = MaterialTheme.colorScheme.error,
-            errorContainerColor = MaterialTheme.colorScheme.surfaceVariant
-        ),
-        modifier = modifier
-            .padding(vertical = 4.dp)
-            .fillMaxWidth()
-    )
-}
-
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview
-@Composable
-private fun AuthInputFieldPreview() {
-    FyneCastTheme {
-        AuthInputField(
-            value = "value",
-            label = "label",
-            placeholder = "placeholder",
-            leadingIcon = Icons.Default.AccessAlarm,
-            trailingIcon = null,
-            isError = false,
-            onValueChange = {}
-        )
-    }
-}
-```
-
-## core\ui\globalcomponents\AuthSocialMediaButton.kt
-
-```kotlin
-package com.mhq.fynecast.core.ui.globalcomponents
-
-import androidx.annotation.DrawableRes
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import com.mhq.fynecast.R
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-
-@Composable
-fun AuthSocialMediaButton(
-    onClick: () -> Unit,
-    @DrawableRes iconRes: Int,
-    contentDescription: String?,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(8.dp),
-        color = Color.Transparent,
-        modifier = modifier
-            .size(48.dp)
-    ) {
-        Image(
-            painter = painterResource(id = iconRes),
-            contentDescription = contentDescription,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun AuthSocialMediaButtonPreview(){
-    FyneCastTheme() {
-        AuthSocialMediaButton(
-            iconRes = R.drawable.ic_google_primary_light,
-            contentDescription = null,
-            onClick = {}
-        )
-    }
-}
-```
-
-## core\ui\globalcomponents\AuthSocialOptions.kt
-
-```kotlin
-package com.mhq.fynecast.core.ui.globalcomponents
-
-import android.content.res.Configuration
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import com.mhq.fynecast.R
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-
-@Composable
-fun AuthSocialOptions(
-    onGoogleAuthenticate: () -> Unit,
-    onFacebookAuthenticate: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier.padding(top = 24.dp)
-    ){
-        Text(
-            text = stringResource(R.string.or_with),
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        Row {
-            AuthSocialMediaButton(
-                iconRes = R.drawable.ic_google_primary_light,
-                contentDescription = stringResource(R.string.google_login),
-                onClick = { onGoogleAuthenticate() },
-                modifier = Modifier.padding(end = 8.dp)
-            )
-            AuthSocialMediaButton(
-                iconRes = R.drawable.ic_facebook_primary_light,
-                contentDescription = stringResource(R.string.facebook_login),
-                onClick = { onFacebookAuthenticate() },
-                modifier = Modifier.padding(start = 8.dp)
-            )
-        }
-    }
-}
-
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview
-@Composable
-private fun AuthSocialOptionsPreview() {
-    FyneCastTheme() {
-        AuthSocialOptions(
-            onGoogleAuthenticate = {},
-            onFacebookAuthenticate = {}
-        )
-    }
-}
 ```
 
 ## core\ui\globalcomponents\AuthWarningSnackbar.kt
@@ -15278,7 +15207,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15299,6 +15227,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
@@ -15310,17 +15239,15 @@ fun SettingsLogoutButton(
     Button(
         onClick = onLogoutClick,
         enabled = !isLoggingOut,
-        shape = RoundedCornerShape(16.dp),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
-        ),
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
         colors = ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.15f),
-            contentColor = MaterialTheme.colorScheme.error
+            containerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.12f),
+            contentColor = MaterialTheme.colorScheme.error,
+            disabledContainerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.08f),
+            disabledContentColor = MaterialTheme.colorScheme.error.copy(alpha = 0.6f)
         ),
         modifier = modifier
-            .padding(horizontal = 16.dp)
             .height(52.dp)
             .fillMaxWidth()
     ) {
@@ -15348,19 +15275,17 @@ fun SettingsLogoutButton(
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Black,
-                letterSpacing = 0.5.sp
+                letterSpacing = 0.5.sp.unlessArabic()
             )
         }
     }
 }
 
-@Preview
+@Preview(showBackground = true, backgroundColor = 0xFF0F172A)
 @Composable
 private fun SettingsLogoutButtonPreview() {
-    FyneCastTheme() {
-        SettingsLogoutButton(
-            onLogoutClick = {}
-        )
+    FyneCastTheme(isDarkMode = true) {
+        SettingsLogoutButton(onLogoutClick = {})
     }
 }
 ```
@@ -15373,7 +15298,11 @@ package com.mhq.fynecast.settings.ui.components
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Straighten
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -15397,16 +15326,15 @@ fun SettingsPanel(
     modifier: Modifier = Modifier
 ) {
     GlassyCard(
+        cornerRadius = 24.dp,
         padding = 0.dp,
-        modifier = modifier.padding(
-                start = 16.dp,
-                top = 32.dp,
-                bottom = 32.dp,
-                end = 16.dp
-        ).fillMaxWidth(),
+        containerAlpha = 0.06f,
+        borderAlpha = 0.15f,
+        modifier = modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             SettingsToggleRow(
+                icon = Icons.Outlined.Straighten,
                 label = stringResource(R.string.units),
                 isFirstOptionSelected = isMetric,
                 firstOptionLabel = stringResource(R.string.metric),
@@ -15416,6 +15344,7 @@ fun SettingsPanel(
             )
             SettingsPanelDivider()
             SettingsToggleRow(
+                icon = Icons.Outlined.Notifications,
                 label = stringResource(R.string.notifications),
                 isFirstOptionSelected = notificationsEnabled,
                 firstOptionLabel = stringResource(R.string.on),
@@ -15425,6 +15354,7 @@ fun SettingsPanel(
             )
             SettingsPanelDivider()
             SettingsToggleRow(
+                icon = Icons.Outlined.Language,
                 label = stringResource(R.string.language),
                 isFirstOptionSelected = currentLanguage == LanguageOption.English,
                 firstOptionLabel = stringResource(R.string.english),
@@ -15434,6 +15364,7 @@ fun SettingsPanel(
             )
             SettingsPanelDivider()
             SettingsToggleRow(
+                icon = Icons.Outlined.DarkMode,
                 label = stringResource(R.string.dark_mode),
                 isFirstOptionSelected = !isDarkMode,
                 firstOptionLabel = stringResource(R.string.light),
@@ -15445,28 +15376,36 @@ fun SettingsPanel(
     }
 }
 
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview
+@Preview(showBackground = true, backgroundColor = 0xFF0F172A)
 @Composable
 private fun SettingsPanelPreview() {
-    FyneCastTheme() {
+    FyneCastTheme(isDarkMode = true) {
         SettingsPanel(
             notificationsEnabled = true,
             isDarkMode = true,
             isMetric = true,
             currentLanguage = LanguageOption.English,
+            onNotificationsToggle = {},
+            onDarkModeToggle = {},
+            onMetricToggle = {},
+            onLanguageChange = {}
+        )
+    }
+}
+
+@Preview(
+    uiMode = Configuration.UI_MODE_NIGHT_NO,
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
+@Composable
+private fun SettingsPanelLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        SettingsPanel(
+            notificationsEnabled = false,
+            isDarkMode = false,
+            isMetric = false,
+            currentLanguage = LanguageOption.Arabic,
             onNotificationsToggle = {},
             onDarkModeToggle = {},
             onMetricToggle = {},
@@ -15481,47 +15420,20 @@ private fun SettingsPanelPreview() {
 ```kotlin
 package com.mhq.fynecast.settings.ui.components
 
-import android.content.res.Configuration
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
+/** A hairline that starts after the row icon, so it lines up with the labels. */
 @Composable
 fun SettingsPanelDivider() {
     HorizontalDivider(
-        color = MaterialTheme.colorScheme.onBackground.copy(
-            alpha = 0.08f
-        ),
-        modifier = Modifier.padding(
-            horizontal = 16.dp
-        )
+        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f),
+        modifier = Modifier.padding(start = 60.dp, end = 14.dp)
     )
-}
-
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview
-@Composable
-private fun SettingsPanelDividerPreview() {
-    FyneCastTheme() {
-        SettingsPanelDivider()
-    }
 }
 ```
 
@@ -15530,20 +15442,20 @@ private fun SettingsPanelDividerPreview() {
 ```kotlin
 package com.mhq.fynecast.settings.ui.components
 
-import android.content.res.Configuration
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15553,14 +15465,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
+/** A compact profile card: photo, name, email and an "Edit profile" hint. The whole card is tappable. */
 @Composable
 fun SettingsProfileHeader(
     profileName: String,
@@ -15569,101 +15484,77 @@ fun SettingsProfileHeader(
     onEditProfileClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-
     val imageModel = profileImageUri ?: R.drawable.user
+    val onBackground = MaterialTheme.colorScheme.onBackground
+    val accent = MaterialTheme.colorScheme.onPrimary
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(
-                top = 32.dp,
-                bottom = 16.dp
-            )
+    GlassyCard(
+        cornerRadius = 24.dp,
+        padding = 0.dp,
+        containerAlpha = 0.06f,
+        borderAlpha = 0.15f,
+        modifier = modifier.fillMaxWidth()
     ) {
-        AsyncImage(
-            model = imageModel,
-            placeholder = painterResource(R.drawable.user),
-            contentDescription = stringResource(R.string.profile_photo),
-            contentScale = ContentScale.Crop,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier
-                .size(96.dp)
-                .clip(CircleShape)
-                .border(
-                    1.5.dp,
-                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.4f),
-                    CircleShape
-                )
-        )
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
-        Text(
-            text = profileName,
-            fontWeight = FontWeight.Black,
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground
-        )
-        Text(
-            text = profileEmail,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f)
-        )
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
-        Button(
-            onClick = onEditProfileClick,
-            contentPadding = PaddingValues(
-                horizontal = 20.dp,
-                vertical = 0.dp
-            ),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.onBackground.copy(
-                    alpha = 0.1f
-                )
-            ),
-            border = BorderStroke(
-                1.dp,
-                MaterialTheme.colorScheme.onBackground.copy(
-                    alpha = 0.25f
-                )
-            ),
-            shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.height(32.dp)
+                .fillMaxWidth()
+                .clickable(role = Role.Button, onClick = onEditProfileClick)
+                .padding(18.dp)
         ) {
-            Text(
-                text = stringResource(R.string.edit_profile),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onBackground
+            AsyncImage(
+                model = imageModel,
+                placeholder = painterResource(R.drawable.user),
+                contentDescription = stringResource(R.string.profile_photo),
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(CircleShape)
+                    .border(2.dp, accent.copy(alpha = 0.6f), CircleShape)
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = profileName,
+                    color = onBackground,
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = profileEmail,
+                    color = onBackground.copy(alpha = 0.55f),
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = stringResource(R.string.edit_profile),
+                    color = accent,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = onBackground.copy(alpha = 0.4f),
+                modifier = Modifier.size(24.dp)
             )
         }
     }
 }
 
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview
+@Preview(showBackground = true, backgroundColor = 0xFF0F172A)
 @Composable
 private fun SettingsProfileHeaderPreview() {
-    FyneCastTheme() {
+    FyneCastTheme(isDarkMode = true) {
         SettingsProfileHeader(
-            profileName = "name",
-            profileEmail = "email",
+            profileName = "Mohamed",
+            profileEmail = "mohamed@example.com",
             profileImageUri = null,
             onEditProfileClick = {},
+            modifier = Modifier.padding(16.dp)
         )
     }
 }
@@ -15675,30 +15566,50 @@ private fun SettingsProfileHeaderPreview() {
 package com.mhq.fynecast.settings.ui.components
 
 import android.content.res.Configuration
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
+/** One setting: a round icon, the label, and a two-choice pill selector at the end. */
 @Composable
 fun SettingsToggleRow(
+    icon: ImageVector,
     label: String,
     isFirstOptionSelected: Boolean,
     firstOptionLabel: String,
@@ -15707,86 +15618,158 @@ fun SettingsToggleRow(
     onSecondOptionSelected: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val onBackground = MaterialTheme.colorScheme.onBackground
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = modifier
             .fillMaxWidth()
-            .padding(
-                horizontal = 16.dp,
-                vertical = 16.dp
-            )
+            .padding(horizontal = 14.dp, vertical = 18.dp)
     ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(onBackground.copy(alpha = 0.06f))
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = onBackground.copy(alpha = 0.75f),
+                modifier = Modifier.size(18.dp)
+            )
+        }
         Text(
             text = label,
-            fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onBackground
+            color = onBackground,
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
         )
-        CompositionLocalProvider(
-            LocalLayoutDirection provides LayoutDirection.Ltr
-        ) {
-            SingleChoiceSegmentedButtonRow(
-                modifier = Modifier
-                    .width(180.dp)
-            ) {
-                SegmentedButton(
-                    selected = isFirstOptionSelected,
-                    onClick = onFirstOptionSelected,
-                    shape = SegmentedButtonDefaults.itemShape(
-                        index = 0,
-                        count = 2
-                    ),
-                    colors = customSegmentedColors()
-                ) {
-                    Text(
-                        text = firstOptionLabel,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
-                SegmentedButton(
-                    selected = !isFirstOptionSelected,
-                    onClick = onSecondOptionSelected,
-                    shape = SegmentedButtonDefaults.itemShape(
-                        index = 1,
-                        count = 2
-                    ),
-                    colors = customSegmentedColors()
-                ) {
-                    Text(
-                        text = secondOptionLabel,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
-            }
+        // The selector keeps the same left-to-right order in every language.
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            SettingsSegmentedControl(
+                firstLabel = firstOptionLabel,
+                secondLabel = secondOptionLabel,
+                isFirstSelected = isFirstOptionSelected,
+                onFirstSelected = onFirstOptionSelected,
+                onSecondSelected = onSecondOptionSelected
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsSegmentedControl(
+    firstLabel: String,
+    secondLabel: String,
+    isFirstSelected: Boolean,
+    onFirstSelected: () -> Unit,
+    onSecondSelected: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val onBackground = MaterialTheme.colorScheme.onBackground
+    val shape = RoundedCornerShape(12.dp)
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = modifier
+            .width(148.dp)
+            .height(36.dp)
+            .clip(shape)
+            .background(onBackground.copy(alpha = 0.06f))
+            .border(1.dp, onBackground.copy(alpha = 0.12f), shape)
+            .padding(3.dp)
+            .selectableGroup()
+    ) {
+        Segment(
+            text = firstLabel,
+            selected = isFirstSelected,
+            onClick = onFirstSelected,
+            modifier = Modifier.weight(1f)
+        )
+        Segment(
+            text = secondLabel,
+            selected = !isFirstSelected,
+            onClick = onSecondSelected,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun Segment(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val container by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.onPrimary else Color.Transparent,
+        label = "segmentContainer"
+    )
+    val content by animateColorAsState(
+        targetValue = if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.onBackground.copy(alpha = 0.65f)
+        },
+        label = "segmentContent"
+    )
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(9.dp))
+            .background(container)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+    ) {
+        Text(
+            text = text,
+            color = content,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+    }
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFF0F172A)
+@Composable
+private fun SettingsToggleRowPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        Column {
+            SettingsToggleRow(
+                icon = Icons.Outlined.Notifications,
+                label = "Notifications",
+                isFirstOptionSelected = true,
+                firstOptionLabel = "On",
+                secondOptionLabel = "Off",
+                onFirstOptionSelected = {},
+                onSecondOptionSelected = {}
+            )
         }
     }
 }
 
 @Preview(
-    name = "Light Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_NO,
     showBackground = true,
-    backgroundColor = 0xFFE0F7FA
+    backgroundColor = 0xFFE0F2FE
 )
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview
 @Composable
-private fun SettingsToggleRowPreview() {
-    FyneCastTheme() {
+private fun SettingsToggleRowLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
         SettingsToggleRow(
-            label = "",
-            isFirstOptionSelected = true,
-            firstOptionLabel = "",
-            secondOptionLabel = "",
+            icon = Icons.Outlined.Notifications,
+            label = "Notifications",
+            isFirstOptionSelected = false,
+            firstOptionLabel = "On",
+            secondOptionLabel = "Off",
             onFirstOptionSelected = {},
             onSecondOptionSelected = {}
         )
@@ -15906,16 +15889,20 @@ package com.mhq.fynecast.settings.ui.screens
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -15924,6 +15911,8 @@ import com.mhq.fynecast.settings.presentation.model.LanguageOption
 import com.mhq.fynecast.settings.ui.components.SettingsLogoutButton
 import com.mhq.fynecast.settings.ui.components.SettingsPanel
 import com.mhq.fynecast.settings.ui.components.SettingsProfileHeader
+
+private val PageEdgePadding = 24.dp
 
 @Composable
 fun SettingsContent(
@@ -15944,64 +15933,67 @@ fun SettingsContent(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier
 ) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+        val bottomInset = contentPadding.calculateBottomPadding()
+        // The height the page can use. When the content is shorter, its three blocks are spread
+        // over this height; when it is taller, the page scrolls.
+        val pageHeight =
+            (maxHeight - statusBarHeight - bottomInset - PageEdgePadding * 2).coerceAtLeast(0.dp)
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-    ) {
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top,
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .padding(bottom = contentPadding.calculateBottomPadding() + 24.dp)
                 .verticalScroll(rememberScrollState())
+                .padding(
+                    start = 16.dp,
+                    end = 16.dp,
+                    top = PageEdgePadding,
+                    bottom = bottomInset + PageEdgePadding
+                )
         ) {
-            SettingsProfileHeader(
-                profileName = profileName,
-                profileEmail = profileEmail,
-                profileImageUri = profileImageUri,
-                onEditProfileClick = onEditProfileClick,
-            )
-            SettingsPanel(
-                isMetric = isMetric,
-                onMetricToggle = onMetricToggle,
-                notificationsEnabled = notificationsEnabled,
-                onNotificationsToggle = onNotificationsToggle,
-                currentLanguage = currentLanguage,
-                onLanguageChange = onLanguageChange,
-                isDarkMode = isDarkMode,
-                onDarkModeToggle = onDarkModeToggle
-            )
-            SettingsLogoutButton(
-                isLoggingOut = isLoggingOut,
-                onLogoutClick = onLogoutClick,
-            )
+            Column(
+                verticalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = pageHeight)
+            ) {
+                // Each block keeps at least 20 dp from its neighbours; extra height is shared out.
+                SettingsProfileHeader(
+                    profileName = profileName,
+                    profileEmail = profileEmail,
+                    profileImageUri = profileImageUri,
+                    onEditProfileClick = onEditProfileClick,
+                    modifier = Modifier.padding(vertical = 10.dp)
+                )
+                SettingsPanel(
+                    isMetric = isMetric,
+                    onMetricToggle = onMetricToggle,
+                    notificationsEnabled = notificationsEnabled,
+                    onNotificationsToggle = onNotificationsToggle,
+                    currentLanguage = currentLanguage,
+                    onLanguageChange = onLanguageChange,
+                    isDarkMode = isDarkMode,
+                    onDarkModeToggle = onDarkModeToggle,
+                    modifier = Modifier.padding(vertical = 10.dp)
+                )
+                SettingsLogoutButton(
+                    isLoggingOut = isLoggingOut,
+                    onLogoutClick = onLogoutClick,
+                    modifier = Modifier.padding(vertical = 10.dp)
+                )
+            }
         }
     }
 }
 
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview(showBackground = true)
 @Composable
-fun SettingsScreenPreview() {
-    FyneCastTheme() {
+private fun SettingsPreviewContent(isDarkMode: Boolean) {
+    FyneCastTheme(isDarkMode = isDarkMode) {
         SettingsContent(
-            profileName = "name",
-            profileEmail = "email",
+            profileName = "Mohamed",
+            profileEmail = "mohamed@example.com",
             profileImageUri = null,
             onEditProfileClick = {},
             isMetric = true,
@@ -16010,12 +16002,26 @@ fun SettingsScreenPreview() {
             onNotificationsToggle = {},
             currentLanguage = LanguageOption.English,
             onLanguageChange = {},
-            isDarkMode = true,
+            isDarkMode = isDarkMode,
             onDarkModeToggle = {},
             onLogoutClick = {},
             contentPadding = PaddingValues(0.dp)
         )
     }
 }
+
+@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE, heightDp = 800)
+@Composable
+private fun SettingsLightPreview() = SettingsPreviewContent(isDarkMode = false)
+
+@Preview(
+    name = "Dark",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A,
+    heightDp = 800
+)
+@Composable
+private fun SettingsDarkPreview() = SettingsPreviewContent(isDarkMode = true)
 ```
 

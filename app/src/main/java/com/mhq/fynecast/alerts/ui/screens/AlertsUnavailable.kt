@@ -1,12 +1,13 @@
 package com.mhq.fynecast.alerts.ui.screens
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,7 +31,7 @@ fun AlertsUnavailable(
             .fillMaxSize()
     ) {
         BlankPagePlaceholder(
-            blankSectionIcon = Icons.Default.WifiOff,
+            blankSectionIcon = Icons.Default.Block,
             blankSectionIconDescription = null,
             blankSectionTitle = stringResource(R.string.alerts_unavailable),
             blankSectionSubtitle = stringResource(R.string.alerts_connect_to_the_internet)
@@ -38,10 +39,27 @@ fun AlertsUnavailable(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
 @Composable
-fun AlertsUnavailablePreview() {
-    FyneCastTheme() {
+fun AlertsUnavailableLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        AlertsUnavailable()
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun AlertsUnavailableDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
         AlertsUnavailable()
     }
 }
