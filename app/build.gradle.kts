@@ -58,6 +58,10 @@ android {
     }
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     val nav_version = "2.9.8"
     val room_version = "2.8.4"

@@ -9,7 +9,6 @@ import com.google.android.gms.location.LocationServices
 import com.google.firebase.auth.FirebaseAuth
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.mhq.fynecast.BuildConfig
-import com.mhq.fynecast.alerts.data.database.AlertsDatabase
 import com.mhq.fynecast.alerts.data.datasource.AlertsLocalDataSource
 import com.mhq.fynecast.alerts.data.datasource.AlertsRoomDataSource
 import com.mhq.fynecast.alerts.data.repoimpl.AlertTrackingControllerImpl
@@ -54,6 +53,7 @@ import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
+import com.mhq.fynecast.core.data.database.AppDatabase
 import com.mhq.fynecast.core.data.infra.AppInitializerImpl
 import com.mhq.fynecast.core.data.infra.FirebaseCurrentUserProvider
 import com.mhq.fynecast.core.data.location.SelectedCityRepositoryImpl
@@ -68,7 +68,6 @@ import com.mhq.fynecast.core.domain.location.SelectedCityRepository
 import com.mhq.fynecast.core.domain.time.TimeProvider
 import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
 import com.mhq.fynecast.core.domain.weather.WeatherRepository
-import com.mhq.fynecast.favorites.data.database.FavoritesDatabase
 import com.mhq.fynecast.favorites.data.datasource.FavoritesLocalDataSource
 import com.mhq.fynecast.favorites.data.datasource.FavoritesRoomDataSource
 import com.mhq.fynecast.favorites.data.repoimpl.FavoritesRepoImpl
@@ -206,6 +205,13 @@ class DefaultAppContainer(
         .build()
     private val photonApiRetrofitService: LocationApiService by lazy {
         photonRetrofit.create(LocationApiService::class.java)
+    }
+
+    //Database
+    private val appDatabase: AppDatabase by lazy {
+        /** The old per-feature databases are no longer used
+        // The app is not released yet so nothing is carried over from them. */
+        Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME).build()
     }
 
     // Repositories
@@ -368,17 +374,10 @@ class DefaultAppContainer(
 
     // Favorites Use Cases
     private val favoritesLocalDataSource: FavoritesLocalDataSource by lazy {
-        FavoritesRoomDataSource(favoritesDatabase.favoriteDao())
+        FavoritesRoomDataSource(appDatabase.favoriteDao())
     }
     private val favoritesRepository: FavoritesRepository by lazy {
         FavoritesRepoImpl(favoritesLocalDataSource, currentUserProvider)
-    }
-    private val favoritesDatabase: FavoritesDatabase by lazy {
-        Room.databaseBuilder(
-            context,
-            FavoritesDatabase::class.java,
-            "favorites_db"
-        ).build()
     }
     override val getFavoritesUseCase: GetFavoritesUseCase by lazy {
         GetFavoritesUseCase(favoritesRepository)
@@ -422,18 +421,11 @@ class DefaultAppContainer(
     private val alertTrackingController: AlertTrackingController by lazy {
         AlertTrackingControllerImpl(context)
     }
-    private val alertsDatabase: AlertsDatabase by lazy {
-        Room.databaseBuilder(
-            context,
-            AlertsDatabase::class.java,
-            "alerts_db"
-        ).build()
-    }
     private val alertsLocalDataSource: AlertsLocalDataSource by lazy {
-        AlertsRoomDataSource(alertsDatabase.alertDao())
+        AlertsRoomDataSource(appDatabase.alertDao())
     }
     private val alertsRepository: AlertsRepository by lazy {
-        AlertsRepoImpl(localDataSource = alertsLocalDataSource)
+        AlertsRepoImpl(alertsLocalDataSource)
     }
     override val getAlertsUseCase: GetAlertsUseCase by lazy {
         GetAlertsUseCase(currentWeatherStore)

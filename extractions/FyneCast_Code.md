@@ -38,28 +38,6 @@ interface AlertDao {
 }
 ```
 
-## alerts\data\database\AlertsDatabase.kt
-
-```kotlin
-package com.mhq.fynecast.alerts.data.database
-
-import androidx.room.Database
-import androidx.room.RoomDatabase
-
-/**
- * Room database abstract class serving as the main access point for the tracked alerts persistence layer.
- */
-@Database(
-    entities = [TrackedAlertEntity::class],
-    version = 1,
-    exportSchema = false
-)
-abstract class AlertsDatabase : RoomDatabase() {
-    /** Provides access to the [AlertDao] data operations. */
-    abstract fun alertDao(): AlertDao
-}
-```
-
 ## alerts\data\database\TrackedAlertEntity.kt
 
 ```kotlin
@@ -1571,6 +1549,7 @@ enum class AlertSeverity {
 ```kotlin
 package com.mhq.fynecast.alerts.ui.components
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
@@ -1770,8 +1749,16 @@ fun AlertCard(
             // Smooth Expandable Metadata Area (Description & Instructions)
             AnimatedVisibility(
                 visible = isExpanded,
-                enter = expandVertically(animationSpec = tween(250)) + fadeIn(animationSpec = tween(250)),
-                exit = shrinkVertically(animationSpec = tween(250)) + fadeOut(animationSpec = tween(250))
+                enter = expandVertically(animationSpec = tween(250)) + fadeIn(
+                    animationSpec = tween(
+                        250
+                    )
+                ),
+                exit = shrinkVertically(animationSpec = tween(250)) + fadeOut(
+                    animationSpec = tween(
+                        250
+                    )
+                )
             ) {
                 Column(
                     modifier = Modifier
@@ -1831,17 +1818,48 @@ fun AlertCard(
     }
 }
 
-@Preview
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
 @Composable
-private fun AlertCardPreview() {
-    FyneCastTheme() {
+private fun AlertCardLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
         AlertCard(
             alert = AlertPresentationModel(
                 id = "1",
                 event = "Flood",
                 headline = "Flood warning for the coast",
-                description = "Water levels are rising.",
-                instruction = "Move to higher ground.",
+                description = "Water levels are rising rapidly due to severe storm surges.",
+                instruction = "Move to higher ground immediately.",
+                severity = AlertSeverity.Severe,
+                severityLabel = "Severe"
+            ),
+            isTracked = false,
+            isExpanded = true,
+            onTrackToggle = {},
+            onExpandToggle = {}
+        )
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+private fun AlertCardDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        AlertCard(
+            alert = AlertPresentationModel(
+                id = "1",
+                event = "Flood",
+                headline = "Flood warning for the coast",
+                description = "Water levels are rising rapidly due to severe storm surges.",
+                instruction = "Move to higher ground immediately.",
                 severity = AlertSeverity.Severe,
                 severityLabel = "Severe"
             ),
@@ -1859,12 +1877,14 @@ private fun AlertCardPreview() {
 ```kotlin
 package com.mhq.fynecast.alerts.ui.components
 
+import android.content.res.Configuration
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -1885,32 +1905,44 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.theme.AppleRed
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 /**
  * Composable button allowing users to toggle tracking status on/off for a specific alert.
  */
 @Composable
 fun AlertTrackingButton(
-    isTracked: Boolean,
     severityColor: Color,
+    isTracked: Boolean,
     onTrackToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val animatedBgColor by animateColorAsState(
-        targetValue = if (isTracked) severityColor.copy(alpha = 0.08f) else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-        animationSpec = tween(durationMillis = 250), label = "buttonBg"
+        targetValue =
+            if (isTracked) severityColor.copy(alpha = 0.08f)
+            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
+        animationSpec = tween(durationMillis = 250),
+        label = "buttonBg"
     )
 
     val animatedContentColor by animateColorAsState(
-        targetValue = if (isTracked) severityColor else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-        animationSpec = tween(durationMillis = 250), label = "buttonContent"
+        targetValue =
+            if (isTracked) severityColor
+            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+        animationSpec = tween(durationMillis = 250),
+        label = "buttonContent"
     )
 
     val animatedBorderColor by animateColorAsState(
-        targetValue = if (isTracked) severityColor.copy(alpha = 0.3f) else Color.Transparent,
-        animationSpec = tween(durationMillis = 250), label = "buttonBorder"
+        targetValue =
+            if (isTracked) severityColor.copy(alpha = 0.3f)
+            else Color.Transparent,
+        animationSpec = tween(durationMillis = 250),
+        label = "buttonBorder"
     )
 
     Row(
@@ -1920,27 +1952,76 @@ fun AlertTrackingButton(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(animatedBgColor)
-            .border(width = 1.dp, color = animatedBorderColor, shape = RoundedCornerShape(16.dp))
+            .border(
+                width = 1.dp,
+                color = animatedBorderColor,
+                shape = RoundedCornerShape(16.dp)
+            )
             .clickable { onTrackToggle() }
-            .padding(vertical = 12.dp, horizontal = 16.dp)
+            .padding(
+                vertical = 12.dp,
+                horizontal = 16.dp
+            )
     ) {
         Icon(
-            imageVector = if (isTracked) Icons.Rounded.NotificationsOff else Icons.Rounded.NotificationsActive,
+            imageVector =
+                if (isTracked) Icons.Rounded.NotificationsOff
+                else Icons.Rounded.NotificationsActive,
             contentDescription = null,
             tint = animatedContentColor,
             modifier = Modifier.clip(RoundedCornerShape(40))
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = if (isTracked) {
-                stringResource(R.string.cancel_tracking)
-            } else {
-                stringResource(R.string.track_this_alert)
-            },
+            text =
+                if (isTracked) stringResource(R.string.cancel_tracking)
+                else stringResource(R.string.track_this_alert),
             fontWeight = FontWeight.SemiBold,
             style = MaterialTheme.typography.labelLarge,
             color = animatedContentColor
         )
+    }
+}
+
+@Composable
+private fun AlertTrackingButtonPreviewContent() {
+    Column(modifier = Modifier.padding(16.dp)) {
+        AlertTrackingButton(
+            isTracked = false,
+            severityColor = AppleRed,
+            onTrackToggle = {}
+        )
+        AlertTrackingButton(
+            isTracked = true,
+            severityColor = AppleRed,
+            onTrackToggle = {},
+            modifier = Modifier.padding(top = 16.dp)
+        )
+    }
+}
+
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
+@Composable
+fun AlertTrackingButtonLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        AlertTrackingButtonPreviewContent()
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun AlertTrackingButtonDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        AlertTrackingButtonPreviewContent()
     }
 }
 ```
@@ -2323,13 +2404,14 @@ private val ExpandedAlertIdsSaver = listSaver<SnapshotStateList<String>, String>
 ```kotlin
 package com.mhq.fynecast.alerts.ui.screens
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -2353,7 +2435,7 @@ fun AlertsUnavailable(
             .fillMaxSize()
     ) {
         BlankPagePlaceholder(
-            blankSectionIcon = Icons.Default.WifiOff,
+            blankSectionIcon = Icons.Default.Block,
             blankSectionIconDescription = null,
             blankSectionTitle = stringResource(R.string.alerts_unavailable),
             blankSectionSubtitle = stringResource(R.string.alerts_connect_to_the_internet)
@@ -2361,10 +2443,27 @@ fun AlertsUnavailable(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
 @Composable
-fun AlertsUnavailablePreview() {
-    FyneCastTheme() {
+fun AlertsUnavailableLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        AlertsUnavailable()
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun AlertsUnavailableDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
         AlertsUnavailable()
     }
 }
@@ -4088,6 +4187,7 @@ fun AuthFooterLink(
 ```kotlin
 package com.mhq.fynecast.auth.ui.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -4095,6 +4195,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -4112,10 +4213,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.globalcomponents.unlessArabic
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 /** The brand badge (the sun, or another [icon]), the app name in spaced capitals, then the title and a short line. */
 @Composable
@@ -4184,6 +4287,36 @@ fun AuthHeader(
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodyMedium
         )
+    }
+}
+
+@Composable
+private fun AuthHeaderPreviewContent() {
+    AuthHeader(
+        title = "Create Account",
+        subtitle = "Join FyneCast to track severe weather alerts globally",
+        modifier = Modifier.padding(16.dp)
+    )
+}
+
+@Preview(name = "Light Mode", showBackground = true, backgroundColor = 0xFFE0F2FE)
+@Composable
+fun AuthHeaderLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        AuthHeaderPreviewContent()
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun AuthHeaderDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        AuthHeaderPreviewContent()
     }
 }
 ```
@@ -4328,6 +4461,7 @@ fun AuthScreenLayout(
 ```kotlin
 package com.mhq.fynecast.auth.ui.components
 
+import android.content.res.Configuration
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -4337,6 +4471,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
@@ -4350,8 +4485,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 /** A hairline divider with a short label, then Google and Facebook side by side. */
 @Composable
@@ -4426,6 +4563,36 @@ private fun SocialButton(
                 modifier = Modifier.size(28.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun AuthSocialSectionPreviewContent() {
+    AuthSocialSection(
+        onGoogleAuthenticate = {},
+        onFacebookAuthenticate = {},
+        modifier = Modifier.padding(16.dp)
+    )
+}
+
+@Preview(name = "Light Mode", showBackground = true, backgroundColor = 0xFFE0F2FE)
+@Composable
+fun AuthSocialSectionLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        AuthSocialSectionPreviewContent()
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun AuthSocialSectionDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        AuthSocialSectionPreviewContent()
     }
 }
 ```
@@ -4584,10 +4751,10 @@ fun AuthPasswordToggle(
 }
 ```
 
-## auth\ui\editprofile\ui\components\EditProfileForm.kt
+## auth\ui\editprofile\components\EditProfileForm.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui.editprofile.ui.components
+package com.mhq.fynecast.auth.ui.editprofile.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -4616,6 +4783,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.ui.components.AuthPasswordToggle
+import com.mhq.fynecast.auth.ui.components.AuthPrimaryButton
 import com.mhq.fynecast.auth.ui.components.AuthTextField
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
@@ -4628,6 +4796,7 @@ fun EditProfileForm(
     userEmail: String,
     isEmailValid: Boolean,
     onUserEmailChanged: (String) -> Unit,
+    onSaveClick: () -> Unit,
     showPasswordFields: Boolean = false,
     newPassword: String = "",
     isNewPasswordValid: Boolean = true,
@@ -4650,7 +4819,7 @@ fun EditProfileForm(
         borderAlpha = 0.15f,
         modifier = modifier.fillMaxWidth()
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             AuthTextField(
                 value = username,
                 onValueChange = onUsernameChanged,
@@ -4726,6 +4895,10 @@ fun EditProfileForm(
                     keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
                 )
             }
+            AuthPrimaryButton(
+                text = stringResource(R.string.save_changes),
+                onClick = onSaveClick
+            )
         }
     }
 }
@@ -4740,16 +4913,17 @@ private fun EditProfileFormPreview() {
             onUsernameChanged = {},
             userEmail = "mohamed@example.com",
             isEmailValid = true,
-            onUserEmailChanged = {}
+            onUserEmailChanged = {},
+            onSaveClick = {}
         )
     }
 }
 ```
 
-## auth\ui\editprofile\ui\components\EditProfileHeader.kt
+## auth\ui\editprofile\components\EditProfileHeader.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui.editprofile.ui.components
+package com.mhq.fynecast.auth.ui.editprofile.components
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -4858,10 +5032,10 @@ private fun EditProfileHeaderPreview() {
 }
 ```
 
-## auth\ui\editprofile\ui\screens\EditProfileContainer.kt
+## auth\ui\editprofile\screens\EditProfileContainer.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui.editprofile.ui.screens
+package com.mhq.fynecast.auth.ui.editprofile.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -4993,10 +5167,10 @@ fun EditProfileContainer(
 }
 ```
 
-## auth\ui\editprofile\ui\screens\EditProfileContent.kt
+## auth\ui\editprofile\screens\EditProfileContent.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui.editprofile.ui.screens
+package com.mhq.fynecast.auth.ui.editprofile.screens
 
 import android.content.res.Configuration
 import androidx.compose.foundation.background
@@ -5011,6 +5185,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -5039,9 +5214,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.auth.ui.components.AuthPrimaryButton
-import com.mhq.fynecast.auth.ui.editprofile.ui.components.EditProfileForm
-import com.mhq.fynecast.auth.ui.editprofile.ui.components.EditProfileHeader
+import com.mhq.fynecast.auth.ui.editprofile.components.EditProfileForm
+import com.mhq.fynecast.auth.ui.editprofile.components.EditProfileHeader
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
@@ -5082,10 +5256,10 @@ fun EditProfileContent(
             .statusBarsPadding()
             .navigationBarsPadding()
             .imePadding()
-    )  {
+    ) {
         val bottomInset = contentPadding.calculateBottomPadding()
-        // The height the page can use. When the content is shorter, the photo and form sit
-        // centred between the top bar and the Save button; when it is taller, the page scrolls.
+        // The height the page can use. When the content is shorter, the photo and form card sit
+        // centred on the page under the top bar; when it is taller, the page scrolls.
         val pageHeight = (maxHeight - bottomInset - 24.dp).coerceAtLeast(0.dp)
 
         Column(
@@ -5170,14 +5344,13 @@ fun EditProfileContent(
                         onConfirmPasswordChanged = onConfirmPasswordChanged,
                         isPasswordVisible = isPasswordVisible,
                         onTogglePasswordVisibility = onTogglePasswordVisibility,
+                        onSaveClick = onSaveClick,
                         usernameFocusRequester = usernameFocusRequester
                     )
                 }
 
-                AuthPrimaryButton(
-                    text = stringResource(R.string.save_changes),
-                    onClick = onSaveClick
-                )
+                // As tall as the top bar, so the photo and card end up centred on the page.
+                Spacer(modifier = Modifier.height(44.dp))
             }
         }
     }
@@ -5217,14 +5390,16 @@ private fun EditProfileLightPreview() = EditProfilePreviewContent(isDarkMode = f
 private fun EditProfileDarkPreview() = EditProfilePreviewContent(isDarkMode = true)
 ```
 
-## auth\ui\forgotpassword\ui\components\AuthForgotPasswordForm.kt
+## auth\ui\forgotpassword\components\AuthForgotPasswordForm.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui.forgotpassword.ui.components
+package com.mhq.fynecast.auth.ui.forgotpassword.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -5238,11 +5413,13 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.ui.components.AuthPrimaryButton
 import com.mhq.fynecast.auth.ui.components.AuthTextField
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
 fun AuthForgotPasswordForm(
@@ -5250,8 +5427,8 @@ fun AuthForgotPasswordForm(
     isEmailValid: Boolean,
     onEmailChanged: (String) -> Unit,
     onSendLink: () -> Unit,
-    modifier: Modifier = Modifier,
-    focusRequester: FocusRequester = remember { FocusRequester() }
+    focusRequester: FocusRequester = remember { FocusRequester() },
+    modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
 
@@ -5284,12 +5461,48 @@ fun AuthForgotPasswordForm(
         }
     }
 }
+
+@Composable
+private fun AuthForgotPasswordFormPreviewContent() {
+    AuthForgotPasswordForm(
+        email = "user@example.com",
+        isEmailValid = true,
+        onEmailChanged = {},
+        onSendLink = {},
+        modifier = Modifier.padding(16.dp)
+    )
+}
+
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
+@Composable
+fun AuthForgotPasswordFormLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        AuthForgotPasswordFormPreviewContent()
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun AuthForgotPasswordFormDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        AuthForgotPasswordFormPreviewContent()
+    }
+}
 ```
 
-## auth\ui\forgotpassword\ui\screens\ForgotPasswordContainer.kt
+## auth\ui\forgotpassword\screens\ForgotPasswordContainer.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui.forgotpassword.ui.screens
+package com.mhq.fynecast.auth.ui.forgotpassword.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -5363,10 +5576,10 @@ fun ForgotPasswordContainer(
 }
 ```
 
-## auth\ui\forgotpassword\ui\screens\ForgotPasswordContent.kt
+## auth\ui\forgotpassword\screens\ForgotPasswordContent.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui.forgotpassword.ui.screens
+package com.mhq.fynecast.auth.ui.forgotpassword.screens
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Spacer
@@ -5385,7 +5598,7 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.ui.components.AuthFooterLink
 import com.mhq.fynecast.auth.ui.components.AuthHeader
 import com.mhq.fynecast.auth.ui.components.AuthScreenLayout
-import com.mhq.fynecast.auth.ui.forgotpassword.ui.components.AuthForgotPasswordForm
+import com.mhq.fynecast.auth.ui.forgotpassword.components.AuthForgotPasswordForm
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
@@ -5456,11 +5669,12 @@ private fun ForgotPasswordLightPreview() = ForgotPasswordPreviewContent(isDarkMo
 private fun ForgotPasswordDarkPreview() = ForgotPasswordPreviewContent(isDarkMode = true)
 ```
 
-## auth\ui\login\ui\components\AuthFormLogin.kt
+## auth\ui\login\components\AuthFormLogin.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui.login.ui.components
+package com.mhq.fynecast.auth.ui.login.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -5485,12 +5699,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.auth.ui.components.AuthPasswordToggle
 import com.mhq.fynecast.auth.ui.components.AuthPrimaryButton
 import com.mhq.fynecast.auth.ui.components.AuthTextField
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
 fun AuthFormLogin(
@@ -5544,10 +5760,8 @@ fun AuthFormLogin(
                     )
                 },
                 visualTransformation =
-                    if (isPasswordVisible)
-                        VisualTransformation.None
-                    else
-                        PasswordVisualTransformation(),
+                    if (isPasswordVisible) VisualTransformation.None
+                    else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done
@@ -5572,12 +5786,53 @@ fun AuthFormLogin(
         }
     }
 }
+
+@Composable
+private fun AuthFormLoginPreviewContent() {
+    AuthFormLogin(
+        email = "test@fynecast.com",
+        isEmailValid = true,
+        onEmailChanged = {},
+        password = "Password123!",
+        onPasswordChanged = {},
+        isPasswordVisible = false,
+        onTogglePasswordVisibility = {},
+        onForgotPasswordClick = {},
+        onLoginClick = {},
+        modifier = Modifier.padding(16.dp)
+    )
+}
+
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
+@Composable
+fun AuthFormLoginLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        AuthFormLoginPreviewContent()
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun AuthFormLoginDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        AuthFormLoginPreviewContent()
+    }
+}
 ```
 
-## auth\ui\login\ui\screens\LoginContainer.kt
+## auth\ui\login\screens\LoginContainer.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui.login.ui.screens
+package com.mhq.fynecast.auth.ui.login.screens
 
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
@@ -5678,10 +5933,10 @@ fun LoginContainer(
 }
 ```
 
-## auth\ui\login\ui\screens\LoginContent.kt
+## auth\ui\login\screens\LoginContent.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui.login.ui.screens
+package com.mhq.fynecast.auth.ui.login.screens
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Spacer
@@ -5696,7 +5951,7 @@ import com.mhq.fynecast.auth.ui.components.AuthFooterLink
 import com.mhq.fynecast.auth.ui.components.AuthHeader
 import com.mhq.fynecast.auth.ui.components.AuthScreenLayout
 import com.mhq.fynecast.auth.ui.components.AuthSocialSection
-import com.mhq.fynecast.auth.ui.login.ui.components.AuthFormLogin
+import com.mhq.fynecast.auth.ui.login.components.AuthFormLogin
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
@@ -5766,9 +6021,15 @@ private fun LoginPreviewContent(isDarkMode: Boolean) {
     }
 }
 
-@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFE0F2FE, heightDp = 820)
+@Preview(
+    name = "Light",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE,
+    heightDp = 820
+)
 @Composable
-private fun LoginLightPreview() = LoginPreviewContent(isDarkMode = false)
+private fun LoginLightPreview() =
+    LoginPreviewContent(isDarkMode = false)
 
 @Preview(
     name = "Dark",
@@ -5778,13 +6039,14 @@ private fun LoginLightPreview() = LoginPreviewContent(isDarkMode = false)
     heightDp = 820
 )
 @Composable
-private fun LoginDarkPreview() = LoginPreviewContent(isDarkMode = true)
+private fun LoginDarkPreview() =
+    LoginPreviewContent(isDarkMode = true)
 ```
 
-## auth\ui\signup\ui\components\AuthFormSignup.kt
+## auth\ui\signup\components\AuthFormSignup.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui.signup.ui.components
+package com.mhq.fynecast.auth.ui.signup.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -5915,10 +6177,10 @@ fun AuthFormSignup(
 }
 ```
 
-## auth\ui\signup\ui\screens\SignupContainer.kt
+## auth\ui\signup\screens\SignupContainer.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui.signup.ui.screens
+package com.mhq.fynecast.auth.ui.signup.screens
 
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
@@ -6034,10 +6296,10 @@ fun SignupContainer(
 }
 ```
 
-## auth\ui\signup\ui\screens\SignupContent.kt
+## auth\ui\signup\screens\SignupContent.kt
 
 ```kotlin
-package com.mhq.fynecast.auth.ui.signup.ui.screens
+package com.mhq.fynecast.auth.ui.signup.screens
 
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Spacer
@@ -6052,7 +6314,7 @@ import com.mhq.fynecast.auth.ui.components.AuthFooterLink
 import com.mhq.fynecast.auth.ui.components.AuthHeader
 import com.mhq.fynecast.auth.ui.components.AuthScreenLayout
 import com.mhq.fynecast.auth.ui.components.AuthSocialSection
-import com.mhq.fynecast.auth.ui.signup.ui.components.AuthFormSignup
+import com.mhq.fynecast.auth.ui.signup.components.AuthFormSignup
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
@@ -6225,6 +6487,37 @@ object SocialTokenFetcher {
                 listOf("public_profile", "email")
             )
         }
+}
+```
+
+## core\data\database\AppDatabase.kt
+
+```kotlin
+package com.mhq.fynecast.core.data.database
+
+import androidx.room.Database
+import androidx.room.RoomDatabase
+import com.mhq.fynecast.alerts.data.database.AlertDao
+import com.mhq.fynecast.alerts.data.database.TrackedAlertEntity
+import com.mhq.fynecast.favorites.data.database.FavoriteDao
+import com.mhq.fynecast.favorites.data.database.FavoriteEntity
+
+/**
+ * The app's single Room database. Its schema is exported to app/schemas on every build,
+ * so every future change must bump [version] and ship a Migration.
+ */
+@Database(
+    entities = [FavoriteEntity::class, TrackedAlertEntity::class],
+    version = 1,
+    exportSchema = true
+)
+abstract class AppDatabase : RoomDatabase() {
+    abstract fun favoriteDao(): FavoriteDao
+    abstract fun alertDao(): AlertDao
+
+    companion object {
+        const val NAME = "fynecast.db"
+    }
 }
 ```
 
@@ -6646,7 +6939,6 @@ import com.google.android.gms.location.LocationServices
 import com.google.firebase.auth.FirebaseAuth
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.mhq.fynecast.BuildConfig
-import com.mhq.fynecast.alerts.data.database.AlertsDatabase
 import com.mhq.fynecast.alerts.data.datasource.AlertsLocalDataSource
 import com.mhq.fynecast.alerts.data.datasource.AlertsRoomDataSource
 import com.mhq.fynecast.alerts.data.repoimpl.AlertTrackingControllerImpl
@@ -6691,6 +6983,7 @@ import com.mhq.fynecast.auth.domain.usecases.profile.UpdateUserProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.profile.ValidateEditProfileUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.CheckUserLoggedInUseCase
 import com.mhq.fynecast.auth.domain.usecases.session.LogoutUserUseCase
+import com.mhq.fynecast.core.data.database.AppDatabase
 import com.mhq.fynecast.core.data.infra.AppInitializerImpl
 import com.mhq.fynecast.core.data.infra.FirebaseCurrentUserProvider
 import com.mhq.fynecast.core.data.location.SelectedCityRepositoryImpl
@@ -6705,7 +6998,6 @@ import com.mhq.fynecast.core.domain.location.SelectedCityRepository
 import com.mhq.fynecast.core.domain.time.TimeProvider
 import com.mhq.fynecast.core.domain.weather.CurrentWeatherStore
 import com.mhq.fynecast.core.domain.weather.WeatherRepository
-import com.mhq.fynecast.favorites.data.database.FavoritesDatabase
 import com.mhq.fynecast.favorites.data.datasource.FavoritesLocalDataSource
 import com.mhq.fynecast.favorites.data.datasource.FavoritesRoomDataSource
 import com.mhq.fynecast.favorites.data.repoimpl.FavoritesRepoImpl
@@ -6843,6 +7135,15 @@ class DefaultAppContainer(
         .build()
     private val photonApiRetrofitService: LocationApiService by lazy {
         photonRetrofit.create(LocationApiService::class.java)
+    }
+
+    //Database
+    private val appDatabase: AppDatabase by lazy {
+        // The old per-feature databases are no longer used. The app is not released yet,
+        // so nothing is carried over from them.
+        context.deleteDatabase("favorites_db")
+        context.deleteDatabase("alerts_db")
+        Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME).build()
     }
 
     // Repositories
@@ -7005,18 +7306,18 @@ class DefaultAppContainer(
 
     // Favorites Use Cases
     private val favoritesLocalDataSource: FavoritesLocalDataSource by lazy {
-        FavoritesRoomDataSource(favoritesDatabase.favoriteDao())
+        FavoritesRoomDataSource(appDatabase.favoriteDao())
     }
     private val favoritesRepository: FavoritesRepository by lazy {
         FavoritesRepoImpl(favoritesLocalDataSource, currentUserProvider)
     }
-    private val favoritesDatabase: FavoritesDatabase by lazy {
-        Room.databaseBuilder(
-            context,
-            FavoritesDatabase::class.java,
-            "favorites_db"
-        ).build()
-    }
+//    private val favoritesDatabase: FavoritesDatabase by lazy {
+//        Room.databaseBuilder(
+//            context,
+//            FavoritesDatabase::class.java,
+//            "favorites_db"
+//        ).build()
+//    }
     override val getFavoritesUseCase: GetFavoritesUseCase by lazy {
         GetFavoritesUseCase(favoritesRepository)
     }
@@ -7059,18 +7360,18 @@ class DefaultAppContainer(
     private val alertTrackingController: AlertTrackingController by lazy {
         AlertTrackingControllerImpl(context)
     }
-    private val alertsDatabase: AlertsDatabase by lazy {
-        Room.databaseBuilder(
-            context,
-            AlertsDatabase::class.java,
-            "alerts_db"
-        ).build()
-    }
+//    private val alertsDatabase: AlertsDatabase by lazy {
+//        Room.databaseBuilder(
+//            context,
+//            AlertsDatabase::class.java,
+//            "alerts_db"
+//        ).build()
+//    }
     private val alertsLocalDataSource: AlertsLocalDataSource by lazy {
-        AlertsRoomDataSource(alertsDatabase.alertDao())
+        AlertsRoomDataSource(appDatabase.alertDao())
     }
     private val alertsRepository: AlertsRepository by lazy {
-        AlertsRepoImpl(localDataSource = alertsLocalDataSource)
+        AlertsRepoImpl(alertsLocalDataSource)
     }
     override val getAlertsUseCase: GetAlertsUseCase by lazy {
         GetAlertsUseCase(currentWeatherStore)
@@ -7550,6 +7851,7 @@ enum class AppDestination(val route: String) {
 ```kotlin
 package com.mhq.fynecast.core.navigation
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -7615,12 +7917,32 @@ fun BottomNavigationBar(
     }
 }
 
-@Preview
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
 @Composable
-fun BottomNavigationBarPreview() {
-    FyneCastTheme() {
+fun BottomNavigationBarLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
         BottomNavigationBar(
-            currentRoute = "",
+            currentRoute = AppDestination.Home.route,
+            onItemSelected = {}
+        )
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun BottomNavigationBarDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        BottomNavigationBar(
+            currentRoute = AppDestination.Home.route,
             onItemSelected = {}
         )
     }
@@ -7788,6 +8110,7 @@ fun TextUnit.unlessArabic(): TextUnit =
 ```kotlin
 package com.mhq.fynecast.core.ui.globalcomponents
 
+import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -7802,8 +8125,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarData
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarVisuals
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -7861,11 +8187,54 @@ fun AuthWarningSnackbar(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
 @Composable
-fun AuthWarningSnackbarPreview() {
-    FyneCastTheme() {
-        AuthWarningSnackbar(snackbarData = null)
+fun AuthWarningSnackbarLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        AuthWarningSnackbar(
+            snackbarData = remember {
+                object : SnackbarData {
+                    override val visuals = object : SnackbarVisuals {
+                        override val message = "Invalid email formatting or weak password sequence detected."
+                        override val actionLabel: String? = null
+                        override val duration = SnackbarDuration.Short
+                        override val withDismissAction = false
+                    }
+                    override fun dismiss() {}
+                    override fun performAction() {}
+                }
+            }
+        )
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun AuthWarningSnackbarDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        AuthWarningSnackbar(
+            snackbarData = remember {
+                object : SnackbarData {
+                    override val visuals = object : SnackbarVisuals {
+                        override val message = "Invalid email formatting or weak password sequence detected."
+                        override val actionLabel: String? = null
+                        override val duration = SnackbarDuration.Short
+                        override val withDismissAction = false
+                    }
+                    override fun dismiss() {}
+                    override fun performAction() {}
+                }
+            }
+        )
     }
 }
 ```
@@ -8044,11 +8413,11 @@ import com.mhq.fynecast.R
 import com.mhq.fynecast.alerts.presentation.AlertsViewModel
 import com.mhq.fynecast.alerts.ui.screens.AlertsContainer
 import com.mhq.fynecast.auth.presentation.editprofile.EditProfileViewModel
-import com.mhq.fynecast.auth.ui.editprofile.ui.screens.EditProfileContainer
-import com.mhq.fynecast.auth.ui.forgotpassword.ui.screens.ForgotPasswordContainer
-import com.mhq.fynecast.auth.ui.login.ui.screens.LoginContainer
+import com.mhq.fynecast.auth.ui.editprofile.screens.EditProfileContainer
+import com.mhq.fynecast.auth.ui.forgotpassword.screens.ForgotPasswordContainer
+import com.mhq.fynecast.auth.ui.login.screens.LoginContainer
 import com.mhq.fynecast.auth.presentation.signup.SignupViewModel
-import com.mhq.fynecast.auth.ui.signup.ui.screens.SignupContainer
+import com.mhq.fynecast.auth.ui.signup.screens.SignupContainer
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.navigation.AppDestination
 import com.mhq.fynecast.core.navigation.BottomNavTab
@@ -8820,20 +9189,6 @@ data class FavoriteEntity(
     val temperatureF: Double,
     val weatherIconUrl: String
 )
-```
-
-## favorites\data\database\FavoritesDatabase.kt
-
-```kotlin
-package com.mhq.fynecast.favorites.data.database
-
-import androidx.room.Database
-import androidx.room.RoomDatabase
-
-@Database(entities = [FavoriteEntity::class], version = 1)
-abstract class FavoritesDatabase : RoomDatabase() {
-    abstract fun favoriteDao(): FavoriteDao
-}
 ```
 
 ## favorites\data\datasource\FavoritesLocalDataSource.kt
@@ -9740,6 +10095,7 @@ fun SwipeBackground(dismissState: SwipeToDismissBoxState) {
 ```kotlin
 package com.mhq.fynecast.favorites.ui.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9755,15 +10111,17 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarData
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarVisuals
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.core.ui.theme.ElectricLimeGreen
 
 @Composable
 fun UndoDeleteSnackbar(
@@ -9820,11 +10178,50 @@ fun UndoDeleteSnackbar(
     }
 }
 
-@Preview(showBackground = true)
+@Preview(name = "Light Mode", showBackground = true, backgroundColor = 0xFFE0F2FE)
 @Composable
-fun UndoDeleteSnackbarPreview() {
-    FyneCastTheme() {
-        UndoDeleteSnackbar(snackbarData = null)
+fun UndoDeleteSnackbarLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        UndoDeleteSnackbar(
+            snackbarData = remember {
+                object : SnackbarData {
+                    override val visuals = object : SnackbarVisuals {
+                        override val message = "Alexandria removed from favorites"
+                        override val actionLabel = "Undo"
+                        override val duration = SnackbarDuration.Short
+                        override val withDismissAction = false
+                    }
+                    override fun dismiss() {}
+                    override fun performAction() {}
+                }
+            }
+        )
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun UndoDeleteSnackbarDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        UndoDeleteSnackbar(
+            snackbarData = remember {
+                object : SnackbarData {
+                    override val visuals = object : SnackbarVisuals {
+                        override val message = "Alexandria removed from favorites"
+                        override val actionLabel = "Undo"
+                        override val duration = SnackbarDuration.Short
+                        override val withDismissAction = false
+                    }
+                    override fun dismiss() {}
+                    override fun performAction() {}
+                }
+            }
+        )
     }
 }
 ```
@@ -12094,17 +12491,18 @@ data class WeatherStatsPresentationModel(
 ```kotlin
 package com.mhq.fynecast.home.ui.components
 
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
-import androidx.compose.material.ripple.rememberRipple
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.minimumInteractiveComponentSize
@@ -12114,12 +12512,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
+import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LikeButton(
     isLiked: Boolean,
@@ -12132,10 +12530,9 @@ fun LikeButton(
             .size(36.dp)
             .clip(CircleShape)
             .background(
-                if (isLiked)
-                    MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
-                else
-                    MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f)
+                color =
+                    if (isLiked) MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
+                    else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.08f)
             )
             .clickable(
                 onClick = onLikeChanged,
@@ -12145,14 +12542,55 @@ fun LikeButton(
         contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+            imageVector =
+                if (isLiked) Icons.Filled.Favorite
+                else Icons.Outlined.FavoriteBorder,
             contentDescription = stringResource(R.string.favorite),
-            tint = if (isLiked)
-                MaterialTheme.colorScheme.error
-            else
-                MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            tint =
+                if (isLiked) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
             modifier = Modifier.size(18.dp)
         )
+    }
+}
+
+@Composable
+private fun LikeButtonPreviewContent() {
+    Row(modifier = Modifier.padding(16.dp)) {
+        LikeButton(
+            isLiked = false,
+            onLikeChanged = {}
+        )
+        LikeButton(
+            isLiked = true,
+            onLikeChanged = {},
+            modifier = Modifier.padding(start = 16.dp)
+        )
+    }
+}
+
+@Preview(
+    name = "Light Mode",
+    showBackground = true,
+    backgroundColor = 0xFFE0F2FE
+)
+@Composable
+fun LikeButtonLightPreview() {
+    FyneCastTheme(isDarkMode = false) {
+        LikeButtonPreviewContent()
+    }
+}
+
+@Preview(
+    name = "Dark Mode",
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+    showBackground = true,
+    backgroundColor = 0xFF0F172A
+)
+@Composable
+fun LikeButtonDarkPreview() {
+    FyneCastTheme(isDarkMode = true) {
+        LikeButtonPreviewContent()
     }
 }
 ```
@@ -13572,98 +14010,6 @@ private fun WeatherStatChipPreview() {
 }
 ```
 
-## home\ui\components\WeatherStatsGrid.kt
-
-```kotlin
-package com.mhq.fynecast.home.ui.components
-
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Air
-import androidx.compose.material.icons.filled.Compress
-import androidx.compose.material.icons.filled.WaterDrop
-import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import com.mhq.fynecast.R
-import com.mhq.fynecast.home.presentation.model.WeatherStatsPresentationModel
-import java.text.NumberFormat
-
-@Composable
-fun WeatherStatsGrid(
-    stats: WeatherStatsPresentationModel,
-    isMetric: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val locale = LocalConfiguration.current.locales[0]
-    val numberFormat = remember(locale) {
-        NumberFormat.getInstance(locale).apply { maximumFractionDigits = 1 }
-    }
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(modifier = Modifier.weight(1f)) {
-                WeatherStatChip(
-                    chipIcon = Icons.Default.WaterDrop,
-                    chipHeader = stringResource(R.string.humidity),
-                    chipBody = numberFormat.format(stats.humidity.toDouble()),
-                    chipSubtitle = stringResource(R.string.percent)
-                )
-            }
-            Box(modifier = Modifier.weight(1f)) {
-                WeatherStatChip(
-                    chipIcon = Icons.Default.Air,
-                    chipHeader = stringResource(R.string.wind_speed),
-                    chipBody = numberFormat.format(if (isMetric) stats.windKph else stats.windMph),
-                    chipSubtitle = if (isMetric) stringResource(R.string.kph) else stringResource(R.string.mph)
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(modifier = Modifier.weight(1f)) {
-                WeatherStatChip(
-                    chipIcon = Icons.Default.Compress,
-                    chipHeader = stringResource(R.string.pressure),
-                    chipBody = numberFormat.format(if (isMetric) stats.pressureMb else stats.pressureIn),
-                    chipSubtitle = if (isMetric) stringResource(R.string.millibars) else stringResource(
-                        R.string.inches
-                    )
-                )
-            }
-            Box(modifier = Modifier.weight(1f)) {
-                WeatherStatChip(
-                    chipIcon = Icons.Default.WbSunny,
-                    chipHeader = stringResource(R.string.uv_index),
-                    chipBody = numberFormat.format(stats.uvIndex),
-                    chipSubtitle = stringResource(R.string.unit)
-                )
-            }
-        }
-    }
-}
-```
-
 ## home\ui\screens\HomeContainer.kt
 
 ```kotlin
@@ -13980,72 +14326,49 @@ fun HomeErrorPreview() {
 package com.mhq.fynecast.home.ui.screens
 
 import android.content.res.Configuration
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
 import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.core.ui.theme.ElectricLimeGreen
 
 @Composable
 fun HomeLoading(
     contentPadding: PaddingValues,
     modifier: Modifier = Modifier
 ) {
-
-    val infiniteTransition = rememberInfiniteTransition(label = "rotation")
-
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1000, easing = LinearEasing)
-        ),
-        label = "rotation"
-    )
-
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         modifier = modifier
             .padding(contentPadding)
             .fillMaxSize()
     ) {
-        Icon(
-            imageVector = Icons.Default.Refresh,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier
-                .rotate(rotation)
-                .padding(20.dp)
+        CircularProgressIndicator(
+            modifier = Modifier.size(44.dp),
+            color = MaterialTheme.colorScheme.onPrimary,
+            trackColor = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.1f),
+            strokeWidth = 4.dp,
+            strokeCap = StrokeCap.Round
         )
         Text(
             text = stringResource(R.string.please_wait),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onPrimary
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
         )
     }
 }
