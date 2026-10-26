@@ -1,9 +1,8 @@
 package com.mhq.fynecast.auth.ui.login.ui.components
 
-import android.content.res.Configuration
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
@@ -11,34 +10,26 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.ui.globalcomponents.AuthInputField
+import com.mhq.fynecast.auth.ui.components.AuthPasswordToggle
+import com.mhq.fynecast.auth.ui.components.AuthPrimaryButton
+import com.mhq.fynecast.auth.ui.components.AuthTextField
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
-import com.mhq.fynecast.core.ui.theme.AbyssalVoid
 
 @Composable
 fun AuthFormLogin(
@@ -50,113 +41,73 @@ fun AuthFormLogin(
     isPasswordVisible: Boolean,
     onTogglePasswordVisibility: () -> Unit,
     onForgotPasswordClick: () -> Unit,
+    onLoginClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-
     val focusManager = LocalFocusManager.current
-    val focusRequester = remember { FocusRequester() }
 
     GlassyCard(
-        modifier = modifier.padding(horizontal = 36.dp)
+        cornerRadius = 28.dp,
+        padding = 20.dp,
+        containerAlpha = 0.06f,
+        borderAlpha = 0.15f,
+        modifier = modifier.fillMaxWidth()
     ) {
-        AuthInputField(
-            value = email,
-            label = stringResource(R.string.email),
-            placeholder = stringResource(R.string.enter_email),
-            leadingIcon = Icons.Default.Email,
-            trailingIcon = null,
-            isError = !isEmailValid,
-            onValueChange = onEmailChanged,
-            visualTransformation = VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Email,
-                imeAction = ImeAction.Next
-            ),
-            keyboardActions = KeyboardActions(
-                onNext = { focusManager.moveFocus(FocusDirection.Down) }
-            ),
-            modifier = Modifier.focusRequester(focusRequester)
-        )
-        AuthInputField(
-            value = password,
-            label = stringResource(R.string.password),
-            placeholder = stringResource(R.string.enter_password),
-            leadingIcon = Icons.Default.Lock,
-            trailingIcon = {
-                val image =
-                    if (isPasswordVisible)
-                        Icons.Default.Visibility
-                    else
-                        Icons.Default.VisibilityOff
-                IconButton(onClick = onTogglePasswordVisibility) {
-                    Icon(
-                        imageVector = image,
-                        contentDescription = stringResource(
-                            if (isPasswordVisible) R.string.hide_password else R.string.show_password
-                        ),
-                        tint = AbyssalVoid
-                    )
-                }
-            },
-            isError = false,
-            onValueChange = onPasswordChanged,
-            visualTransformation =
-                if (isPasswordVisible)
-                    VisualTransformation.None
-                else
-                    PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = { focusManager.clearFocus() }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            AuthTextField(
+                value = email,
+                onValueChange = onEmailChanged,
+                label = stringResource(R.string.email),
+                placeholder = stringResource(R.string.enter_email),
+                leadingIcon = Icons.Default.Email,
+                isError = !isEmailValid,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.moveFocus(FocusDirection.Down) }
+                )
             )
-        )
-        Row(
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .padding(vertical = 4.dp)
-                .fillMaxWidth()
-        ) {
+            AuthTextField(
+                value = password,
+                onValueChange = onPasswordChanged,
+                label = stringResource(R.string.password),
+                placeholder = stringResource(R.string.enter_password),
+                leadingIcon = Icons.Default.Lock,
+                isError = false,
+                trailingContent = {
+                    AuthPasswordToggle(
+                        isPasswordVisible = isPasswordVisible,
+                        onToggle = onTogglePasswordVisibility
+                    )
+                },
+                visualTransformation =
+                    if (isPasswordVisible)
+                        VisualTransformation.None
+                    else
+                        PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = { focusManager.clearFocus() }
+                )
+            )
             Text(
                 text = stringResource(R.string.forgot_password),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.clickable { onForgotPasswordClick() }
+                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
+                modifier = Modifier
+                    .align(Alignment.End)
+                    .clickable(role = Role.Button, onClick = onForgotPasswordClick)
+                    .padding(horizontal = 2.dp, vertical = 4.dp)
+            )
+            AuthPrimaryButton(
+                text = stringResource(R.string.login),
+                onClick = onLoginClick
             )
         }
-    }
-}
-
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview
-@Composable
-private fun AuthFormLoginPreview() {
-    FyneCastTheme() {
-        AuthFormLogin(
-            email = "username@gmail.com",
-            password = "12345",
-            isPasswordVisible = true,
-            isEmailValid = true,
-            onEmailChanged = {},
-            onPasswordChanged = {},
-            onTogglePasswordVisibility = {},
-            onForgotPasswordClick = {}
-        )
     }
 }

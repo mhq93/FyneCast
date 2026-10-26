@@ -1,36 +1,29 @@
 package com.mhq.fynecast.auth.ui.signup.ui.components
 
-import android.content.res.Configuration
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MaterialTheme.colorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.mhq.fynecast.R
-import com.mhq.fynecast.core.ui.globalcomponents.AuthInputField
+import com.mhq.fynecast.auth.ui.components.AuthPasswordToggle
+import com.mhq.fynecast.auth.ui.components.AuthPrimaryButton
+import com.mhq.fynecast.auth.ui.components.AuthTextField
 import com.mhq.fynecast.core.ui.globalcomponents.GlassyCard
-import com.mhq.fynecast.core.ui.theme.FyneCastTheme
 
 @Composable
 fun AuthFormSignup(
@@ -48,160 +41,89 @@ fun AuthFormSignup(
     doPasswordsMatch: Boolean,
     arePasswordsVisible: Boolean,
     onTogglePasswordVisibility: () -> Unit,
+    onSignupClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-
     val focusManager = LocalFocusManager.current
-    val emailFocusRequester = remember { FocusRequester() }
-    val usernameFocusRequester = remember { FocusRequester() }
-    val passwordFocusRequester = remember { FocusRequester() }
-    val confirmPasswordFocusRequester = remember { FocusRequester() }
+    val moveToNext = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
+    val passwordTransformation =
+        if (arePasswordsVisible) VisualTransformation.None else PasswordVisualTransformation()
 
     GlassyCard(
-        modifier = modifier.padding(horizontal = 36.dp)
+        cornerRadius = 28.dp,
+        padding = 20.dp,
+        containerAlpha = 0.06f,
+        borderAlpha = 0.15f,
+        modifier = modifier.fillMaxWidth()
     ) {
-        AuthInputField(
-            value = username,
-            label = stringResource(R.string.name),
-            placeholder = stringResource(R.string.enter_name),
-            leadingIcon = Icons.Default.Person,
-            trailingIcon = null,
-            isError = !isUsernameValid,
-            onValueChange = onUsernameChanged,
-            visualTransformation = VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-            keyboardActions = KeyboardActions(
-                onNext = { usernameFocusRequester.requestFocus() }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            AuthTextField(
+                value = username,
+                onValueChange = onUsernameChanged,
+                label = stringResource(R.string.name),
+                placeholder = stringResource(R.string.enter_name),
+                leadingIcon = Icons.Default.Person,
+                isError = !isUsernameValid,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                keyboardActions = moveToNext
             )
-        )
-        AuthInputField(
-            value = userEmail,
-            label = stringResource(R.string.email),
-            placeholder = stringResource(R.string.enter_email),
-            leadingIcon = Icons.Default.Email,
-            trailingIcon = null,
-            isError = !isEmailValid,
-            onValueChange = onUserEmailChanged,
-            visualTransformation = VisualTransformation.None,
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Email,
-                imeAction = ImeAction.Next
-            ),
-            keyboardActions = KeyboardActions(
-                onNext = { emailFocusRequester.requestFocus() }
-            ),
-            modifier = Modifier.focusRequester(usernameFocusRequester)
-        )
-        AuthInputField(
-            value = userPassword,
-            label = stringResource(R.string.password),
-            placeholder = stringResource(R.string.enter_password),
-            leadingIcon = Icons.Default.Lock,
-            trailingIcon = {
-                IconButton(onClick = onTogglePasswordVisibility) {
-                    Icon(
-                        imageVector =
-                            if (arePasswordsVisible)
-                                Icons.Default.Visibility
-                            else
-                                Icons.Default.VisibilityOff,
-                        contentDescription = stringResource(
-                            if (arePasswordsVisible) R.string.hide_password else R.string.show_password
-                        ),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            isError = !isPasswordValid,
-            onValueChange = onUserPasswordChanged,
-            visualTransformation =
-                if (arePasswordsVisible)
-                    VisualTransformation.None
-                else
-                    PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Next
-            ),
-            keyboardActions =
-                KeyboardActions(
-                    onNext = { passwordFocusRequester.requestFocus() }
+            AuthTextField(
+                value = userEmail,
+                onValueChange = onUserEmailChanged,
+                label = stringResource(R.string.email),
+                placeholder = stringResource(R.string.enter_email),
+                leadingIcon = Icons.Default.Email,
+                isError = !isEmailValid,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next
                 ),
-            modifier = Modifier.focusRequester(emailFocusRequester)
-        )
-        AuthInputField(
-            value = confirmPassword,
-            label = stringResource(R.string.confirm_password),
-            placeholder = stringResource(R.string.confirm_password),
-            leadingIcon = Icons.Default.Lock,
-            trailingIcon = {
-                IconButton(onClick = onTogglePasswordVisibility) {
-                    Icon(
-                        imageVector =
-                            if (arePasswordsVisible)
-                                Icons.Default.Visibility
-                            else
-                                Icons.Default.VisibilityOff,
-                        contentDescription = stringResource(
-                            if (arePasswordsVisible) R.string.hide_password else R.string.show_password
-                        ),
-                        tint = colorScheme.onSurfaceVariant
+                keyboardActions = moveToNext
+            )
+            AuthTextField(
+                value = userPassword,
+                onValueChange = onUserPasswordChanged,
+                label = stringResource(R.string.password),
+                placeholder = stringResource(R.string.enter_password),
+                leadingIcon = Icons.Default.Lock,
+                isError = !isPasswordValid,
+                trailingContent = {
+                    AuthPasswordToggle(
+                        isPasswordVisible = arePasswordsVisible,
+                        onToggle = onTogglePasswordVisibility
                     )
-                }
-            },
-            isError = !doPasswordsMatch,
-            onValueChange = onConfirmPasswordChanged,
-            visualTransformation =
-                if (arePasswordsVisible)
-                    VisualTransformation.None
-                else
-                    PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(
-                onDone = {
-                    focusManager.clearFocus()
-                }
-            ),
-            modifier = Modifier.focusRequester(passwordFocusRequester)
-        )
-    }
-}
-
-@Preview(
-    name = "Light Mode",
-    showBackground = true,
-    backgroundColor = 0xFFE0F7FA
-)
-
-@Preview(
-    name = "Dark Mode",
-    uiMode = Configuration.UI_MODE_NIGHT_YES,
-    showBackground = true,
-    backgroundColor = 0xFF000000
-)
-
-@Preview(showBackground = true)
-@Composable
-private fun AuthFormSignupPreview() {
-    FyneCastTheme() {
-        AuthFormSignup(
-            username = "Username",
-            userEmail = "username@gmail.com",
-            userPassword = "123abc",
-            confirmPassword = "123abc",
-            isUsernameValid = true,
-            isEmailValid = true,
-            isPasswordValid = true,
-            doPasswordsMatch = true,
-            arePasswordsVisible = true,
-            onUsernameChanged = {},
-            onUserEmailChanged = {},
-            onUserPasswordChanged = {},
-            onConfirmPasswordChanged = {},
-            onTogglePasswordVisibility = {}
-        )
+                },
+                visualTransformation = passwordTransformation,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Next
+                ),
+                keyboardActions = moveToNext
+            )
+            AuthTextField(
+                value = confirmPassword,
+                onValueChange = onConfirmPasswordChanged,
+                label = stringResource(R.string.confirm_password),
+                placeholder = stringResource(R.string.confirm_password),
+                leadingIcon = Icons.Default.Lock,
+                isError = !doPasswordsMatch,
+                trailingContent = {
+                    AuthPasswordToggle(
+                        isPasswordVisible = arePasswordsVisible,
+                        onToggle = onTogglePasswordVisibility
+                    )
+                },
+                visualTransformation = passwordTransformation,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+            )
+            AuthPrimaryButton(
+                text = stringResource(R.string.sign_up),
+                onClick = onSignupClick
+            )
+        }
     }
 }

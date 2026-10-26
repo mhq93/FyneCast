@@ -1,9 +1,13 @@
 <resources>
-    <string name="app_name" translatable="false">FyneCast</string>
+
     <string name="default_web_client_id" translatable="false">1044350867734-78oik6bjfg34rn4aksf6520j5kkdsk3j.apps.googleusercontent.com</string>
 
     <!-- AUTH MODULE -->
-    <!-- Auth Forms & Placeholders -->
+    <string name="app_name" translatable="false">FyneCast</string>
+    <string name="auth_signup_title">Create your account</string>
+    <string name="auth_signup_subtitle">Sign up and check the weather anywhere</string>
+    <string name="auth_login_title">Welcome back</string>
+    <string name="auth_login_subtitle">Save your favorite cities and get updated weather alerts</string>
     <string name="name">Name</string>
     <string name="enter_name">Enter Name</string>
     <string name="email">Email</string>
@@ -13,21 +17,20 @@
     <string name="confirm_password">Confirm Password</string>
     <string name="hide_password">Hide Password</string>
     <string name="show_password">Show Password</string>
-    <!-- Auth Action Hyperlinks & Targets -->
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="sign_up">Sign Up</string>
+    <string name="login">Login</string>
     <string name="or_with">Or with</string>
     <string name="google_login">Google Login</string>
     <string name="facebook_login">Facebook Login</string>
-    <string name="sign_up">Sign Up</string>
-    <string name="login">Login</string>
     <string name="already_have_an_account">Already have an account?</string>
     <string name="don_t_have_an_account">Don\'t have an account?</string>
-    <!-- Password Recovery Screen -->
     <string name="recover_password">Recover Password</string>
-    <string name="forgot_password">Forgot Password?</string>
     <string name="enter_the_email_associated_with_your_account">Enter the email associated with your account</string>
     <string name="we_will_send_a_link_to_reset_your_password">We will send a link to reset your password</string>
     <string name="send_link">Send Link</string>
     <string name="remembered_credentials">Remembered Credentials?</string>
+
     <!-- Profile Management Screen -->
     <string name="edit_profile">Edit Profile</string>
     <string name="profile_photo">Profile Photo</string>
@@ -184,4 +187,5 @@
     <string name="stat_high">High</string>
     <string name="stat_low">Low</string>
     <string name="hourly_now">Now</string>
+
 </resources>

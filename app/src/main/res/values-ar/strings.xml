@@ -185,4 +185,11 @@
     <string name="email_managed_by_provider">بريدك الإلكتروني تتم إدارته من حساب Google أو Facebook الخاص بك</string>
     <string name="session_expired_sign_in_again">تم تحديث حسابك. يرجى تسجيل الدخول مرة أخرى.</string>
     <string name="email_switch_password_hint">للتحويل إلى هذا البريد، اختر كلمة مرور له. ستسجّل الدخول بالبريد الجديد وكلمة المرور هذه.</string>
+    <string name="stat_high">العظمى</string>
+    <string name="stat_low">الصغرى</string>
+    <string name="hourly_now">الآن</string>
+    <string name="auth_login_title">مرحبًا بعودتك</string>
+    <string name="auth_login_subtitle">سجّل الدخول لمتابعة الطقس في مدنك</string>
+    <string name="auth_signup_title">أنشئ حسابك</string>
+    <string name="auth_signup_subtitle">احفظ مدنك المفضلة وتلقَّ تنبيهات الطقس</string>
 </resources>
