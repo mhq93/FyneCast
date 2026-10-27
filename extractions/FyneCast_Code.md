@@ -7139,10 +7139,8 @@ class DefaultAppContainer(
 
     //Database
     private val appDatabase: AppDatabase by lazy {
-        // The old per-feature databases are no longer used. The app is not released yet,
-        // so nothing is carried over from them.
-        context.deleteDatabase("favorites_db")
-        context.deleteDatabase("alerts_db")
+        /** The old per-feature databases are no longer used
+        // The app is not released yet so nothing is carried over from them. */
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME).build()
     }
 
@@ -7311,13 +7309,6 @@ class DefaultAppContainer(
     private val favoritesRepository: FavoritesRepository by lazy {
         FavoritesRepoImpl(favoritesLocalDataSource, currentUserProvider)
     }
-//    private val favoritesDatabase: FavoritesDatabase by lazy {
-//        Room.databaseBuilder(
-//            context,
-//            FavoritesDatabase::class.java,
-//            "favorites_db"
-//        ).build()
-//    }
     override val getFavoritesUseCase: GetFavoritesUseCase by lazy {
         GetFavoritesUseCase(favoritesRepository)
     }
@@ -7360,13 +7351,6 @@ class DefaultAppContainer(
     private val alertTrackingController: AlertTrackingController by lazy {
         AlertTrackingControllerImpl(context)
     }
-//    private val alertsDatabase: AlertsDatabase by lazy {
-//        Room.databaseBuilder(
-//            context,
-//            AlertsDatabase::class.java,
-//            "alerts_db"
-//        ).build()
-//    }
     private val alertsLocalDataSource: AlertsLocalDataSource by lazy {
         AlertsRoomDataSource(appDatabase.alertDao())
     }
@@ -11974,8 +11958,7 @@ class HomeViewModel(
     private val deleteFavoriteUseCase: DeleteFavoriteUseCase,
     private val saveLastSearchedCityUseCase: SaveLastSearchedCityUseCase,
     private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase,
-    private val localizePlaceNameUseCase: LocalizePlaceNameUseCase,
-    private val defaultCityFallback: String = "Cairo"
+    private val localizePlaceNameUseCase: LocalizePlaceNameUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeStateContainer())

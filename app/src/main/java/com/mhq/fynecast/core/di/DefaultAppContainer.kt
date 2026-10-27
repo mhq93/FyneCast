@@ -31,6 +31,8 @@ import com.mhq.fynecast.alerts.notifications.domain.usecases.ConsumeNotification
 import com.mhq.fynecast.alerts.notifications.domain.usecases.HandleNotificationPermissionResultUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.SyncNotificationPermissionUseCase
 import com.mhq.fynecast.alerts.notifications.domain.usecases.ToggleNotificationsUseCase
+import com.mhq.fynecast.auth.data.datasource.SessionDataStoreDataSource
+import com.mhq.fynecast.auth.data.datasource.SessionLocalDataSource
 import com.mhq.fynecast.auth.data.repoimpl.auth.AuthRepositoryImpl
 import com.mhq.fynecast.auth.data.repoimpl.auth.SocialAuthCredentialProviderImpl
 import com.mhq.fynecast.auth.data.repoimpl.profile.ImageStorageRepositoryImpl
@@ -107,6 +109,8 @@ import com.mhq.fynecast.home.domain.usecases.ObserveFavoriteStatusUseCase
 import com.mhq.fynecast.home.domain.usecases.ObserveSignedInUserIdUseCase
 import com.mhq.fynecast.home.domain.usecases.ResolveStartupLocationUseCase
 import com.mhq.fynecast.map.domain.usecases.ReverseGeocodeLocationUseCase
+import com.mhq.fynecast.settings.data.datasource.PreferencesDataStoreDataSource
+import com.mhq.fynecast.settings.data.datasource.PreferencesLocalDataSource
 import com.mhq.fynecast.settings.data.infra.PreferencesAppLanguageProvider
 import com.mhq.fynecast.settings.data.repoimpl.UserPreferencesRepositoryImpl
 import com.mhq.fynecast.settings.domain.repository.UserPreferencesRepository
@@ -215,11 +219,14 @@ class DefaultAppContainer(
     }
 
     // Repositories
+    private val sessionLocalDataSource: SessionLocalDataSource by lazy {
+        SessionDataStoreDataSource(sessionDataStore)
+    }
     private val authRepository: AuthRepository by lazy {
-        AuthRepositoryImpl(firebaseAuth, sessionDataStore, socialAuthCredentialProvider)
+        AuthRepositoryImpl(firebaseAuth, sessionLocalDataSource, socialAuthCredentialProvider)
     }
     private val userProfileRepository: UserProfileRepository by lazy {
-        UserProfileRepositoryImpl(firebaseAuth, sessionDataStore, applicationScope)
+        UserProfileRepositoryImpl(firebaseAuth, sessionLocalDataSource, applicationScope)
     }
     private val imageStorageRepository: ImageStorageRepository by lazy {
         ImageStorageRepositoryImpl(context, imageStorageManager)
@@ -352,8 +359,11 @@ class DefaultAppContainer(
     }
 
     // Preferences Use Cases
+    private val preferencesLocalDataSource: PreferencesLocalDataSource by lazy {
+        PreferencesDataStoreDataSource(prefsDataStore)
+    }
     private val userPreferencesRepository: UserPreferencesRepository by lazy {
-        UserPreferencesRepositoryImpl(prefsDataStore)
+        UserPreferencesRepositoryImpl(preferencesLocalDataSource)
     }
     override val observeUserPreferencesUseCase by lazy {
         ObserveUserPreferencesUseCase(userPreferencesRepository)

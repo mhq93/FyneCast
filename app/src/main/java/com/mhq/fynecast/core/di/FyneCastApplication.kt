@@ -26,7 +26,6 @@ class FyneCastApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        instance = this
 
         // Pass both pure DataStore file handles straight down into the constructor graph
         container = DefaultAppContainer(
@@ -80,9 +79,6 @@ class FyneCastApplication : Application() {
     }
 
     companion object {
-        lateinit var instance: FyneCastApplication
-            private set
-
         const val CHANNEL_ALERT_TRACKING = "channel_alert_tracking"
         const val CHANNEL_ALERT_ALARM = "channel_alert_alarm"
     }

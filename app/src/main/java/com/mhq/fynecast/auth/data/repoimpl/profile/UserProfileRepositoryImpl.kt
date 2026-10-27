@@ -1,14 +1,11 @@
 package com.mhq.fynecast.auth.data.repoimpl.profile
 
 import android.util.Log
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.userProfileChangeRequest
-import com.mhq.fynecast.auth.data.session.SessionKeys
+import com.mhq.fynecast.auth.data.datasource.SessionLocalDataSource
 import com.mhq.fynecast.auth.domain.models.UserDomainModel
 import com.mhq.fynecast.auth.domain.repository.profile.UserProfileRepository
 import com.mhq.fynecast.core.domain.util.suspendRunCatching
@@ -18,14 +15,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
 class UserProfileRepositoryImpl(
     private val firebaseAuth: FirebaseAuth,
-    private val sessionDataStore: DataStore<Preferences>,
+    private val sessionLocalDataSource: SessionLocalDataSource,
     externalScope: CoroutineScope
 ) : UserProfileRepository {
 
@@ -55,14 +51,14 @@ class UserProfileRepositoryImpl(
 
     override suspend fun getProfile(): UserDomainModel = withContext(Dispatchers.IO) {
         val user = firebaseAuth.currentUser
-        val snapshot = sessionDataStore.data.first()
-        val name = snapshot[SessionKeys.USERNAME] ?: user?.displayName ?: "Username"
+        val snapshot = sessionLocalDataSource.read()
+        val name = snapshot.username ?: user?.displayName ?: "Username"
         val email = user?.email?.takeIf { it.isNotBlank() }
-            ?: snapshot[SessionKeys.EMAIL]
+            ?: snapshot.email
             ?: "username@gmail.com"
-        val img = snapshot[SessionKeys.PROFILE_IMAGE_URI]
+        val img = snapshot.profileImageUri
         UserDomainModel(
-            id = user?.uid ?: snapshot[SessionKeys.USER_ID] ?: "",
+            id = user?.uid ?: snapshot.userId ?: "",
             name = name,
             email = email,
             profileImageUri = img,
@@ -73,13 +69,7 @@ class UserProfileRepositoryImpl(
 
     override suspend fun saveProfile(profile: UserDomainModel) {
         withContext(Dispatchers.IO) {
-            sessionDataStore.edit { prefs ->
-                prefs[SessionKeys.USERNAME] = profile.name
-                prefs[SessionKeys.EMAIL] = profile.email
-                if (profile.profileImageUri != null) {
-                    prefs[SessionKeys.PROFILE_IMAGE_URI] = profile.profileImageUri
-                }
-            }
+            sessionLocalDataSource.saveProfile(profile.name, profile.email, profile.profileImageUri)
         }
     }
 

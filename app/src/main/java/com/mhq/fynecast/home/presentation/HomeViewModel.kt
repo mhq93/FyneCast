@@ -47,8 +47,7 @@ class HomeViewModel(
     private val deleteFavoriteUseCase: DeleteFavoriteUseCase,
     private val saveLastSearchedCityUseCase: SaveLastSearchedCityUseCase,
     private val reverseGeocodeLocationUseCase: ReverseGeocodeLocationUseCase,
-    private val localizePlaceNameUseCase: LocalizePlaceNameUseCase,
-    private val defaultCityFallback: String = "Cairo"
+    private val localizePlaceNameUseCase: LocalizePlaceNameUseCase
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HomeStateContainer())
