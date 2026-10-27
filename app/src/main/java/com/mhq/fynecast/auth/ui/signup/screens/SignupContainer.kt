@@ -24,6 +24,7 @@ import com.mhq.fynecast.auth.presentation.signup.SignupViewModel
 import com.mhq.fynecast.auth.ui.social.SocialTokenFetcher
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
+import com.mhq.fynecast.core.ui.text.asString
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 

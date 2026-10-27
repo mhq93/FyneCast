@@ -21,6 +21,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mhq.fynecast.auth.presentation.forgotpassword.ForgotPasswordViewModel
 import com.mhq.fynecast.core.di.AppViewModelFactory
 import com.mhq.fynecast.core.ui.globalcomponents.AuthWarningSnackbar
+import com.mhq.fynecast.core.ui.text.asString
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
